@@ -1,0 +1,16 @@
+{
+  "name": "anicca-proxy",
+  "version": "1.0.0",
+  "description": "Proxy server for ANICCA AI Screen Narrator",
+  "main": "api/gemini.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "keywords": ["proxy", "gemini", "api"],
+  "author": "ANICCA",
+  "license": "MIT",
+  "devDependencies": {
+    "vercel": "^32.0.0"
+  }
+}
