@@ -34,7 +34,9 @@ export default async function handler(req, res) {
     const requestBody = req.body;
     
     // Claude APIのエンドポイントを構築
-    const endpoint = req.headers['x-claude-endpoint'] || '/v1/messages';
+    // URLパスから実際のエンドポイントを取得（例: /api/claude/v1/messages → /v1/messages）
+    const urlPath = req.url || '';
+    const endpoint = urlPath.replace(/^\/api\/claude/, '') || req.headers['x-claude-endpoint'] || '/v1/messages';
     const baseUrl = 'https://api.anthropic.com';
     const fullUrl = `${baseUrl}${endpoint}`;
     
