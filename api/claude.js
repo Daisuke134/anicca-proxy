@@ -1,12 +1,29 @@
-export default async function handler(req, res) {
+export const config = {
+  runtime: 'edge',
+};
+
+export default async function handler(request) {
+  // CORSヘッダーを定義
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, anthropic-beta, x-claude-endpoint',
+  };
+
   // CORSプリフライト対応
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { 
+      status: 200,
+      headers: corsHeaders
+    });
   }
 
   // POSTメソッドのみ許可
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+    });
   }
 
   try {
@@ -15,28 +32,19 @@ export default async function handler(req, res) {
     
     if (!API_KEY) {
       console.error('ANTHROPIC_API_KEY not configured');
-      return res.status(500).json({ error: 'Server configuration error' });
-    }
-
-    // リクエストボディサイズチェック（Vercel制限: 4.5MB）
-    const contentLength = parseInt(req.headers['content-length'] || '0');
-    const maxSize = 4.5 * 1024 * 1024; // 4.5MB
-    
-    if (contentLength > maxSize) {
-      console.error(`Request too large: ${(contentLength / 1024 / 1024).toFixed(2)}MB`);
-      return res.status(413).json({ 
-        error: 'Request Entity Too Large',
-        message: `Request size ${(contentLength / 1024 / 1024).toFixed(2)}MB exceeds limit of 4.5MB`
+      return new Response(JSON.stringify({ error: 'Server configuration error' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
+
+    // リクエストボディを取得
+    const requestBody = await request.json();
     
-    // リクエストボディをそのまま取得（Claude APIのフォーマット）
-    const requestBody = req.body;
-    
-    // Claude APIのエンドポイントを構築
-    // URLパスから実際のエンドポイントを取得（例: /api/claude/v1/messages → /v1/messages）
-    const urlPath = req.url || '';
-    const endpoint = urlPath.replace(/^\/api\/claude/, '') || req.headers['x-claude-endpoint'] || '/v1/messages';
+    // URLパスから実際のエンドポイントを取得
+    const url = new URL(request.url);
+    const urlPath = url.pathname;
+    const endpoint = urlPath.replace(/^\/api\/claude/, '') || '/v1/messages';
     const baseUrl = 'https://api.anthropic.com';
     const fullUrl = `${baseUrl}${endpoint}`;
     
@@ -55,7 +63,9 @@ export default async function handler(req, res) {
           'x-api-key': API_KEY,
           'anthropic-version': '2023-06-01',
           // Claude Code SDK用のヘッダーがあれば転送
-          ...(req.headers['anthropic-beta'] && { 'anthropic-beta': req.headers['anthropic-beta'] })
+          ...(request.headers.get('anthropic-beta') && { 
+            'anthropic-beta': request.headers.get('anthropic-beta') 
+          })
         },
         body: JSON.stringify(requestBody),
         signal: controller.signal
@@ -63,9 +73,12 @@ export default async function handler(req, res) {
     } catch (fetchError) {
       if (fetchError.name === 'AbortError') {
         console.error('Request timeout after 30 seconds');
-        return res.status(504).json({ 
+        return new Response(JSON.stringify({ 
           error: 'Gateway Timeout',
           message: 'Request to Claude API timed out'
+        }), {
+          status: 504,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
       throw fetchError;
@@ -79,26 +92,38 @@ export default async function handler(req, res) {
     // エラーチェック
     if (!response.ok) {
       console.error(`Claude API error: ${response.status} - ${responseText}`);
-      return res.status(response.status).json({ 
+      return new Response(JSON.stringify({ 
         error: 'Claude API error', 
         details: responseText 
+      }), {
+        status: response.status,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
     // 成功レスポンス
     try {
       const responseData = JSON.parse(responseText);
-      return res.status(200).json(responseData);
+      return new Response(JSON.stringify(responseData), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      });
     } catch (parseError) {
       // JSONパースエラーの場合はテキストをそのまま返す
-      return res.status(200).send(responseText);
+      return new Response(responseText, {
+        status: 200,
+        headers: { 'Content-Type': 'text/plain', ...corsHeaders },
+      });
     }
 
   } catch (error) {
     console.error('Proxy error:', error);
-    return res.status(500).json({ 
+    return new Response(JSON.stringify({ 
       error: 'Internal server error',
       message: error.message 
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 }
