@@ -1,8 +1,7 @@
 {
   "functions": {
     "api/*.js": {
-      "maxDuration": 30,
-      "runtime": "edge"
+      "maxDuration": 30
     }
   },
   "rewrites": [
