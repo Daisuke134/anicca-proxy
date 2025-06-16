@@ -21,15 +21,17 @@ export default async function handler(req, res) {
     const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
     const GITHUB_OWNER = process.env.GITHUB_OWNER || 'Daisuke134';
     const GITHUB_REPO = process.env.GITHUB_REPO || 'anicca.ai';
+    const RELEASE_TAG = process.env.RELEASE_TAG || 'v4.0.0';
+    
     if (!GITHUB_TOKEN) {
       console.error('GITHUB_TOKEN is not set');
       res.status(500).json({ error: 'Server configuration error' });
       return;
     }
     
-    // GitHub APIで最新リリース情報を取得
-    const releaseUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
-    console.log(`Fetching latest release info from: ${releaseUrl}`);
+    // GitHub APIでリリース情報を取得
+    const releaseUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/tags/${RELEASE_TAG}`;
+    console.log(`Fetching release info from: ${releaseUrl}`);
     
     const releaseResponse = await fetch(releaseUrl, {
       headers: {
@@ -103,5 +105,5 @@ export default async function handler(req, res) {
   }
 }
 
-  console.log('=== DOWNLOAD ENDPOINT V3.0 - LATEST RELEASE MODE ===');
-  console.log('Automatically fetching latest release');
+  console.log('=== DOWNLOAD ENDPOINT V2.0 - DEBUG MODE ===');
+  console.log('Using RELEASE_TAG:', process.env.RELEASE_TAG || 'v4.0.0');
