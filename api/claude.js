@@ -49,8 +49,76 @@ export default async function handler(request) {
     const fullUrl = `${baseUrl}${endpoint}`;
     
     console.log(`Proxying request to Claude API: ${endpoint}`);
-
-    // Claude APIへリクエスト
+    
+    // ストリーミングが必要かチェック（Claude Code SDKはstreamを使用）
+    const isStreaming = requestBody.stream === true;
+    
+    if (isStreaming) {
+      console.log('Streaming request detected, using streaming response');
+      
+      // ストリーミングレスポンスを作成
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            const response = await fetch(fullUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': API_KEY,
+                'anthropic-version': '2023-06-01',
+                ...(request.headers.get('anthropic-beta') && { 
+                  'anthropic-beta': request.headers.get('anthropic-beta') 
+                })
+              },
+              body: JSON.stringify(requestBody)
+            });
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error(`Claude API error: ${response.status} - ${errorText}`);
+              controller.enqueue(new TextEncoder().encode(JSON.stringify({ 
+                error: 'Claude API error', 
+                details: errorText,
+                status: response.status
+              })));
+              controller.close();
+              return;
+            }
+            
+            // Claudeからのストリームを転送
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              
+              // デバッグ用にチャンクをログ出力（最初の100文字）
+              const chunk = decoder.decode(value, { stream: true });
+              console.log('Streaming chunk:', chunk.substring(0, 100) + '...');
+              
+              controller.enqueue(value);
+            }
+            
+            controller.close();
+          } catch (error) {
+            console.error('Streaming error:', error);
+            controller.error(error);
+          }
+        }
+      });
+      
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          ...corsHeaders
+        }
+      });
+    }
+    
+    // 非ストリーミングの場合は従来の処理
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
     
@@ -62,7 +130,6 @@ export default async function handler(request) {
           'Content-Type': 'application/json',
           'x-api-key': API_KEY,
           'anthropic-version': '2023-06-01',
-          // Claude Code SDK用のヘッダーがあれば転送
           ...(request.headers.get('anthropic-beta') && { 
             'anthropic-beta': request.headers.get('anthropic-beta') 
           })
