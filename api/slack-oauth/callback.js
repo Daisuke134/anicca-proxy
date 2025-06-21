@@ -84,16 +84,15 @@ export default async function handler(req, res) {
           
           ${data.team ? `<p class="team-info">ワークスペース: <strong>${data.team.name}</strong></p>` : ''}
           
-          <div class="info">
-            <p>以下のトークンがAniccaで自動的に設定されます：</p>
-          </div>
+          <div style="font-size: 72px; margin: 30px 0;">🎉</div>
           
-          <div class="token-box">
-            ${data.access_token}
-          </div>
+          <p style="font-size: 18px; margin: 20px 0;">
+            このウィンドウは閉じていただいて構いません。
+          </p>
           
-          <p>このウィンドウは閉じて構いません。<br>
-          Aniccaに戻って「Slackに投稿して」と話しかけてみてください。</p>
+          <p style="color: #666;">
+            Aniccaに戻って「Slackにメッセージ送って」などとお話しください。
+          </p>
           
           <script>
             // 親ウィンドウにトークンを送信（将来の拡張用）
@@ -104,6 +103,37 @@ export default async function handler(req, res) {
                 team: ${JSON.stringify(data.team || {})}
               }, '*');
             }
+            
+            // ローカルHTTPSサーバーに自動送信
+            (async () => {
+              try {
+                console.log('🚀 Sending token to local server...');
+                const response = await fetch('https://localhost:3001/slack-token', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    token: '${data.access_token}',
+                    team: ${JSON.stringify(data.team || {})}
+                  })
+                });
+                
+                if (response.ok) {
+                  console.log('✅ Token sent to local server successfully');
+                  // 成功通知を追加
+                  const notice = document.createElement('div');
+                  notice.style.cssText = 'background: #4CAF50; color: white; padding: 10px; margin-top: 20px; border-radius: 4px;';
+                  notice.textContent = '✅ ローカルサーバーにトークンが送信されました';
+                  document.body.appendChild(notice);
+                } else {
+                  console.error('❌ Failed to send token to local server');
+                }
+              } catch (error) {
+                console.error('❌ Error sending token to local server:', error);
+                // エラーは無視（ローカルサーバーが起動していない場合もある）
+              }
+            })();
           </script>
         </body>
         </html>
