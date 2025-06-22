@@ -7,10 +7,18 @@
     "dev": "vercel dev",
     "deploy": "vercel --prod"
   },
-  "keywords": ["proxy", "gemini", "claude", "api"],
+  "keywords": [
+    "proxy",
+    "gemini",
+    "claude",
+    "api"
+  ],
   "author": "ANICCA",
   "license": "MIT",
   "devDependencies": {
     "vercel": "^32.0.0"
+  },
+  "dependencies": {
+    "@google-cloud/text-to-speech": "^6.1.0"
   }
 }

@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
     const GITHUB_OWNER = process.env.GITHUB_OWNER || 'Daisuke134';
     const GITHUB_REPO = process.env.GITHUB_REPO || 'anicca.ai';
-    const RELEASE_TAG = process.env.RELEASE_TAG || 'v4.0.0';
+    const RELEASE_TAG = process.env.RELEASE_TAG || 'latest';
     
     if (!GITHUB_TOKEN) {
       console.error('GITHUB_TOKEN is not set');
@@ -30,7 +30,9 @@ export default async function handler(req, res) {
     }
     
     // GitHub APIでリリース情報を取得
-    const releaseUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/tags/${RELEASE_TAG}`;
+    const releaseUrl = RELEASE_TAG === 'latest' 
+      ? `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`
+      : `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/tags/${RELEASE_TAG}`;
     console.log(`Fetching release info from: ${releaseUrl}`);
     
     const releaseResponse = await fetch(releaseUrl, {
@@ -48,9 +50,12 @@ export default async function handler(req, res) {
     
     const releaseData = await releaseResponse.json();
     
+    // クエリパラメータからアーキテクチャを取得
+    const arch = req.query.arch || 'arm64';
+    
     // DMGファイルを探す
     const dmgAsset = releaseData.assets.find(asset => 
-      asset.name.endsWith('.dmg') && asset.name.includes('arm64')
+      asset.name.endsWith('.dmg') && asset.name.includes(arch)
     );
     
     if (!dmgAsset) {
@@ -106,4 +111,4 @@ export default async function handler(req, res) {
 }
 
   console.log('=== DOWNLOAD ENDPOINT V2.0 - DEBUG MODE ===');
-  console.log('Using RELEASE_TAG:', process.env.RELEASE_TAG || 'v4.0.0');
+  console.log('Using RELEASE_TAG:', process.env.RELEASE_TAG || 'latest');
