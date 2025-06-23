@@ -1,4 +1,5 @@
 // OpenAI Whisper API プロキシ
+const FormData = require('form-data');
 
 export default async function handler(req, res) {
   // CORSヘッダーを設定
@@ -40,21 +41,24 @@ export default async function handler(req, res) {
     
     console.log(`Whisper transcription request: ${audioBuffer.length} bytes, language: ${language}`);
     
-    // FormDataを作成（ブラウザ標準のFormData）
-    const formData = new FormData();
-    formData.append('file', new Blob([audioBuffer], { type: 'audio/webm' }), 'audio.webm');
-    formData.append('model', 'whisper-1');
-    formData.append('language', language);
-    formData.append('response_format', 'json');
+    // FormDataを作成
+    const form = new FormData();
+    form.append('file', audioBuffer, {
+      filename: 'audio.webm',
+      contentType: 'audio/webm'
+    });
+    form.append('model', 'whisper-1');
+    form.append('language', language);
+    form.append('response_format', 'json');
     
-    // OpenAI APIに直接リクエスト
+    // OpenAI APIにリクエスト
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`
-        // Content-Typeは自動設定されるため指定しない
+        'Authorization': `Bearer ${apiKey}`,
+        ...form.getHeaders()
       },
-      body: formData
+      body: form
     });
     
     if (!response.ok) {
