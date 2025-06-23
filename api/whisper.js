@@ -1,5 +1,6 @@
 // OpenAI Whisper API プロキシ
 const FormData = require('form-data');
+const axios = require('axios');
 
 export default async function handler(req, res) {
   // CORSヘッダーを設定
@@ -51,24 +52,22 @@ export default async function handler(req, res) {
     
     console.log(`Whisper transcription request: ${audioBuffer.length} bytes, language: ${language}`);
     
-    // OpenAI APIにリクエスト
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        ...formData.getHeaders()
-      },
-      body: formData
-    });
+    // OpenAI APIにリクエスト（axiosを使用）
+    const response = await axios.post(
+      'https://api.openai.com/v1/audio/transcriptions',
+      formData,
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          ...formData.getHeaders()
+        },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
+      }
+    );
     
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('OpenAI API error:', error);
-      res.status(response.status).json({ error: 'Transcription failed' });
-      return;
-    }
-    
-    const result = await response.json();
+    // axiosは成功時に直接データを返す
+    const result = response.data;
     
     res.status(200).json({
       success: true,
@@ -78,9 +77,19 @@ export default async function handler(req, res) {
     
   } catch (error) {
     console.error('Whisper Error:', error);
-    res.status(500).json({ 
-      error: 'Transcription processing failed',
-      message: error.message 
-    });
+    
+    // axiosエラーの詳細情報を取得
+    if (error.response) {
+      console.error('OpenAI API error:', error.response.data);
+      res.status(error.response.status).json({ 
+        error: 'Transcription failed',
+        details: error.response.data 
+      });
+    } else {
+      res.status(500).json({ 
+        error: 'Transcription processing failed',
+        message: error.message 
+      });
+    }
   }
 }
