@@ -1,6 +1,6 @@
 // OpenAI Whisper API プロキシ
-const FormData = require('form-data');
-const axios = require('axios');
+import FormData from 'form-data';
+import axios from 'axios';
 
 export default async function handler(req, res) {
   // CORSヘッダーを設定
