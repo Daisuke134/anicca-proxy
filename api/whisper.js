@@ -1,5 +1,4 @@
 // OpenAI Whisper API プロキシ
-const FormData = require('form-data');
 
 export default async function handler(req, res) {
   // CORSヘッダーを設定
@@ -39,27 +38,21 @@ export default async function handler(req, res) {
     // Base64をバッファに変換
     const audioBuffer = Buffer.from(audio, 'base64');
     
-    // WebMをWAVに変換
-    const wavBuffer = convertWebMToWAV(audioBuffer);
+    console.log(`Whisper transcription request: ${audioBuffer.length} bytes, language: ${language}`);
     
-    // FormDataを作成
+    // FormDataを作成（ブラウザ標準のFormData）
     const formData = new FormData();
-    formData.append('file', wavBuffer, {
-      filename: 'audio.wav',
-      contentType: 'audio/wav'
-    });
+    formData.append('file', new Blob([audioBuffer], { type: 'audio/webm' }), 'audio.webm');
     formData.append('model', 'whisper-1');
     formData.append('language', language);
     formData.append('response_format', 'json');
     
-    console.log(`Whisper transcription request: WebM ${audioBuffer.length} bytes -> WAV ${wavBuffer.length} bytes, language: ${language}`);
-    
-    // OpenAI APIにリクエスト
+    // OpenAI APIに直接リクエスト
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        ...formData.getHeaders()
+        'Authorization': `Bearer ${apiKey}`
+        // Content-Typeは自動設定されるため指定しない
       },
       body: formData
     });
@@ -86,47 +79,4 @@ export default async function handler(req, res) {
       message: error.message 
     });
   }
-}
-
-// WebMからWAVに変換する関数（簡易実装）
-function convertWebMToWAV(webmBuffer) {
-  // WAVヘッダーを作成（44.1kHz, 16bit, モノラル）
-  const sampleRate = 44100;
-  const bitsPerSample = 16;
-  const channels = 1;
-  
-  // WebMのヘッダーをスキップして生のPCMデータを取得（簡易実装）
-  // 実際のWebMデコードは複雑なので、ここでは簡易的に処理
-  // 最初の200バイトをスキップ（WebMヘッダーの概算）
-  const pcmData = webmBuffer.slice(200);
-  
-  // WAVファイルのサイズ計算
-  const dataSize = pcmData.length;
-  const byteRate = sampleRate * channels * (bitsPerSample / 8);
-  const blockAlign = channels * (bitsPerSample / 8);
-  
-  // WAVヘッダーを作成（44バイト）
-  const wavHeader = Buffer.alloc(44);
-  
-  // RIFF header
-  wavHeader.write('RIFF', 0);
-  wavHeader.writeUInt32LE(36 + dataSize, 4);
-  wavHeader.write('WAVE', 8);
-  
-  // fmt chunk
-  wavHeader.write('fmt ', 12);
-  wavHeader.writeUInt32LE(16, 16); // fmt chunk size
-  wavHeader.writeUInt16LE(1, 20); // audio format (1 = PCM)
-  wavHeader.writeUInt16LE(channels, 22);
-  wavHeader.writeUInt32LE(sampleRate, 24);
-  wavHeader.writeUInt32LE(byteRate, 28);
-  wavHeader.writeUInt16LE(blockAlign, 32);
-  wavHeader.writeUInt16LE(bitsPerSample, 34);
-  
-  // data chunk
-  wavHeader.write('data', 36);
-  wavHeader.writeUInt32LE(dataSize, 40);
-  
-  // WAVファイルを作成
-  return Buffer.concat([wavHeader, pcmData]);
 }
