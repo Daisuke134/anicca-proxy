@@ -1,126 +1,176 @@
-const { spawn } = require('child_process');
+const { createMcpHandler } = require('@vercel/mcp-adapter');
+const axios = require('axios');
 
-// MCPプロバイダーの設定
-const MCP_PROVIDERS = {
-  hackernews: {
-    name: 'Hacker News',
-    command: 'uvx',
-    args: ['mcp-hn'],
-    keywords: ['ニュース', 'news', 'hacker news', 'ハッカーニュース', '最新', 'テクノロジー', 'トレンド']
-  },
-  exa: {
-    name: 'Exa Search',
-    command: 'uvx',
-    args: ['exa-mcp'],
-    keywords: ['調べて', '検索', 'search', 'について', '教えて'],
-    env: {
-      EXA_API_KEY: process.env.EXA_API_KEY
-    }
-  }
-};
-
-// メッセージから適切なMCPを選択
-function selectMCP(message) {
-  const lowerMessage = message.toLowerCase();
-  
-  for (const [id, provider] of Object.entries(MCP_PROVIDERS)) {
-    for (const keyword of provider.keywords) {
-      if (lowerMessage.includes(keyword)) {
-        return { id, provider };
+// MCPハンドラーを作成
+const handler = createMcpHandler((server) => {
+  // HackerNews ツール
+  server.tool(
+    'get_hacker_news_stories',
+    'Get the latest stories from Hacker News',
+    {
+      limit: {
+        type: 'number',
+        description: 'Number of stories to retrieve',
+        default: 5
+      }
+    },
+    async ({ limit = 5 }) => {
+      try {
+        // HackerNews APIから最新ストーリーを取得
+        const topStoriesResponse = await axios.get('https://hacker-news.firebaseio.com/v0/topstories.json');
+        const storyIds = topStoriesResponse.data.slice(0, limit);
+        
+        // 各ストーリーの詳細を取得
+        const stories = await Promise.all(
+          storyIds.map(async (id) => {
+            const storyResponse = await axios.get(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
+            const story = storyResponse.data;
+            return {
+              title: story.title,
+              url: story.url || `https://news.ycombinator.com/item?id=${id}`,
+              score: story.score,
+              by: story.by,
+              time: new Date(story.time * 1000).toISOString()
+            };
+          })
+        );
+        
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({ stories }, null, 2)
+          }]
+        };
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Error fetching HackerNews stories: ${error.message}`
+          }],
+          isError: true
+        };
       }
     }
-  }
+  );
   
-  // デフォルトはHackerNews
-  return { id: 'hackernews', provider: MCP_PROVIDERS.hackernews };
-}
-
-// MCPを実行してツールを呼び出す
-async function executeMCP(provider, toolName, args) {
-  return new Promise((resolve, reject) => {
-    const env = { ...process.env, ...provider.env };
-    
-    const mcpProcess = spawn(provider.command, provider.args, { env });
-    
-    let stdout = '';
-    let stderr = '';
-    
-    mcpProcess.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-    
-    mcpProcess.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-    
-    mcpProcess.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(`MCP process exited with code ${code}: ${stderr}`));
-      } else {
-        resolve(stdout);
+  // Exa検索ツール
+  server.tool(
+    'search_exa',
+    'Search for information using Exa',
+    {
+      query: {
+        type: 'string',
+        description: 'Search query',
+        required: true
       }
-    });
-    
-    // MCPにコマンドを送信
-    const request = {
-      jsonrpc: '2.0',
-      id: Date.now(),
-      method: 'tools/call',
-      params: {
-        name: toolName,
-        arguments: args
+    },
+    async ({ query }) => {
+      try {
+        const exaApiKey = process.env.EXA_API_KEY;
+        if (!exaApiKey) {
+          throw new Error('EXA_API_KEY is not configured');
+        }
+        
+        // Exa APIで検索
+        const response = await axios.post(
+          'https://api.exa.ai/search',
+          {
+            query: query,
+            num_results: 5,
+            type: 'neural',
+            use_autoprompt: true
+          },
+          {
+            headers: {
+              'x-api-key': exaApiKey,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        const results = response.data.results.map(result => ({
+          title: result.title,
+          url: result.url,
+          snippet: result.snippet || result.text?.substring(0, 200) + '...'
+        }));
+        
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({ query, results }, null, 2)
+          }]
+        };
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Error searching with Exa: ${error.message}`
+          }],
+          isError: true
+        };
       }
-    };
-    
-    mcpProcess.stdin.write(JSON.stringify(request) + '\n');
-    mcpProcess.stdin.end();
-  });
-}
-
-module.exports = async (req, res) => {
-  // CORS設定
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-  
-  try {
-    const { message, toolName, args } = req.body;
-    
-    if (!message && !toolName) {
-      return res.status(400).json({ error: 'Message or toolName is required' });
     }
-    
-    // メッセージからMCPを選択
-    const { id, provider } = selectMCP(message || '');
-    
-    console.log(`Selected MCP: ${provider.name} for message: "${message}"`);
-    
-    // ツール名が指定されていない場合は、デフォルトのツールを使用
-    const tool = toolName || (id === 'hackernews' ? 'get_top_stories' : 'search');
-    const toolArgs = args || {};
-    
-    // MCPを実行
-    const result = await executeMCP(provider, tool, toolArgs);
-    
-    res.status(200).json({
-      success: true,
-      provider: provider.name,
-      result: JSON.parse(result)
-    });
-    
-  } catch (error) {
-    console.error('MCP Router Error:', error);
-    res.status(500).json({
-      error: 'Failed to execute MCP',
-      message: error.message
-    });
-  }
-};
+  );
+  
+  // Slackツール（今後追加予定）
+  server.tool(
+    'send_slack_message',
+    'Send a message to Slack',
+    {
+      channel: {
+        type: 'string',
+        description: 'Slack channel name (without #)',
+        required: true
+      },
+      message: {
+        type: 'string',
+        description: 'Message to send',
+        required: true
+      }
+    },
+    async ({ channel, message }) => {
+      try {
+        const slackToken = process.env.SLACK_BOT_TOKEN;
+        if (!slackToken) {
+          throw new Error('SLACK_BOT_TOKEN is not configured');
+        }
+        
+        // Slack APIでメッセージ送信
+        const response = await axios.post(
+          'https://slack.com/api/chat.postMessage',
+          {
+            channel: channel,
+            text: message
+          },
+          {
+            headers: {
+              'Authorization': `Bearer ${slackToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (!response.data.ok) {
+          throw new Error(response.data.error || 'Failed to send Slack message');
+        }
+        
+        return {
+          content: [{
+            type: 'text',
+            text: `Message sent to #${channel}`
+          }]
+        };
+      } catch (error) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Error sending Slack message: ${error.message}`
+          }],
+          isError: true
+        };
+      }
+    }
+  );
+});
+
+module.exports = handler;
