@@ -1,7 +1,6 @@
 export const runtime = 'edge';
 
 const { createMcpHandler } = require('@vercel/mcp-adapter');
-const axios = require('axios');
 
 // MCPハンドラーを作成
 const handler = createMcpHandler((server) => {
@@ -19,14 +18,15 @@ const handler = createMcpHandler((server) => {
     async ({ limit = 5 }) => {
       try {
         // HackerNews APIから最新ストーリーを取得
-        const topStoriesResponse = await axios.get('https://hacker-news.firebaseio.com/v0/topstories.json');
-        const storyIds = topStoriesResponse.data.slice(0, limit);
+        const topStoriesResponse = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json');
+        const storyIds = await topStoriesResponse.json();
+        const limitedIds = storyIds.slice(0, limit);
         
         // 各ストーリーの詳細を取得
         const stories = await Promise.all(
-          storyIds.map(async (id) => {
-            const storyResponse = await axios.get(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
-            const story = storyResponse.data;
+          limitedIds.map(async (id) => {
+            const storyResponse = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
+            const story = await storyResponse.json();
             return {
               title: story.title,
               url: story.url || `https://news.ycombinator.com/item?id=${id}`,
@@ -74,23 +74,25 @@ const handler = createMcpHandler((server) => {
         }
         
         // Exa APIで検索
-        const response = await axios.post(
+        const response = await fetch(
           'https://api.exa.ai/search',
           {
-            query: query,
-            num_results: 5,
-            type: 'neural',
-            use_autoprompt: true
-          },
-          {
+            method: 'POST',
             headers: {
               'x-api-key': exaApiKey,
               'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify({
+              query: query,
+              num_results: 5,
+              type: 'neural',
+              use_autoprompt: true
+            })
           }
         );
         
-        const results = response.data.results.map(result => ({
+        const data = await response.json();
+        const results = data.results.map(result => ({
           title: result.title,
           url: result.url,
           snippet: result.snippet || result.text?.substring(0, 200) + '...'
@@ -138,22 +140,24 @@ const handler = createMcpHandler((server) => {
         }
         
         // Slack APIでメッセージ送信
-        const response = await axios.post(
+        const response = await fetch(
           'https://slack.com/api/chat.postMessage',
           {
-            channel: channel,
-            text: message
-          },
-          {
+            method: 'POST',
             headers: {
               'Authorization': `Bearer ${slackToken}`,
               'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify({
+              channel: channel,
+              text: message
+            })
           }
         );
         
-        if (!response.data.ok) {
-          throw new Error(response.data.error || 'Failed to send Slack message');
+        const data = await response.json();
+        if (!data.ok) {
+          throw new Error(data.error || 'Failed to send Slack message');
         }
         
         return {
