@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 const { createMcpHandler } = require('@vercel/mcp-adapter');
 const axios = require('axios');
 
