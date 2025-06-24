@@ -1,5 +1,4 @@
 // OpenAI Whisper API プロキシ
-const FormData = require('form-data');
 
 export default async function handler(req, res) {
   // CORSヘッダーを設定
@@ -41,24 +40,59 @@ export default async function handler(req, res) {
     
     console.log(`Whisper transcription request: ${audioBuffer.length} bytes, language: ${language}`);
     
-    // FormDataを作成
-    const form = new FormData();
-    form.append('file', audioBuffer, {
-      filename: 'audio.webm',
-      contentType: 'audio/webm'
-    });
-    form.append('model', 'whisper-1');
-    form.append('language', language);
-    form.append('response_format', 'json');
+    // FormDataを手動で構築（Vercel環境用）
+    const boundary = `----WebKitFormBoundary${Math.random().toString(16).slice(2)}`;
+    const chunks = [];
+    
+    // fileフィールド
+    chunks.push(
+      `--${boundary}\r\n`,
+      `Content-Disposition: form-data; name="file"; filename="audio.webm"\r\n`,
+      `Content-Type: audio/webm\r\n\r\n`
+    );
+    chunks.push(audioBuffer);
+    chunks.push('\r\n');
+    
+    // modelフィールド
+    chunks.push(
+      `--${boundary}\r\n`,
+      `Content-Disposition: form-data; name="model"\r\n\r\n`,
+      'whisper-1\r\n'
+    );
+    
+    // languageフィールド
+    chunks.push(
+      `--${boundary}\r\n`,
+      `Content-Disposition: form-data; name="language"\r\n\r\n`,
+      `${language}\r\n`
+    );
+    
+    // response_formatフィールド
+    chunks.push(
+      `--${boundary}\r\n`,
+      `Content-Disposition: form-data; name="response_format"\r\n\r\n`,
+      'json\r\n'
+    );
+    
+    // 終端
+    chunks.push(`--${boundary}--\r\n`);
+    
+    // バッファに結合
+    const formData = Buffer.concat(
+      chunks.map(chunk => 
+        typeof chunk === 'string' ? Buffer.from(chunk) : chunk
+      )
+    );
     
     // OpenAI APIにリクエスト
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        ...form.getHeaders()
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': formData.length.toString()
       },
-      body: form
+      body: formData
     });
     
     if (!response.ok) {
