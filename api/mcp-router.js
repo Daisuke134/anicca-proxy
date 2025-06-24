@@ -4,14 +4,14 @@ const { spawn } = require('child_process');
 const MCP_PROVIDERS = {
   hackernews: {
     name: 'Hacker News',
-    command: 'npx',
-    args: ['-y', 'mcp-hn'],
-    keywords: ['ニュース', 'news', 'hacker news', 'ハッカーニュース', '最新']
+    command: 'uvx',
+    args: ['mcp-hn'],
+    keywords: ['ニュース', 'news', 'hacker news', 'ハッカーニュース', '最新', 'テクノロジー', 'トレンド']
   },
   exa: {
     name: 'Exa Search',
-    command: 'npx',
-    args: ['-y', 'exa-mcp'],
+    command: 'uvx',
+    args: ['exa-mcp'],
     keywords: ['調べて', '検索', 'search', 'について', '教えて'],
     env: {
       EXA_API_KEY: process.env.EXA_API_KEY
