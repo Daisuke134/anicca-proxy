@@ -12,6 +12,10 @@
     {
       "source": "/api/openai-proxy/:path*",
       "destination": "/api/openai-proxy"
+    },
+    {
+      "source": "/api/tools/:path*",
+      "destination": "/api/tools/:path*"
     }
   ],
   "headers": [
