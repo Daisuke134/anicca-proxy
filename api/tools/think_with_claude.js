@@ -13,7 +13,21 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { task, context } = req.body;
+    // 両方の形式に対応
+    let task, context;
+    
+    if (req.body.arguments) {
+      // デスクトップ版形式: { arguments: { task: "...", context: "..." } }
+      const args = typeof req.body.arguments === 'string' 
+        ? JSON.parse(req.body.arguments) 
+        : req.body.arguments;
+      task = args.task;
+      context = args.context;
+    } else {
+      // Web版形式: { task: "...", context: "..." }
+      task = req.body.task;
+      context = req.body.context;
+    }
     
     if (!task) {
       return res.status(400).json({ error: 'Task is required' });
