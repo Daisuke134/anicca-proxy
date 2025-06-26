@@ -69,7 +69,7 @@ ${context ? `\n追加コンテキスト: ${context}` : ''}
     return res.json({
       success: true,
       result: result,
-      task: args.task
+      task: task
     });
 
   } catch (error) {
