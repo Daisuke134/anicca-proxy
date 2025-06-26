@@ -15,7 +15,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'OpenAI API key not configured on server' });
     }
 
-    if (req.method === 'GET' && req.url === '/api/openai-proxy/session') {
+    if (req.method === 'GET' && (req.url?.includes('/session') || req.url === '/api/openai-proxy/session')) {
       // Return session configuration for OpenAI Realtime
       return res.json({
         client_secret: {

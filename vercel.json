@@ -8,6 +8,10 @@
     {
       "source": "/api/claude/:path*",
       "destination": "/api/claude"
+    },
+    {
+      "source": "/api/openai-proxy/:path*",
+      "destination": "/api/openai-proxy"
     }
   ],
   "headers": [
