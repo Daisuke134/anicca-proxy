@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${claudeApiKey}`,
+        'x-api-key': claudeApiKey,
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
