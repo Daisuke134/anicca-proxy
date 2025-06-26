@@ -13,11 +13,29 @@ module.exports = async (req, res) => {
   }
   
   try {
-    const { limit = 5 } = req.body;
+    // 両方の形式に対応
+    let limit = 5;
+    
+    console.log('📥 Request body:', JSON.stringify(req.body, null, 2));
+    
+    if (req.body.arguments) {
+      // デスクトップ版形式: { arguments: { limit: 5 } }
+      const args = typeof req.body.arguments === 'string' 
+        ? JSON.parse(req.body.arguments) 
+        : req.body.arguments;
+      limit = args.limit || 5;
+      console.log('🔧 Using arguments format - limit:', limit);
+    } else {
+      // Web版形式: { limit: 5 }
+      limit = req.body.limit || 5;
+      console.log('🔧 Using direct format - limit:', limit);
+    }
     
     // HackerNews APIから最新ストーリーを取得
     const topStoriesResponse = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json');
     const storyIds = await topStoriesResponse.json();
+    console.log(`📰 Fetched ${storyIds.length} story IDs from HackerNews`);
+    
     const limitedIds = storyIds.slice(0, limit);
     
     // 各ストーリーの詳細を取得
@@ -35,10 +53,15 @@ module.exports = async (req, res) => {
       })
     );
     
-    res.status(200).json({
+    const responseData = {
       success: true,
       stories: stories
-    });
+    };
+    
+    console.log('✅ Returning response with', stories.length, 'stories');
+    console.log('📤 Response:', JSON.stringify(responseData, null, 2));
+    
+    res.status(200).json(responseData);
     
   } catch (error) {
     console.error('HackerNews API Error:', error);

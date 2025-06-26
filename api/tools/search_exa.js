@@ -13,7 +13,23 @@ module.exports = async (req, res) => {
   }
   
   try {
-    const { query } = req.body;
+    // 両方の形式に対応
+    let query;
+    
+    console.log('📥 Request body:', JSON.stringify(req.body, null, 2));
+    
+    if (req.body.arguments) {
+      // デスクトップ版形式: { arguments: { query: "..." } }
+      const args = typeof req.body.arguments === 'string' 
+        ? JSON.parse(req.body.arguments) 
+        : req.body.arguments;
+      query = args.query;
+      console.log('🔧 Using arguments format - query:', query);
+    } else {
+      // Web版形式: { query: "..." }
+      query = req.body.query;
+      console.log('🔧 Using direct format - query:', query);
+    }
     
     if (!query) {
       return res.status(400).json({ error: 'Query is required' });
@@ -43,6 +59,7 @@ module.exports = async (req, res) => {
     );
     
     const data = await response.json();
+    console.log('🌐 Exa API response:', JSON.stringify(data, null, 2));
     
     if (!response.ok) {
       throw new Error(data.error || 'Exa API error');
@@ -54,11 +71,14 @@ module.exports = async (req, res) => {
       snippet: result.snippet || result.text?.substring(0, 200) + '...'
     }));
     
-    res.status(200).json({
+    const responseData = {
       success: true,
       query: query,
       results: results
-    });
+    };
+    
+    console.log('✅ Returning response:', JSON.stringify(responseData, null, 2));
+    res.status(200).json(responseData);
     
   } catch (error) {
     console.error('Exa API Error:', error);

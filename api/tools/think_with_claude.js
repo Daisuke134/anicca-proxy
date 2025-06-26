@@ -16,6 +16,8 @@ module.exports = async (req, res) => {
     // 両方の形式に対応
     let task, context;
     
+    console.log('📥 Request body:', JSON.stringify(req.body, null, 2));
+    
     if (req.body.arguments) {
       // デスクトップ版形式: { arguments: { task: "...", context: "..." } }
       const args = typeof req.body.arguments === 'string' 
@@ -23,10 +25,12 @@ module.exports = async (req, res) => {
         : req.body.arguments;
       task = args.task;
       context = args.context;
+      console.log('🔧 Using arguments format - task:', task);
     } else {
       // Web版形式: { task: "...", context: "..." }
       task = req.body.task;
       context = req.body.context;
+      console.log('🔧 Using direct format - task:', task);
     }
     
     if (!task) {
@@ -78,12 +82,16 @@ ${context ? `\n追加コンテキスト: ${context}` : ''}
     }
 
     const data = await response.json();
+    console.log('🤖 Claude response:', JSON.stringify(data, null, 2));
+    
     const result = data.content[0].text;
+    console.log('✅ Returning result:', result.substring(0, 100) + '...');
 
     return res.json({
       success: true,
       result: result,
-      task: task
+      task: task,
+      response: result  // OpenAI形式との互換性
     });
 
   } catch (error) {
