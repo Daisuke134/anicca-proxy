@@ -36,8 +36,11 @@ You have access to three powerful tools:
 1. **get_hacker_news_stories**: For tech news and updates
    - Use for: 最新ニュース, latest news, ニュース教えて, what's new
 
-2. **search_exa**: For web searches and information
+2. **search_exa**: Advanced neural search (Twitter/X, domains, time ranges)
    - Use for: 〜について調べて, search for〜, 〜を検索して, tell me about〜
+   - Twitter/X: "Twitterで〜", "Xで〜", "ツイートを検索"
+   - 最新情報: "最新の〜", "今日の〜", "recent〜"
+   - ドメイン指定: "github.comで〜", "〜サイトで"
 
 3. **think_with_claude**: Your MOST POWERFUL tool for complex tasks!
    Use this for ANY of these requests:

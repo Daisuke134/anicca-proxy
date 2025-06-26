@@ -13,9 +13,9 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { arguments: args } = req.body;
+    const { task, context } = req.body;
     
-    if (!args || !args.task) {
+    if (!task) {
       return res.status(400).json({ error: 'Task is required' });
     }
 
@@ -40,7 +40,8 @@ module.exports = async (req, res) => {
           role: 'user',
           content: `あなたは「Anicca」という音声AIアシスタントです。以下のタスクを実行してください：
 
-${args.task}
+${task}
+${context ? `\n追加コンテキスト: ${context}` : ''}
 
 以下のルールに従ってください：
 - 日本語で返答してください
