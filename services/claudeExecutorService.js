@@ -330,7 +330,7 @@ export class ClaudeExecutorService extends EventEmitter {
       
       // キューに次のアクションがあれば実行
       if (this.actionQueue.length > 0) {
-        const nextAction = this.actionQueue.shift()!;
+        const nextAction = this.actionQueue.shift();
         console.log('📋 Processing next action from queue');
         this.executeAction(nextAction);
       }
