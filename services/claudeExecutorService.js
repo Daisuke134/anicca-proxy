@@ -74,9 +74,8 @@ export class ClaudeExecutorService extends EventEmitter {
       const proxyUrl = 'https://anicca-proxy-production.up.railway.app/api/claude';
       process.env.ANTHROPIC_BASE_URL = proxyUrl;
       
-      // ダミーのAPIキーを設定（プロキシが本物のキーを持っている）
-      this.apiKey = 'proxy-placeholder';
-      process.env.ANTHROPIC_API_KEY = this.apiKey;
+      // プロキシモードではAPIキーは不要（Railwayの環境変数を使用）
+      this.apiKey = 'using-proxy';
       
       console.log('✅ Claude Code SDK configured to use proxy server');
       console.log('  Proxy URL:', proxyUrl);

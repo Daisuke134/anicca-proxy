@@ -31,12 +31,7 @@ export default async function handler(req, res) {
     const anthropicUrl = `https://api.anthropic.com${apiPath}`;
     
     console.log(`🚀 Proxying Claude API request to: ${anthropicUrl}`);
-    console.log('📋 Request headers:', JSON.stringify(req.headers, null, 2));
     
-    // Log request body for debugging
-    if (req.body) {
-      console.log('📦 Request body preview:', JSON.stringify(req.body).substring(0, 500) + '...');
-    }
 
     // Forward the request to Anthropic API
     // IMPORTANT: Always use the environment variable API key, ignore any received headers
@@ -51,7 +46,6 @@ export default async function handler(req, res) {
       headers['anthropic-beta'] = req.headers['anthropic-beta'];
     }
 
-    console.log('📤 Sending to Anthropic with headers:', JSON.stringify(headers, null, 2));
 
     let response;
     try {
