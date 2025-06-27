@@ -15,6 +15,11 @@ export default async function handler(req, res) {
   try {
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
     
+    console.log('🔑 API Key check:');
+    console.log('  From env:', anthropicApiKey ? `${anthropicApiKey.substring(0, 10)}...` : 'NOT SET');
+    console.log('  Type:', typeof anthropicApiKey);
+    console.log('  Length:', anthropicApiKey ? anthropicApiKey.length : 0);
+    
     if (!anthropicApiKey) {
       console.error('❌ ANTHROPIC_API_KEY not configured');
       return res.status(500).json({ error: 'Claude API key not configured on server' });
@@ -45,7 +50,7 @@ export default async function handler(req, res) {
       headers['anthropic-beta'] = req.headers['anthropic-beta'];
     }
 
-    console.log('📤 Sending to Anthropic with headers:', headers);
+    console.log('📤 Sending to Anthropic with headers:', JSON.stringify(headers, null, 2));
 
     let response;
     try {
