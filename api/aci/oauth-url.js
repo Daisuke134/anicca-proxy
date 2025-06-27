@@ -20,10 +20,8 @@ export default async function handler(req, res) {
     }
     
     // リダイレクトURLを決定（本番/開発環境）
-    const isProduction = process.env.NODE_ENV === 'production';
-    const redirectUrl = isProduction 
-      ? 'https://app.aniccaai.com'
-      : 'http://localhost:3000';
+    // ANICCA_WEB_URLが設定されていればそれを使用、なければlocalhostを使用
+    const redirectUrl = process.env.ANICCA_WEB_URL || 'http://localhost:3000';
     
     // ACIのOAuth開始エンドポイントにGETリクエスト
     const params = new URLSearchParams({
