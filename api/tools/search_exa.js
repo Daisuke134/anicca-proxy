@@ -64,21 +64,42 @@ export default async function handler(req, res) {
     // MCPレスポンスを既存のフォーマットに変換
     let results = [];
     
-    if (mcpResult.content && mcpResult.content.length > 0) {
-      const content = mcpResult.content[0];
-      
-      // MCPレスポンスの構造に応じて処理
-      if (content.type === 'text') {
-        // テキストレスポンスの場合はパース
-        try {
-          const data = JSON.parse(content.text);
-          results = data.results || data;
-        } catch (e) {
-          // パースできない場合はそのまま返す
-          results = [{ title: 'Search Result', snippet: content.text }];
+    if (mcpResult && mcpResult.content && mcpResult.content.length > 0) {
+      for (const content of mcpResult.content) {
+        if (content.type === 'text') {
+          // MCPのレスポンスフォーマットに従って処理
+          try {
+            // テキストがJSON形式の場合はパース
+            const parsed = JSON.parse(content.text);
+            if (Array.isArray(parsed)) {
+              results = parsed;
+            } else if (parsed.results) {
+              results = parsed.results;
+            } else {
+              // 単一の結果として扱う
+              results.push(parsed);
+            }
+          } catch (e) {
+            // JSONでない場合は、改行で分割して結果として扱う
+            const lines = content.text.split('\n').filter(line => line.trim());
+            lines.forEach(line => {
+              // URLパターンを検出
+              const urlMatch = line.match(/https?:\/\/[^\s]+/);
+              if (urlMatch) {
+                results.push({
+                  url: urlMatch[0],
+                  title: line.replace(urlMatch[0], '').trim() || 'Search Result',
+                  snippet: line
+                });
+              } else if (line.trim()) {
+                results.push({
+                  title: line.substring(0, 100),
+                  snippet: line
+                });
+              }
+            });
+          }
         }
-      } else if (content.results) {
-        results = content.results;
       }
     }
     

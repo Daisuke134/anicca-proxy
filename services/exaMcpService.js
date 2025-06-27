@@ -1,4 +1,3 @@
-import { spawn } from 'child_process';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
@@ -6,7 +5,6 @@ export class ExaMcpService {
   constructor() {
     this.client = null;
     this.transport = null;
-    this.serverProcess = null;
   }
 
   async initialize() {
@@ -18,30 +16,7 @@ export class ExaMcpService {
     try {
       console.log('🚀 Starting Exa MCP server...');
       
-      // Exa MCPサーバーを起動
-      this.serverProcess = spawn('npx', ['-y', 'exa-mcp-server'], {
-        env: {
-          ...process.env,
-          EXA_API_KEY: process.env.EXA_API_KEY
-        },
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
-
-      // エラー処理
-      this.serverProcess.stderr.on('data', (data) => {
-        console.error('❌ Exa MCP server error:', data.toString());
-      });
-
-      this.serverProcess.on('error', (error) => {
-        console.error('❌ Failed to start Exa MCP server:', error);
-        throw error;
-      });
-
-      this.serverProcess.on('exit', (code) => {
-        console.log(`Exa MCP server exited with code ${code}`);
-      });
-
-      // MCPクライアントを作成
+      // StdioClientTransportを作成（これがサーバープロセスも起動する）
       this.transport = new StdioClientTransport({
         command: 'npx',
         args: ['-y', 'exa-mcp-server'],
@@ -51,6 +26,7 @@ export class ExaMcpService {
         }
       });
 
+      // MCPクライアントを作成
       this.client = new Client({
         name: 'anicca-exa-client',
         version: '1.0.0'
@@ -64,8 +40,12 @@ export class ExaMcpService {
       console.log('✅ Exa MCP service initialized successfully');
       
       // 利用可能なツールを確認
-      const tools = await this.client.listTools();
-      console.log('🔧 Available Exa tools:', tools);
+      try {
+        const tools = await this.client.listTools();
+        console.log('🔧 Available Exa tools:', JSON.stringify(tools, null, 2));
+      } catch (listError) {
+        console.error('⚠️ Could not list tools:', listError);
+      }
       
     } catch (error) {
       console.error('❌ Failed to initialize Exa MCP service:', error);
@@ -80,33 +60,36 @@ export class ExaMcpService {
 
     try {
       console.log(`🔍 Searching with Exa MCP: "${query}"`);
+      console.log('🔧 Search options:', JSON.stringify(options, null, 2));
       
-      // MCPツールを呼び出し
-      const result = await this.client.callTool('search', {
+      // MCPツールを呼び出し - 正しいツール名は 'web_search_exa'
+      const result = await this.client.callTool('web_search_exa', {
         query,
         ...options
       });
 
       console.log('✅ Exa MCP search completed');
+      console.log('📊 Result:', JSON.stringify(result, null, 2));
       return result;
       
     } catch (error) {
       console.error('❌ Exa MCP search error:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       throw error;
     }
   }
 
   async close() {
-    if (this.transport) {
-      await this.transport.close();
+    try {
+      if (this.transport) {
+        await this.transport.close();
+      }
+      this.client = null;
+      this.transport = null;
+      console.log('🔒 Exa MCP service closed');
+    } catch (error) {
+      console.error('❌ Error closing Exa MCP service:', error);
     }
-    if (this.serverProcess && !this.serverProcess.killed) {
-      this.serverProcess.kill();
-    }
-    this.client = null;
-    this.transport = null;
-    this.serverProcess = null;
-    console.log('🔒 Exa MCP service closed');
   }
 }
 
