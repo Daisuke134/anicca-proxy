@@ -2,6 +2,7 @@
   "name": "anicca-proxy",
   "version": "1.0.0",
   "description": "Proxy server for ANICCA AI Screen Narrator",
+  "type": "module",
   "main": "api/gemini.js",
   "scripts": {
     "dev": "vercel dev",
@@ -16,9 +17,12 @@
   "author": "ANICCA",
   "license": "MIT",
   "devDependencies": {
+    "@types/node": "^24.0.4",
+    "typescript": "^5.8.3",
     "vercel": "^32.0.0"
   },
   "dependencies": {
+    "@anthropic-ai/claude-code": "^1.0.35",
     "@google-cloud/text-to-speech": "^6.1.0",
     "@vercel/mcp-adapter": "^0.11.1",
     "axios": "^1.10.0",

@@ -42,7 +42,11 @@ You have access to three powerful tools:
    - 最新情報: "最新の〜", "今日の〜", "recent〜"
    - ドメイン指定: "github.comで〜", "〜サイトで"
 
-3. **think_with_claude**: Your MOST POWERFUL tool for complex tasks!
+3. **slack_post**: Post messages to Slack channels
+   - Use for: Slackに投稿, post to Slack, メッセージ送信
+   - Requires: channel (e.g., "#general", "#ai-channel") and message
+
+4. **think_with_claude**: Your MOST POWERFUL tool for complex tasks!
    Use this for ANY of these requests:
    - アプリ作成 (TODOアプリ作って, create app, build application)
    - ゲーム開発 (ゲーム作って, make a game, テトリス作って)
@@ -120,6 +124,45 @@ Be friendly and helpful in any language.`,
             type: 'function',
             name: 'think_with_claude',
             description: 'Use Claude for complex tasks, code analysis, file operations, and MCP tools',
+            parameters: {
+              type: 'object',
+              properties: {
+                task: {
+                  type: 'string',
+                  description: 'The task or question for Claude to handle'
+                },
+                context: {
+                  type: 'string',
+                  description: 'Additional context if needed',
+                  optional: true
+                }
+              },
+              required: ['task']
+            }
+          },
+          {
+            type: 'function',
+            name: 'slack_post',
+            description: 'Post a message to a Slack channel',
+            parameters: {
+              type: 'object',
+              properties: {
+                channel: {
+                  type: 'string',
+                  description: 'Slack channel name (e.g., #general, #ai-channel)'
+                },
+                message: {
+                  type: 'string',
+                  description: 'Message to post'
+                }
+              },
+              required: ['channel', 'message']
+            }
+          },
+          {
+            type: 'function',
+            name: 'think_with_claude_sdk',
+            description: '[BETA] Use Claude SDK with MCP for Slack, file operations, and browser automation',
             parameters: {
               type: 'object',
               properties: {
