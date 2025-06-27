@@ -402,8 +402,8 @@ ${action.parameters.query}`;
       
       // process.envを直接更新（SDKがenvオプションをサポートしない場合のため）
       process.env.ELECTRON_RUN_AS_NODE = '1';
-      // DEBUG環境変数を有効化してstderrを取得
-      process.env.DEBUG = 'true';
+      // DEBUG環境変数を無効化（出力が多すぎるため）
+      // process.env.DEBUG = 'true';
       // process.env.ANTHROPIC_LOG = 'debug';
       
       // Electronの実行ファイルのディレクトリをPATHに追加
@@ -454,7 +454,7 @@ ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "$@"
           env: envWithNode,
           appendSystemPrompt: `
 あなたはバックグラウンドで動作する万能アシスタントです。
-ユーザーの画面を見ながら、必要な支援を魔法のように実現します。
+ユーザーの支援を魔法のように実現します。
 
 【重要：作業範囲の制限】
 - 作業ディレクトリ: ${workingDir}
@@ -462,58 +462,33 @@ ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "$@"
 - ユーザーのプライバシーを守るため、ワークスペース外へのアクセスは禁止です
 
 【成果物の届け方】
-原則：通知のみで完結させる
-osascript -e 'display notification "内容" with title "ANICCA"'
+- 作業の進捗や結果は定期的に報告してください
+- 重要な成果物（作成したアプリなど）がある場合は、その旨を明確に伝えてください
+- 「TODOアプリを作成しました。index.htmlに保存しました」など具体的に
 
-【通知に全てを込める】
-- 60文字以内で結果のエッセンスを伝える
-- ファイル保存は最小限に
-- 通知だけで価値が伝わるように工夫
+【作業報告の例】
+- "TODOアプリの作成を開始します"
+- "HTMLファイルを作成中..."
+- "TODOアプリが完成しました。todo-app/index.htmlに保存しました"
+- "エラーを3件修正しました：型定義、インポート文、変数名"
 
-【例】
-エラー修正：
-"型エラー修正: user?: User に変更でOK"
-
-情報検索：
-"Next.js 14.2が最新。App Router推奨"
-
-TODO整理：
-"緊急3件: PR修正、会議準備、バグ対応"
-
-コード生成：
-"関数作成完了。pbpaste で貼り付け可能"
-→ 同時に pbcopy でクリップボードにコピー
-
-ゲーム作成（唯一の例外）：
-"テトリス完成！" → この時だけHTMLを開く
-
-【重要】
-通知という制約の中で最大の価値を。
-詳細ファイルは作らない。通知で完結。
+【重要な注意事項】
+- macOS専用のコマンド（osascript、pbcopy、pbpaste、openなど）は使用しないでください
+- Linux環境で動作していることを前提としてください
+- ファイルを作成したら、その場所と内容を明確に報告してください
 
 【作業領域】
 あなたは専用ワークスペース内で作業します。
-画面のファイルは編集できませんが、新しいものを作成して価値を提供できます。
+新しいプロジェクトごとにサブディレクトリを作成してください。
 
 【学習と記憶】
 ユーザーについて学んだ重要な情報（名前、好み、パターンなど）は、
-~/Desktop/anicca-agent-workspace/CLAUDE.md に自動的に保存してください。
+${workingDir}/CLAUDE.md に保存してください。
 このファイルは次回のセッションで自動的に読み込まれます。
-
-例：
-- ユーザーの名前: ダイスケ
-- 好みの言語: 日本語
-- よく使うツール: VS Code, Terminal
-- 作業パターン: 音声での指示を好む
-
-【重要】
-成果物は必ず何らかの形でユーザーに届けてください。
-黙って作業を完了させるのではなく、魔法的な演出でユーザーを喜ばせてください。
-あなたの創造性を最大限に発揮してください！
 
 【作業の目安】
 できるだけ10ターン以内で完了させてください。
-長くなりそうな場合は、段階的に結果を届けてください。
+長くなりそうな場合は、段階的に結果を報告してください。
 `
         };
         
@@ -532,16 +507,6 @@ TODO整理：
         let queryIterable;
         try {
           console.log('🔄 Calling query function...');
-          
-          // cli.jsファイルのパスを確認
-          const cliPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'node_modules', '@anthropic-ai', 'claude-code', 'cli.js');
-          console.log('🔍 Checking cli.js path:', cliPath);
-          console.log('   File exists?', fs.existsSync(cliPath));
-          if (fs.existsSync(cliPath)) {
-            const stats = fs.statSync(cliPath);
-            console.log('   File permissions:', stats.mode.toString(8));
-            console.log('   File size:', stats.size);
-          }
           
           queryIterable = query({
             prompt,
