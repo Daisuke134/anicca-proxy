@@ -19,24 +19,40 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Service is required' });
     }
     
-    // ACIのOAuth URLを生成
-    // ACIドキュメントによると、以下のフォーマット
-    const baseUrl = 'https://api.aci.dev/v1/linked-accounts/oauth2/authorize';
+    // ACIのOAuth開始エンドポイントにPOSTリクエスト
+    const aciOAuthUrl = 'https://api.aci.dev/v1/linked-accounts/oauth2';
     
-    // パラメータを構築
-    const params = new URLSearchParams({
-      app_name: service,
-      // セッションIDまたはユーザー識別子を state に含める
-      state: JSON.stringify({
-        sessionId: sessionId || generateSessionId(),
-        service: service,
-        timestamp: Date.now()
-      }),
-      // コールバックURL（Railway環境）
-      redirect_uri: `${process.env.RAILWAY_PUBLIC_DOMAIN || 'https://anicca-proxy-slack-production.up.railway.app'}/api/aci/oauth-callback`
+    // コールバックURLを構築（https://を含める）
+    const callbackUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}/api/aci/oauth-callback`
+      : 'https://anicca-proxy-production.up.railway.app/api/aci/oauth-callback';
+    
+    // OAuth開始リクエストを送信
+    const oauthResponse = await fetch(aciOAuthUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.ACI_API_KEY}`
+      },
+      body: JSON.stringify({
+        app_name: service,
+        redirect_uri: callbackUrl,
+        state: JSON.stringify({
+          sessionId: sessionId || generateSessionId(),
+          service: service,
+          timestamp: Date.now()
+        })
+      })
     });
     
-    const oauthUrl = `${baseUrl}?${params.toString()}`;
+    if (!oauthResponse.ok) {
+      const errorData = await oauthResponse.text();
+      console.error('ACI OAuth error:', errorData);
+      throw new Error(`Failed to start OAuth: ${oauthResponse.status}`);
+    }
+    
+    const oauthData = await oauthResponse.json();
+    const oauthUrl = oauthData.authorization_url || oauthData.url;
     
     console.log('🔗 Generated OAuth URL:', oauthUrl);
     
