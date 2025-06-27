@@ -5,6 +5,21 @@ import * as path from 'path';
 import * as os from 'os';
 import { SimpleEncryption } from './simpleEncryption.js';
 
+// Claude SDKのインポートを確認
+console.log('🔍 Claude SDK import check:');
+console.log('  query function type:', typeof query);
+console.log('  query function exists:', query !== undefined);
+
+// モジュール解決を確認（非同期で実行）
+(async () => {
+  try {
+    const claudeCodePath = await import.meta.resolve('@anthropic-ai/claude-code');
+    console.log('  Module resolved at:', claudeCodePath);
+  } catch (resolveError) {
+    console.error('  Module resolution error:', resolveError.message);
+  }
+})();
+
 // ActionRequest type definition (for reference)
 // {
 //   type: 'general' | 'search' | 'code' | 'file' | 'command' | 'slack' | 'github' | 'browser' | 'wait';
@@ -56,13 +71,18 @@ export class ClaudeExecutorService extends EventEmitter {
       console.log('🌐 Using proxy mode for Claude API');
       
       // ANTHROPIC_BASE_URLを設定してプロキシ経由にする
-      process.env.ANTHROPIC_BASE_URL = 'https://anicca-proxy-ten.vercel.app/api/claude';
+      const proxyUrl = 'https://anicca-proxy-ten.vercel.app/api/claude';
+      process.env.ANTHROPIC_BASE_URL = proxyUrl;
       
       // ダミーのAPIキーを設定（プロキシが本物のキーを持っている）
       this.apiKey = 'proxy-placeholder';
       process.env.ANTHROPIC_API_KEY = this.apiKey;
       
       console.log('✅ Claude Code SDK configured to use proxy server');
+      console.log('  Proxy URL:', proxyUrl);
+      console.log('  ANTHROPIC_BASE_URL env:', process.env.ANTHROPIC_BASE_URL);
+      console.log('  Railway environment?', process.env.RAILWAY_ENVIRONMENT ? 'Yes' : 'No');
+      console.log('  NODE_ENV:', process.env.NODE_ENV);
     } else {
       // ローカル開発用（直接APIキーを使用）
       this.apiKey = process.env.ANTHROPIC_API_KEY || '';
@@ -412,6 +432,18 @@ ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "$@"
       }
       
       try {
+        // デバッグ: 環境変数を確認
+        console.log('🔍 DEBUG - Environment check:');
+        console.log('  ANTHROPIC_BASE_URL:', process.env.ANTHROPIC_BASE_URL);
+        console.log('  ANTHROPIC_API_KEY:', process.env.ANTHROPIC_API_KEY ? 'Set' : 'Not set');
+        console.log('  NODE_ENV:', process.env.NODE_ENV);
+        console.log('  RAILWAY_ENVIRONMENT:', process.env.RAILWAY_ENVIRONMENT);
+        console.log('  Platform:', process.platform);
+        console.log('  Node version:', process.version);
+        console.log('  Process execPath:', process.execPath);
+        console.log('  Current working directory:', process.cwd());
+        console.log('  __dirname equivalent:', path.dirname(new URL(import.meta.url).pathname));
+        
         // SDKの内部動作を確認するため、オプションをログ出力
         const queryOptions = {
           abortController: this.abortController,
@@ -487,14 +519,69 @@ TODO整理：
         };
         
         
-        for await (const message of query({
-          prompt,
-          options: queryOptions
-        })) {
-        messages.push(message);
+        console.log('🚀 Starting Claude SDK query...');
+        console.log('📁 Working directory:', workingDir);
+        console.log('📝 Full prompt being sent:');
+        console.log(prompt);
+        console.log('⚙️ Query options:', JSON.stringify({
+          ...queryOptions,
+          env: '(env object present)', // 環境変数は表示しない
+          mcpServers: Object.keys(queryOptions.mcpServers || {})
+        }, null, 2));
         
-        // リアルタイムで進捗を表示
-        this.logSDKMessage(message);
+        // queryの戻り値を確認
+        let queryIterable;
+        try {
+          console.log('🔄 Calling query function...');
+          queryIterable = query({
+            prompt,
+            options: queryOptions
+          });
+          console.log('✅ Query function returned:', typeof queryIterable);
+          console.log('   Is iterable?', queryIterable && typeof queryIterable[Symbol.asyncIterator] === 'function');
+        } catch (queryInitError) {
+          console.error('❌ Error initializing query:', queryInitError);
+          throw queryInitError;
+        }
+        
+        try {
+          console.log('🔄 Starting to iterate over messages...');
+          let messageCount = 0;
+          for await (const message of queryIterable) {
+            messageCount++;
+            console.log(`📨 Received message #${messageCount}, type: ${message?.type}`);
+            messages.push(message);
+            
+            // リアルタイムで進捗を表示
+            this.logSDKMessage(message);
+          }
+          console.log(`✅ Query completed successfully with ${messageCount} messages`);
+        }
+      } catch (queryError) {
+        console.error('❌ Claude SDK query error - Full details:');
+        console.error('  Error message:', queryError.message);
+        console.error('  Error stack:', queryError.stack);
+        console.error('  Error name:', queryError.name);
+        console.error('  Error code:', queryError.code);
+        
+        // より詳細なエラー情報を取得
+        if (queryError.stderr) {
+          console.error('  Process stderr:', queryError.stderr);
+        }
+        if (queryError.stdout) {
+          console.error('  Process stdout:', queryError.stdout);
+        }
+        if (queryError.signal) {
+          console.error('  Process signal:', queryError.signal);
+        }
+        if (queryError.cmd) {
+          console.error('  Process command:', queryError.cmd);
+        }
+        
+        // オブジェクト全体をログ出力（隠れたプロパティも確認）
+        console.error('  Full error object:', JSON.stringify(queryError, null, 2));
+        
+        throw queryError;
       }
 
       // 結果を整形
