@@ -1,8 +1,3 @@
-import { aciMcpService } from '../../services/aciMcpService.js';
-
-// MCPサービスの初期化（一度だけ）
-let isInitialized = false;
-
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -18,33 +13,32 @@ export default async function handler(req, res) {
   }
 
   try {
-    // MCPサービスを初期化（初回のみ）
-    if (!isInitialized) {
-      await aciMcpService.initialize();
-      isInitialized = true;
-    }
+    // ACI Linked Accounts APIを使って接続済みサービスを確認
+    const linkedAccountOwnerId = process.env.ACI_LINKED_ACCOUNT_OWNER_ID || 'cmboo2kkp0002c1uu0bunorf5';
     
-    // ACI MCPを使って接続済みサービスを確認
-    // 現在はSlackのみサポート
-    const searchResult = await aciMcpService.searchFunctions('slack list channels');
-    
+    // 各サービスの接続状態を確認
+    const services = ['SLACK', 'GMAIL', 'GITHUB', 'GOOGLE_CALENDAR'];
     const connectedServices = [];
     
-    // Slack機能が見つかれば接続済みとみなす
-    if (searchResult && searchResult.content && searchResult.content.length > 0) {
-      try {
-        const content = searchResult.content[0];
-        if (content.type === 'text') {
-          const functions = JSON.parse(content.text);
-          const hasSlack = Array.isArray(functions) && 
-            functions.some(f => f.app_name?.toLowerCase().includes('slack'));
-          
-          if (hasSlack) {
-            connectedServices.push('slack');
-          }
+    // 各サービスのLinked Accountを確認
+    for (const appName of services) {
+      const params = new URLSearchParams({
+        app_name: appName,
+        linked_account_owner_id: linkedAccountOwnerId
+      });
+      
+      const response = await fetch(`https://api.aci.dev/v1/linked-accounts?${params}`, {
+        headers: {
+          'X-API-KEY': process.env.ACI_API_KEY
         }
-      } catch (e) {
-        console.error('Failed to parse ACI response:', e);
+      });
+      
+      if (response.ok) {
+        const accounts = await response.json();
+        // アカウントが存在し、有効な場合は接続済みとみなす
+        if (accounts.length > 0 && accounts[0].enabled) {
+          connectedServices.push(appName.toLowerCase());
+        }
       }
     }
     
