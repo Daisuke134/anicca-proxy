@@ -1,3 +1,8 @@
+import { exaMcpService } from '../../services/exaMcpService.js';
+
+// MCPサービスの初期化（一度だけ）
+let isInitialized = false;
+
 export default async function handler(req, res) {
   // CORS設定
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,6 +18,12 @@ export default async function handler(req, res) {
   }
   
   try {
+    // MCPサービスを初期化（初回のみ）
+    if (!isInitialized) {
+      await exaMcpService.initialize();
+      isInitialized = true;
+    }
+    
     // 両方の形式に対応
     let query;
     
@@ -40,50 +51,55 @@ export default async function handler(req, res) {
       throw new Error('EXA_API_KEY is not configured');
     }
     
-    // Exa APIで検索
-    const response = await fetch(
-      'https://api.exa.ai/search',
-      {
-        method: 'POST',
-        headers: {
-          'x-api-key': exaApiKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          query: query,
-          num_results: 5,
-          type: 'neural',
-          use_autoprompt: true
-        })
+    // Exa MCPで検索
+    console.log('🔍 Using Exa MCP for search...');
+    const mcpResult = await exaMcpService.search(query, {
+      num_results: 5,
+      type: 'neural',
+      use_autoprompt: true
+    });
+    
+    console.log('🌐 Exa MCP response:', JSON.stringify(mcpResult, null, 2));
+    
+    // MCPレスポンスを既存のフォーマットに変換
+    let results = [];
+    
+    if (mcpResult.content && mcpResult.content.length > 0) {
+      const content = mcpResult.content[0];
+      
+      // MCPレスポンスの構造に応じて処理
+      if (content.type === 'text') {
+        // テキストレスポンスの場合はパース
+        try {
+          const data = JSON.parse(content.text);
+          results = data.results || data;
+        } catch (e) {
+          // パースできない場合はそのまま返す
+          results = [{ title: 'Search Result', snippet: content.text }];
+        }
+      } else if (content.results) {
+        results = content.results;
       }
-    );
-    
-    const data = await response.json();
-    console.log('🌐 Exa API response:', JSON.stringify(data, null, 2));
-    
-    if (!response.ok) {
-      throw new Error(data.error || 'Exa API error');
     }
     
-    const results = data.results.map(result => ({
-      title: result.title,
-      url: result.url,
-      snippet: result.snippet || result.text?.substring(0, 200) + '...'
-    }));
-    
+    // レスポンスフォーマットを維持
     const responseData = {
       success: true,
       query: query,
-      results: results
+      results: results.map(result => ({
+        title: result.title,
+        url: result.url,
+        snippet: result.snippet || result.text?.substring(0, 200) + '...'
+      }))
     };
     
     console.log('✅ Returning response:', JSON.stringify(responseData, null, 2));
     res.status(200).json(responseData);
     
   } catch (error) {
-    console.error('Exa API Error:', error);
+    console.error('Exa MCP Error:', error);
     res.status(500).json({
-      error: 'Failed to search with Exa',
+      error: 'Failed to search with Exa MCP',
       message: error.message
     });
   }
