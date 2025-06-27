@@ -556,8 +556,7 @@ TODO整理：
             this.logSDKMessage(message);
           }
           console.log(`✅ Query completed successfully with ${messageCount} messages`);
-        }
-      } catch (queryError) {
+        } catch (queryError) {
         console.error('❌ Claude SDK query error - Full details:');
         console.error('  Error message:', queryError.message);
         console.error('  Error stack:', queryError.stack);
@@ -583,7 +582,7 @@ TODO整理：
         
         throw queryError;
       }
-
+      
       // 結果を整形
       let textResult = '';
       
@@ -623,11 +622,6 @@ TODO整理：
         sessionDir: workingDir,
         timestamp: Date.now()
       };
-    } catch (innerError) {
-      // 内側のtry-catchでエラーをキャッチ
-      console.error('❌ Claude SDK query error:', innerError);
-      throw innerError;  // 外側のcatchに伝播
-    }
     } catch (error) {
       console.error('❌ General request execution error:', error);
       return {
