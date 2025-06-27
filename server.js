@@ -13,6 +13,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.static('public'));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -31,7 +32,11 @@ import landingHandler from './api/landing.js';
 import hackerNewsHandler from './api/tools/get_hacker_news_stories.js';
 import exaHandler from './api/tools/search_exa.js';
 import thinkWithClaudeHandler from './api/tools/think_with_claude.js';
+import thinkWithAciHandler from './api/tools/think_with_aci.js';
 import claudeHandler from './api/claude.js';
+import aciOauthUrlHandler from './api/aci/oauth-url.js';
+import aciOauthCallbackHandler from './api/aci/oauth-callback.js';
+import aciConnectedServicesHandler from './api/aci/connected-services.js';
 
 // API Routes - 完全移植
 app.all('/api/gemini', geminiHandler);
@@ -46,6 +51,10 @@ app.all('/api/landing', landingHandler);
 app.all('/api/tools/get_hacker_news_stories', hackerNewsHandler);
 app.all('/api/tools/search_exa', exaHandler);
 app.all('/api/tools/think_with_claude', thinkWithClaudeHandler);
+app.all('/api/tools/think_with_aci', thinkWithAciHandler);
+app.all('/api/aci/oauth-url', aciOauthUrlHandler);
+app.all('/api/aci/oauth-callback', aciOauthCallbackHandler);
+app.all('/api/aci/connected-services', aciConnectedServicesHandler);
 
 // Root endpoint
 app.get('/', (req, res) => {
