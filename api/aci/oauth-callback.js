@@ -36,8 +36,9 @@ export default async function handler(req, res) {
     // 現在はACIが自動的にトークンを管理するため、
     // ユーザーをリダイレクトするだけでOK
     
-    // セッションIDをクエリパラメータとして渡す
-    const redirectUrl = `/auth-ui.html?success=true&service=${service}&sessionId=${sessionId}`;
+    // Anicca Web版にリダイレクト（Vercelの本番URL）
+    const webAppUrl = process.env.ANICCA_WEB_URL || 'http://localhost:3000';
+    const redirectUrl = `${webAppUrl}?success=true&service=${service}&sessionId=${sessionId}`;
     
     // 成功ページにリダイレクト
     return res.redirect(redirectUrl);
