@@ -15,6 +15,10 @@ export class ExaMcpService {
 
     try {
       console.log('🚀 Starting Exa MCP server...');
+      console.log('🔍 Environment check:');
+      console.log('  NODE_ENV:', process.env.NODE_ENV);
+      console.log('  Railway environment?', process.env.RAILWAY_ENVIRONMENT ? 'Yes' : 'No');
+      console.log('  EXA_API_KEY:', process.env.EXA_API_KEY ? 'Set' : 'Not set');
       
       // StdioClientTransportを作成（これがサーバープロセスも起動する）
       this.transport = new StdioClientTransport({
@@ -37,13 +41,23 @@ export class ExaMcpService {
       // クライアントを接続
       await this.client.connect(this.transport);
       
-      console.log('✅ Exa MCP service initialized successfully');
+      console.log('✅ Exa MCP client connected');
       
-      // listToolsは後で呼び出す（初期化時のエラーを避ける）
-      // Zodエラーが発生しているため、一旦スキップ
+      // 利用可能なツールを確認
+      try {
+        console.log('📋 Listing available tools...');
+        const tools = await this.client.listTools();
+        console.log('🛠️ Available tools:', JSON.stringify(tools, null, 2));
+      } catch (listError) {
+        console.error('⚠️ Error listing tools:', listError);
+        // エラーがあっても続行
+      }
+      
+      console.log('✅ Exa MCP service initialized successfully');
       
     } catch (error) {
       console.error('❌ Failed to initialize Exa MCP service:', error);
+      console.error('Error stack:', error.stack);
       throw error;
     }
   }
