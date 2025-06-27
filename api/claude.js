@@ -39,9 +39,10 @@ export default async function handler(req, res) {
     }
 
     // Forward the request to Anthropic API
+    // IMPORTANT: Always use the environment variable API key, ignore any received headers
     const headers = {
       'Content-Type': 'application/json',
-      'X-API-Key': anthropicApiKey,
+      'X-API-Key': anthropicApiKey,  // Always use environment variable, never the received header
       'anthropic-version': req.headers['anthropic-version'] || '2023-06-01',
     };
 
