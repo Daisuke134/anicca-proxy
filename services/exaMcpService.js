@@ -23,7 +23,11 @@ export class ExaMcpService {
       // StdioClientTransportを作成（これがサーバープロセスも起動する）
       this.transport = new StdioClientTransport({
         command: 'npx',
-        args: ['-y', 'exa-mcp-server'],
+        args: [
+          '-y', 
+          'exa-mcp-server',
+          '--tools=web_search_exa,research_paper_search,company_research,crawling,competitor_finder,linkedin_search,wikipedia_search_exa,github_search'
+        ],
         env: {
           ...process.env,
           EXA_API_KEY: process.env.EXA_API_KEY
@@ -71,10 +75,14 @@ export class ExaMcpService {
       console.log(`🔍 Searching with Exa MCP: "${query}"`);
       console.log('🔧 Search options:', JSON.stringify(options, null, 2));
       
-      // MCPツールを呼び出し - 正しいツール名は 'web_search_exa'
-      const result = await this.client.callTool('web_search_exa', {
-        query,
-        ...options
+      // MCPツールを呼び出し
+      // 注意: callToolの第一引数はツール名、第二引数は {arguments: {...}} の形式
+      const result = await this.client.callTool({
+        name: 'web_search_exa',
+        arguments: {
+          query,
+          ...options
+        }
       });
 
       console.log('✅ Exa MCP search completed');

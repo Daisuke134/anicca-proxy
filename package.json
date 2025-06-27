@@ -29,9 +29,10 @@
     "@modelcontextprotocol/sdk": "^1.13.0",
     "@vercel/mcp-adapter": "^0.11.1",
     "axios": "^1.10.0",
-    "form-data": "^4.0.3",
-    "express": "^4.18.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "exa-mcp-server": "^0.3.10",
+    "express": "^4.18.2",
+    "form-data": "^4.0.3"
   }
 }
