@@ -72,8 +72,8 @@ export class ClaudeExecutorService extends EventEmitter {
       }
     }
     
-    // 独立した作業環境を設定（Vercelの場合は/tmpを使用）
-    this.workspaceRoot = process.env.VERCEL 
+    // 独立した作業環境を設定（サーバー環境の場合は/tmpを使用）
+    this.workspaceRoot = process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT
       ? path.join('/tmp', 'anicca-agent-workspace')
       : path.join(os.homedir(), 'Desktop', 'anicca-agent-workspace');
     
