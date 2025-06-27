@@ -164,9 +164,9 @@ export class ClaudeExecutorService extends EventEmitter {
    * SDKメッセージをログ出力（進捗の可視化）
    */
   logSDKMessage(message) {
-    const msg = message as any;
+    const msg = message;
     let logContent = '';
-    let logType: 'system' | 'assistant' | 'user' | 'result' | 'tool' | 'error' = message.type as any;
+    let logType = message.type;
     
     switch (message.type) {
       case 'system':
@@ -418,7 +418,7 @@ ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "$@"
           maxTurns: 30, // アプリ作成なども考慮して余裕を持せる
           mcpServers: this.mcpServers,
           cwd: workingDir,  // 作業ディレクトリを指定（常にworkspaceRoot）
-          permissionMode: 'bypassPermissions' as const,  // workspace内では完全な権限を付与
+          permissionMode: 'bypassPermissions',  // workspace内では完全な権限を付与
           // 環境変数をSDKに渡す（SDKのspawnに反映されるか確認）
           env: envWithNode,
           appendSystemPrompt: `
@@ -484,7 +484,7 @@ TODO整理：
 できるだけ10ターン以内で完了させてください。
 長くなりそうな場合は、段階的に結果を届けてください。
 `
-        } as any;
+        };
         
         
         for await (const message of query({
@@ -502,15 +502,15 @@ TODO整理：
       
       // resultメッセージから結果を取得
       const resultMessage = messages.find(m => m.type === 'result');
-      if (resultMessage && (resultMessage as any).result) {
-        textResult = (resultMessage as any).result;
+      if (resultMessage && resultMessage.result) {
+        textResult = resultMessage.result;
       } else {
         // assistantメッセージから結果を取得
         const assistantMessages = messages.filter(m => m.type === 'assistant');
         if (assistantMessages.length > 0) {
           const lastAssistant = assistantMessages[assistantMessages.length - 1];
-          if ((lastAssistant as any).message?.content) {
-            const content = (lastAssistant as any).message.content;
+          if (lastAssistant.message?.content) {
+            const content = lastAssistant.message.content;
             textResult = content.map((c) => c.text || '').join('\n');
           }
         }
@@ -531,7 +531,7 @@ TODO整理：
       return {
         success: true,
         result: textResult || 'Task completed',
-        toolsUsed: messages.filter(m => (m as any).type === 'tool_use').map(m => (m as any).name),
+        toolsUsed: messages.filter(m => m.type === 'tool_use').map(m => m.name),
         generatedFiles,
         sessionDir: workingDir,
         timestamp: Date.now()
@@ -599,7 +599,7 @@ ${action.parameters.query || ''}`;
           maxTurns: 1,
           mcpServers: this.mcpServers,
           cwd: sessionDir,  // 作業ディレクトリを指定
-          permissionMode: 'bypassPermissions' as const
+          permissionMode: 'bypassPermissions'
         }
       })) {
         messages.push(message);
@@ -613,13 +613,13 @@ ${action.parameters.query || ''}`;
       
       // resultメッセージから結果を取得
       const resultMessage = messages.find(m => m.type === 'result');
-      if (resultMessage && (resultMessage as any).result) {
-        textResult = (resultMessage as any).result;
+      if (resultMessage && resultMessage.result) {
+        textResult = resultMessage.result;
       } else {
         // assistantメッセージから結果を取得
         const assistantMessage = messages.find(m => m.type === 'assistant');
-        if (assistantMessage && (assistantMessage as any).message?.content) {
-          const content = (assistantMessage as any).message.content;
+        if (assistantMessage && assistantMessage.message?.content) {
+          const content = assistantMessage.message.content;
           textResult = content.map((c: any) => c.text || '').join('\n');
         }
       }
@@ -688,8 +688,8 @@ ${action.parameters.query || ''}`;
       // 結果を取得
       let result = '';
       const resultMessage = messages.find(m => m.type === 'result');
-      if (resultMessage && (resultMessage as any).result) {
-        result = (resultMessage as any).result;
+      if (resultMessage && resultMessage.result) {
+        result = resultMessage.result;
       }
 
       console.log('💻 Code Generation Results from Claude Code SDK:');
@@ -738,8 +738,8 @@ ${action.parameters.query || ''}`;
       // 結果を取得
       let result = '';
       const resultMessage = messages.find(m => m.type === 'result');
-      if (resultMessage && (resultMessage as any).result) {
-        result = (resultMessage as any).result;
+      if (resultMessage && resultMessage.result) {
+        result = resultMessage.result;
       }
 
       console.log('📁 File Operation Results from Claude Code SDK:');
@@ -794,8 +794,8 @@ ${action.parameters.query || ''}`;
       // 結果を取得
       let result = '';
       const resultMessage = messages.find(m => m.type === 'result');
-      if (resultMessage && (resultMessage as any).result) {
-        result = (resultMessage as any).result;
+      if (resultMessage && resultMessage.result) {
+        result = resultMessage.result;
       }
 
       console.log('🖥️ Command Execution Results from Claude Code SDK:');
