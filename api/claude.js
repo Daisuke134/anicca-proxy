@@ -1,0 +1,69 @@
+export default async function handler(req, res) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-API-Key, anthropic-version, anthropic-beta');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  try {
+    const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+    
+    if (!anthropicApiKey) {
+      console.error('ANTHROPIC_API_KEY not configured');
+      return res.status(500).json({ error: 'Claude API key not configured on server' });
+    }
+
+    // Extract the API path from the request
+    // e.g., /api/claude/v1/messages -> /v1/messages
+    const apiPath = req.url.replace('/api/claude', '');
+    const anthropicUrl = `https://api.anthropic.com${apiPath}`;
+    
+    console.log(`Proxying Claude API request to: ${anthropicUrl}`);
+    console.log('Method:', req.method);
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+
+    // Forward the request to Anthropic API
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-API-Key': anthropicApiKey,
+      'anthropic-version': req.headers['anthropic-version'] || '2023-06-01',
+    };
+
+    // Forward any anthropic-beta headers
+    if (req.headers['anthropic-beta']) {
+      headers['anthropic-beta'] = req.headers['anthropic-beta'];
+    }
+
+    const response = await fetch(anthropicUrl, {
+      method: req.method,
+      headers,
+      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+    });
+
+    const responseText = await response.text();
+    
+    console.log('Response status:', response.status);
+    console.log('Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
+
+    // Forward response headers
+    response.headers.forEach((value, key) => {
+      if (key.toLowerCase() !== 'content-encoding' && 
+          key.toLowerCase() !== 'content-length' &&
+          key.toLowerCase() !== 'transfer-encoding') {
+        res.setHeader(key, value);
+      }
+    });
+
+    res.status(response.status).send(responseText);
+
+  } catch (error) {
+    console.error('Claude proxy error:', error);
+    res.status(500).json({ 
+      error: 'Proxy error', 
+      message: error.message 
+    });
+  }
+}
