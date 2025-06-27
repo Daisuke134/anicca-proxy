@@ -50,8 +50,10 @@ AVAILABLE TOOLS:
 2. **get_hacker_news_stories**: Tech news from Hacker News
    - Latest technology news and discussions
 
-3. **slack_post**: Post messages to Slack channels
-   - Requires: channel and message
+3. **think_with_aci**: 600+ integrations via ACI platform
+   - Slack, Google Calendar, GitHub, Gmail, and more
+   - Automatically handles OAuth authenticated services
+   - Example: "Post message to #general channel in Slack"
 
 4. **think_with_claude**: Complex task execution and automation
    - App/game development
@@ -144,21 +146,22 @@ Be friendly, helpful, and intelligent in your tool selection and responses.`,
           },
           {
             type: 'function',
-            name: 'slack_post',
-            description: 'Post a message to a Slack channel',
+            name: 'think_with_aci',
+            description: 'Use ACI (600+ integrations) including Slack, Google Calendar, GitHub, etc. Handles complex tasks with connected services',
             parameters: {
               type: 'object',
               properties: {
-                channel: {
+                task: {
                   type: 'string',
-                  description: 'Slack channel name (e.g., #general, #ai-channel)'
+                  description: 'The task to perform (e.g., "Post message to #general channel", "Create calendar event", "Search GitHub issues")'
                 },
-                message: {
+                context: {
                   type: 'string',
-                  description: 'Message to post'
+                  description: 'Additional context if needed',
+                  optional: true
                 }
               },
-              required: ['channel', 'message']
+              required: ['task']
             }
           },
           {
