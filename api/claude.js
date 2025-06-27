@@ -1,4 +1,8 @@
 export default async function handler(req, res) {
+  console.log('🔍 Claude proxy handler called');
+  console.log('  Method:', req.method);
+  console.log('  URL:', req.url);
+  
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -12,7 +16,7 @@ export default async function handler(req, res) {
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
     
     if (!anthropicApiKey) {
-      console.error('ANTHROPIC_API_KEY not configured');
+      console.error('❌ ANTHROPIC_API_KEY not configured');
       return res.status(500).json({ error: 'Claude API key not configured on server' });
     }
 
@@ -21,9 +25,13 @@ export default async function handler(req, res) {
     const apiPath = req.url.replace('/api/claude', '');
     const anthropicUrl = `https://api.anthropic.com${apiPath}`;
     
-    console.log(`Proxying Claude API request to: ${anthropicUrl}`);
-    console.log('Method:', req.method);
-    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log(`🚀 Proxying Claude API request to: ${anthropicUrl}`);
+    console.log('📋 Request headers:', JSON.stringify(req.headers, null, 2));
+    
+    // Log request body for debugging
+    if (req.body) {
+      console.log('📦 Request body preview:', JSON.stringify(req.body).substring(0, 500) + '...');
+    }
 
     // Forward the request to Anthropic API
     const headers = {
@@ -37,16 +45,34 @@ export default async function handler(req, res) {
       headers['anthropic-beta'] = req.headers['anthropic-beta'];
     }
 
-    const response = await fetch(anthropicUrl, {
-      method: req.method,
-      headers,
-      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-    });
+    console.log('📤 Sending to Anthropic with headers:', headers);
+
+    let response;
+    try {
+      response = await fetch(anthropicUrl, {
+        method: req.method,
+        headers,
+        body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+      });
+    } catch (fetchError) {
+      console.error('❌ Fetch error:', fetchError);
+      return res.status(502).json({ 
+        error: 'Bad Gateway', 
+        message: 'Failed to connect to Claude API',
+        details: fetchError.message
+      });
+    }
 
     const responseText = await response.text();
     
-    console.log('Response status:', response.status);
-    console.log('Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
+    console.log('📥 Response status:', response.status);
+    console.log('📥 Response preview:', responseText.substring(0, 200) + '...');
+
+    // Error check
+    if (!response.ok) {
+      console.error(`❌ Claude API error: ${response.status}`);
+      console.error('Response:', responseText);
+    }
 
     // Forward response headers
     response.headers.forEach((value, key) => {
@@ -60,9 +86,10 @@ export default async function handler(req, res) {
     res.status(response.status).send(responseText);
 
   } catch (error) {
-    console.error('Claude proxy error:', error);
+    console.error('❌ Claude proxy error:', error);
+    console.error('Stack trace:', error.stack);
     res.status(500).json({ 
-      error: 'Proxy error', 
+      error: 'Internal server error', 
       message: error.message 
     });
   }

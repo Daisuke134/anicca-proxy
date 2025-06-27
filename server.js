@@ -31,14 +31,14 @@ import landingHandler from './api/landing.js';
 import hackerNewsHandler from './api/tools/get_hacker_news_stories.js';
 import exaHandler from './api/tools/search_exa.js';
 import thinkWithClaudeHandler from './api/tools/think_with_claude.js';
-// import claudeHandler from './api/claude.js'; // 一時的にコメントアウト
+import claudeHandler from './api/claude.js';
 
 // API Routes - 完全移植
 app.all('/api/gemini', geminiHandler);
 app.all('/api/tts', ttsHandler);
 app.all('/api/whisper', whisperHandler);
 app.all('/api/openai-proxy*', openaiProxyHandler);
-// app.all('/api/claude*', claudeHandler); // 一時的にコメントアウト
+app.all('/api/claude*', claudeHandler);
 app.all('/api/slack-oauth', slackOauthHandler);
 app.all('/api/slack-oauth/callback', slackOauthCallbackHandler);
 app.all('/api/download', downloadHandler);
