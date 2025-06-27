@@ -308,7 +308,7 @@ export class ClaudeExecutorService extends EventEmitter {
 
     } catch (error) {
       console.error('❌ Action execution error:', error);
-      const errorResult: ExecutionResult = {
+      const errorResult = {
         success: false,
         error: error instanceof Error ? error.message : String(error),
         timestamp: Date.now()
@@ -354,7 +354,7 @@ export class ClaudeExecutorService extends EventEmitter {
     const originalPath = process.env.PATH || '';
 
     try {
-      const messages: SDKMessage[] = [];
+      const messages = [];
       // 作業ディレクトリは常にworkspaceRootを使用
       const workingDir = this.workspaceRoot;
       
@@ -574,7 +574,7 @@ TODO整理：
     }
 
     try {
-      const messages: SDKMessage[] = [];
+      const messages = [];
       // セッション用の作業ディレクトリを作成
       const sessionDir = this.createSessionWorkspace();
       
@@ -669,7 +669,7 @@ ${action.parameters.query || ''}`;
     }
 
     try {
-      const messages: SDKMessage[] = [];
+      const messages = [];
       const prompt = `コードを生成してください: ${action.parameters.query}\n必要なファイルを作成し、機能を実装してください。`;
       
       this.abortController = new AbortController();
@@ -721,7 +721,7 @@ ${action.parameters.query || ''}`;
         ? `Edit file ${action.parameters.filePath}: ${action.parameters.content}`
         : `Read and analyze file: ${action.parameters?.filePath}`;
 
-      const messages: SDKMessage[] = [];
+      const messages = [];
       this.abortController = new AbortController();
       
       for await (const message of query({
@@ -775,7 +775,7 @@ ${action.parameters.query || ''}`;
     }
 
     try {
-      const messages: SDKMessage[] = [];
+      const messages = [];
       const prompt = `次のコマンドを実行して結果を報告してください: ${action.parameters.command}`;
       
       this.abortController = new AbortController();
@@ -1013,7 +1013,7 @@ ${action.parameters.query || ''}`;
   /**
    * 実行状態をリセット（緊急用）
    */
-  resetExecutionState(): void {
+  resetExecutionState() {
     console.log('🔄 Resetting execution state');
     this.isExecuting = false;
     
