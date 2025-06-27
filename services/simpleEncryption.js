@@ -6,10 +6,10 @@ import * as path from 'path';
  * シンプルな暗号化サービス（Node.js環境用）
  */
 export class SimpleEncryption {
-  private algorithm = 'aes-256-cbc';
-  private keyPath: string;
-  private key!: Buffer;
-  private iv!: Buffer;
+  algorithm = 'aes-256-cbc';
+  keyPath;
+  key;
+  iv;
 
   constructor() {
     // キーファイルのパス
@@ -23,7 +23,7 @@ export class SimpleEncryption {
     }
   }
 
-  private generateKey(): void {
+  generateKey() {
     const dir = path.dirname(this.keyPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -41,20 +41,20 @@ export class SimpleEncryption {
     console.log('🔑 Encryption key generated');
   }
 
-  private loadKey(): void {
+  loadKey() {
     const keyData = JSON.parse(fs.readFileSync(this.keyPath, 'utf-8'));
     this.key = Buffer.from(keyData.key, 'hex');
     this.iv = Buffer.from(keyData.iv, 'hex');
   }
 
-  encrypt(text: string): string {
+  encrypt(text) {
     const cipher = crypto.createCipheriv(this.algorithm, this.key, this.iv);
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     return encrypted;
   }
 
-  decrypt(encrypted: string): string {
+  decrypt(encrypted) {
     const decipher = crypto.createDecipheriv(this.algorithm, this.key, this.iv);
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
