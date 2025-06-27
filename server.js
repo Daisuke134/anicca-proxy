@@ -61,9 +61,19 @@ app.get('/', (req, res) => {
   res.redirect('/api/landing');
 });
 
+// Check required environment variables
+const requiredEnvVars = ['ACI_API_KEY'];
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingVars.length > 0) {
+  console.error('❌ Missing required environment variables:', missingVars);
+  console.error('Please set these variables in Railway or your environment');
+}
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Anicca Proxy Server running on port ${PORT}`);
   console.log(`📍 Health check: http://localhost:${PORT}/health`);
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔑 ACI_API_KEY: ${process.env.ACI_API_KEY ? 'Set' : '❌ Not set'}`);
 });

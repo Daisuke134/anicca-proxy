@@ -20,14 +20,31 @@ export class AciMcpService {
       console.log('  ACI_API_KEY:', process.env.ACI_API_KEY ? 'Set' : 'Not set');
       console.log('  ACI_LINKED_ACCOUNT_OWNER_ID:', process.env.ACI_LINKED_ACCOUNT_OWNER_ID || 'Not set');
       
+      // Check if ACI_API_KEY is set
+      if (!process.env.ACI_API_KEY) {
+        throw new Error('ACI_API_KEY environment variable is not set');
+      }
+      
       this.linkedAccountOwnerId = process.env.ACI_LINKED_ACCOUNT_OWNER_ID || '';
+      
+      // Check if uvx is available
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execPromise = promisify(exec);
+      
+      try {
+        await execPromise('which uvx');
+        console.log('✅ uvx command is available');
+      } catch (error) {
+        console.error('❌ uvx is not available in the environment');
+        throw new Error('uvx command not found. Please ensure uv is properly installed.');
+      }
       
       // ACIのMCPサーバーを起動
       this.transport = new StdioClientTransport({
-        command: 'npx',
+        command: 'uvx',
         args: [
-          '-y',
-          'aci-mcp@latest',
+          'aci-mcp',
           'unified-server',
           '--linked-account-owner-id',
           this.linkedAccountOwnerId

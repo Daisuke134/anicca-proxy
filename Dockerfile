@@ -31,6 +31,20 @@ COPY . .
 # Final stage for app image
 FROM base
 
+# Install runtime dependencies including npm/npx, Python, and uv
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+    ca-certificates \
+    python3 \
+    python3-pip \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && echo 'export PATH="/root/.cargo/bin:$PATH"' >> /root/.bashrc
+
+# Set PATH to include uv
+ENV PATH="/root/.cargo/bin:$PATH"
+
 # Copy built application
 COPY --from=build /app /app
 
