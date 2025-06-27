@@ -251,7 +251,7 @@ export class ClaudeExecutorService extends EventEmitter {
     }, this.MAX_EXECUTION_TIME);
 
     try {
-      let result: ExecutionResult;
+      let result;
 
       switch (action.type) {
         case 'general':
