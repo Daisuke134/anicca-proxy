@@ -54,9 +54,7 @@ export default async function handler(req, res) {
     // Exa MCPで検索
     console.log('🔍 Using Exa MCP for search...');
     const mcpResult = await exaMcpService.search(query, {
-      num_results: 5,
-      type: 'neural',
-      use_autoprompt: true
+      numResults: 5  // MCPサーバーが期待するパラメータ名
     });
     
     console.log('🌐 Exa MCP response:', JSON.stringify(mcpResult, null, 2));

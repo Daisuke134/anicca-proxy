@@ -39,13 +39,8 @@ export class ExaMcpService {
       
       console.log('✅ Exa MCP service initialized successfully');
       
-      // 利用可能なツールを確認
-      try {
-        const tools = await this.client.listTools();
-        console.log('🔧 Available Exa tools:', JSON.stringify(tools, null, 2));
-      } catch (listError) {
-        console.error('⚠️ Could not list tools:', listError);
-      }
+      // listToolsは後で呼び出す（初期化時のエラーを避ける）
+      // Zodエラーが発生しているため、一旦スキップ
       
     } catch (error) {
       console.error('❌ Failed to initialize Exa MCP service:', error);
