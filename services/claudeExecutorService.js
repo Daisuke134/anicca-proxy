@@ -71,7 +71,7 @@ export class ClaudeExecutorService extends EventEmitter {
       console.log('🌐 Using proxy mode for Claude API');
       
       // ANTHROPIC_BASE_URLを設定してプロキシ経由にする
-      const proxyUrl = 'https://anicca-proxy-ten.vercel.app/api/claude';
+      const proxyUrl = 'https://anicca-proxy-production.up.railway.app/api/claude';
       process.env.ANTHROPIC_BASE_URL = proxyUrl;
       
       // ダミーのAPIキーを設定（プロキシが本物のキーを持っている）
