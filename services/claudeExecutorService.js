@@ -431,7 +431,6 @@ ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "$@"
         console.error('❌ Failed to create node wrapper:', error);
       }
       
-      try {
         // デバッグ: 環境変数を確認
         console.log('🔍 DEBUG - Environment check:');
         console.log('  ANTHROPIC_BASE_URL:', process.env.ANTHROPIC_BASE_URL);
