@@ -5,43 +5,45 @@ import * as path from 'path';
 import * as os from 'os';
 import { SimpleEncryption } from './simpleEncryption.js';
 
-interface ActionRequest {
-  type: 'general' | 'search' | 'code' | 'file' | 'command' | 'slack' | 'github' | 'browser' | 'wait';
-  reasoning: string;
-  urgency?: 'high' | 'low';
-  parameters?: {
-    query?: string;
-    filePath?: string;
-    content?: string;
-    command?: string;
-    message?: string;
-    url?: string;
-  };
-  context?: string;
-}
+// ActionRequest type definition (for reference)
+// {
+//   type: 'general' | 'search' | 'code' | 'file' | 'command' | 'slack' | 'github' | 'browser' | 'wait';
+//   reasoning: string;
+//   urgency?: 'high' | 'low';
+//   parameters?: {
+//     query?: string;
+//     filePath?: string;
+//     content?: string;
+//     command?: string;
+//     message?: string;
+//     url?: string;
+//   };
+//   context?: string;
+// }
 
-interface ExecutionResult {
-  success: boolean;
-  result?: any;
-  error?: string;
-  toolsUsed?: string[];
-  generatedFiles?: string[];
-  sessionDir?: string;
-  timestamp: number;
-}
+// ExecutionResult type definition (for reference)
+// {
+//   success: boolean;
+//   result?: any;
+//   error?: string;
+//   toolsUsed?: string[];
+//   generatedFiles?: string[];
+//   sessionDir?: string;
+//   timestamp: number;
+// }
 
 export class ClaudeExecutorService extends EventEmitter {
-  private database: DatabaseInterface;
-  private apiKey: string;
-  private isExecuting: boolean = false;
-  private actionQueue: ActionRequest[] = [];
-  private mcpServers: Record<string, any> = {};
-  private abortController: AbortController | null = null;
-  private workspaceRoot: string;
-  private executionTimeout: NodeJS.Timeout | null = null;
-  private readonly MAX_EXECUTION_TIME = 300000; // 5分
+  database;
+  apiKey;
+  isExecuting = false;
+  actionQueue = [];
+  mcpServers = {};
+  abortController = null;
+  workspaceRoot;
+  executionTimeout = null;
+  MAX_EXECUTION_TIME = 300000; // 5分
 
-  constructor(database: DatabaseInterface) {
+  constructor(database) {
     super();
     this.database = database;
     
@@ -96,7 +98,7 @@ export class ClaudeExecutorService extends EventEmitter {
   /**
    * 作業ディレクトリの存在を確認し、なければ作成
    */
-  private ensureWorkspaceExists(): void {
+  ensureWorkspaceExists() {
     try {
       if (!fs.existsSync(this.workspaceRoot)) {
         fs.mkdirSync(this.workspaceRoot, { recursive: true });
@@ -110,7 +112,7 @@ export class ClaudeExecutorService extends EventEmitter {
   /**
    * 新しいセッション用の作業ディレクトリを作成
    */
-  private createSessionWorkspace(): string {
+  createSessionWorkspace() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const sessionDir = path.join(this.workspaceRoot, timestamp);
     
@@ -128,11 +130,11 @@ export class ClaudeExecutorService extends EventEmitter {
   /**
    * 生成されたファイルを検出
    */
-  private findGeneratedFiles(directory: string): string[] {
-    const files: string[] = [];
+  findGeneratedFiles(directory) {
+    const files = [];
     
     try {
-      const walkDir = (dir: string, baseDir: string = directory) => {
+      const walkDir = (dir, baseDir = directory) => {
         const entries = fs.readdirSync(dir, { withFileTypes: true });
         
         for (const entry of entries) {
@@ -161,7 +163,7 @@ export class ClaudeExecutorService extends EventEmitter {
   /**
    * SDKメッセージをログ出力（進捗の可視化）
    */
-  private logSDKMessage(message: SDKMessage): void {
+  logSDKMessage(message) {
     const msg = message as any;
     let logContent = '';
     let logType: 'system' | 'assistant' | 'user' | 'result' | 'tool' | 'error' = message.type as any;
@@ -178,7 +180,7 @@ export class ClaudeExecutorService extends EventEmitter {
         if (msg.message?.content) {
           const content = msg.message.content;
           if (Array.isArray(content)) {
-            const logParts: string[] = [];
+            const logParts = [];
             content.forEach((item: any) => {
               if (item.type === 'text') {
                 const text = item.text.substring(0, 500) + (item.text.length > 500 ? '...' : '');
@@ -225,7 +227,7 @@ export class ClaudeExecutorService extends EventEmitter {
   /**
    * アクションを実行
    */
-  async executeAction(action: ActionRequest): Promise<ExecutionResult> {
+  async executeAction(action) {
     console.log(`🎯 Executing action: ${action.type}`, action);
     
     // 実行中の場合はキューに追加
@@ -338,7 +340,7 @@ export class ClaudeExecutorService extends EventEmitter {
   /**
    * 一般的なリクエストの実行（自由な指示）
    */
-  private async executeGeneralRequest(action: ActionRequest): Promise<ExecutionResult> {
+  async executeGeneralRequest(action) {
     if (!action.parameters?.query) {
       return {
         success: false,
@@ -509,7 +511,7 @@ TODO整理：
           const lastAssistant = assistantMessages[assistantMessages.length - 1];
           if ((lastAssistant as any).message?.content) {
             const content = (lastAssistant as any).message.content;
-            textResult = content.map((c: any) => c.text || '').join('\n');
+            textResult = content.map((c) => c.text || '').join('\n');
           }
         }
       }
@@ -562,7 +564,7 @@ TODO整理：
   /**
    * 検索アクションの実行
    */
-  private async executeSearch(action: ActionRequest): Promise<ExecutionResult> {
+  async executeSearch(action) {
     if (!action.parameters?.query) {
       return {
         success: false,
@@ -657,7 +659,7 @@ ${action.parameters.query || ''}`;
   /**
    * コード生成アクションの実行
    */
-  private async executeCodeGeneration(action: ActionRequest): Promise<ExecutionResult> {
+  async executeCodeGeneration(action) {
     if (!action.parameters?.query) {
       return {
         success: false,
@@ -713,7 +715,7 @@ ${action.parameters.query || ''}`;
   /**
    * ファイル操作アクションの実行
    */
-  private async executeFileOperation(action: ActionRequest): Promise<ExecutionResult> {
+  async executeFileOperation(action) {
     try {
       const prompt = action.parameters?.content
         ? `Edit file ${action.parameters.filePath}: ${action.parameters.content}`
@@ -763,7 +765,7 @@ ${action.parameters.query || ''}`;
   /**
    * コマンド実行アクション
    */
-  private async executeCommand(action: ActionRequest): Promise<ExecutionResult> {
+  async executeCommand(action) {
     if (!action.parameters?.command) {
       return {
         success: false,
@@ -819,7 +821,7 @@ ${action.parameters.query || ''}`;
   /**
    * Slackアクションの実行
    */
-  private async executeSlackAction(action: ActionRequest): Promise<ExecutionResult> {
+  async executeSlackAction(action) {
     // TODO: Slack MCP統合
     return {
       success: false,
@@ -831,7 +833,7 @@ ${action.parameters.query || ''}`;
   /**
    * GitHubアクションの実行
    */
-  private async executeGitHubAction(action: ActionRequest): Promise<ExecutionResult> {
+  async executeGitHubAction(action) {
     // TODO: GitHub MCP統合
     return {
       success: false,
@@ -843,7 +845,7 @@ ${action.parameters.query || ''}`;
   /**
    * ブラウザアクションの実行
    */
-  private async executeBrowserAction(action: ActionRequest): Promise<ExecutionResult> {
+  async executeBrowserAction(action) {
     // TODO: Browser automation統合
     return {
       success: false,
@@ -855,7 +857,7 @@ ${action.parameters.query || ''}`;
   /**
    * 待機アクションの実行
    */
-  private async executeWait(action: ActionRequest): Promise<ExecutionResult> {
+  async executeWait(action) {
     const duration = action.parameters?.query ? parseInt(action.parameters.query) : 5000;
     await new Promise(resolve => setTimeout(resolve, duration));
     
@@ -870,7 +872,7 @@ ${action.parameters.query || ''}`;
   /**
    * 実行結果をデータベースに保存
    */
-  private async saveExecutionResult(action: ActionRequest, result: ExecutionResult): Promise<void> {
+  async saveExecutionResult(action, result) {
     try {
       // TODO: データベーススキーマに応じて実装
       console.log('💾 Saving execution result to database');
@@ -882,7 +884,7 @@ ${action.parameters.query || ''}`;
   /**
    * MCPサーバーを動的に追加
    */
-  async addMCPServer(name: string, config: any): Promise<boolean> {
+  async addMCPServer(name, config) {
     try {
       this.mcpServers[name] = config;
       console.log(`🔌 MCP server '${name}' added:`, config);
@@ -896,7 +898,7 @@ ${action.parameters.query || ''}`;
   /**
    * 基本的なMCPサーバーをセットアップ
    */
-  async setupDefaultMCPServers(): Promise<void> {
+  async setupDefaultMCPServers() {
     try {
       // EXA MCPサーバーを設定
       // EXA APIキーを取得（既に無効化済み）
@@ -926,7 +928,7 @@ ${action.parameters.query || ''}`;
    * 
    * サーバーの初期化
    */
-  private async initializeMCPServers(): Promise<void> {
+  async initializeMCPServers() {
     this.mcpServers = {};
     
     // ElevenLabs MCPの設定（常に有効）
@@ -989,7 +991,7 @@ ${action.parameters.query || ''}`;
   /**
    * MCPサーバーを動的に更新
    */
-  async updateMCPServers(): Promise<void> {
+  async updateMCPServers() {
     await this.initializeMCPServers();
     console.log('🔄 MCP servers updated');
   }
@@ -997,7 +999,7 @@ ${action.parameters.query || ''}`;
   /**
    * 利用可能なMCPサーバーのリストを取得
    */
-  getAvailableMCPServers(): string[] {
+  getAvailableMCPServers() {
     const available: string[] = [];
     if (this.mcpServers.slack) {
       available.push('Slack');
