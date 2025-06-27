@@ -48,14 +48,15 @@ export default async function handler(req, res) {
       throw new Error(`Failed to start OAuth: ${oauthResponse.status}`);
     }
     
-    // ACIはOAuth URLを文字列として返す
-    const oauthUrl = await oauthResponse.text();
+    // ACIはJSONオブジェクトとして返す
+    const oauthData = await oauthResponse.json();
+    const oauthUrl = oauthData.url;
     
-    console.log('🔗 Generated OAuth URL:', oauthUrl);
+    console.log('🔗 Generated OAuth URL:', oauthData);
     
     return res.status(200).json({
       success: true,
-      oauthUrl: oauthUrl.trim(), // 余分な空白を削除
+      oauthUrl: oauthUrl,
       service: service
     });
     
