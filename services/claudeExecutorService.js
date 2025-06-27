@@ -181,7 +181,7 @@ export class ClaudeExecutorService extends EventEmitter {
           const content = msg.message.content;
           if (Array.isArray(content)) {
             const logParts = [];
-            content.forEach((item: any) => {
+            content.forEach((item) => {
               if (item.type === 'text') {
                 const text = item.text.substring(0, 500) + (item.text.length > 500 ? '...' : '');
                 logParts.push(`Claude: ${text}`);
@@ -620,7 +620,7 @@ ${action.parameters.query || ''}`;
         const assistantMessage = messages.find(m => m.type === 'assistant');
         if (assistantMessage && assistantMessage.message?.content) {
           const content = assistantMessage.message.content;
-          textResult = content.map((c: any) => c.text || '').join('\n');
+          textResult = content.map((c) => c.text || '').join('\n');
         }
       }
 
@@ -1000,7 +1000,7 @@ ${action.parameters.query || ''}`;
    * 利用可能なMCPサーバーのリストを取得
    */
   getAvailableMCPServers() {
-    const available: string[] = [];
+    const available = [];
     if (this.mcpServers.slack) {
       available.push('Slack');
     }
