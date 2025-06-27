@@ -402,8 +402,8 @@ ${action.parameters.query}`;
       
       // process.envを直接更新（SDKがenvオプションをサポートしない場合のため）
       process.env.ELECTRON_RUN_AS_NODE = '1';
-      // DEBUG環境変数を削除（JSON出力を汚染するため）
-      // process.env.DEBUG = 'true';
+      // DEBUG環境変数を有効化してstderrを取得
+      process.env.DEBUG = 'true';
       // process.env.ANTHROPIC_LOG = 'debug';
       
       // Electronの実行ファイルのディレクトリをPATHに追加
@@ -532,6 +532,17 @@ TODO整理：
         let queryIterable;
         try {
           console.log('🔄 Calling query function...');
+          
+          // cli.jsファイルのパスを確認
+          const cliPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'node_modules', '@anthropic-ai', 'claude-code', 'cli.js');
+          console.log('🔍 Checking cli.js path:', cliPath);
+          console.log('   File exists?', fs.existsSync(cliPath));
+          if (fs.existsSync(cliPath)) {
+            const stats = fs.statSync(cliPath);
+            console.log('   File permissions:', stats.mode.toString(8));
+            console.log('   File size:', stats.size);
+          }
+          
           queryIterable = query({
             prompt,
             options: queryOptions
