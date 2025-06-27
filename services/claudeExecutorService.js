@@ -1,10 +1,9 @@
-import { query, type SDKMessage } from '@anthropic-ai/claude-code';
-import { DatabaseInterface } from './interfaces';
+import { query } from '@anthropic-ai/claude-code';
 import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { SimpleEncryption } from './simpleEncryption';
+import { SimpleEncryption } from './simpleEncryption.js';
 
 interface ActionRequest {
   type: 'general' | 'search' | 'code' | 'file' | 'command' | 'slack' | 'github' | 'browser' | 'wait';

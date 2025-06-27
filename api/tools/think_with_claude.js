@@ -1,7 +1,7 @@
 // Claude SDK版のthink_with_claude
 // デスクトップ版と同じClaudeExecutorServiceを使用
 
-import { ClaudeExecutorService } from '../../services/claudeExecutorService.ts';
+import { ClaudeExecutorService } from '../../services/claudeExecutorService.js';
 import { MockDatabase } from '../../services/mockDatabase.js';
 
 // タスク実行状態
