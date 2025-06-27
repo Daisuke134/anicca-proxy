@@ -101,7 +101,7 @@ export default async function handler(req, res) {
       }
     }
     
-    // レスポンスフォーマットを維持
+    // レスポンスフォーマットを維持（要約指示を追加）
     const responseData = {
       success: true,
       query: query,
@@ -109,7 +109,9 @@ export default async function handler(req, res) {
         title: result.title,
         url: result.url,
         snippet: result.snippet || result.text?.substring(0, 200) + '...'
-      }))
+      })),
+      // AIへの指示を追加
+      _instruction: 'Please summarize these results concisely, highlighting the most important and relevant information. Focus on key insights rather than listing all results.'
     };
     
     console.log('✅ Returning response:', JSON.stringify(responseData, null, 2));
