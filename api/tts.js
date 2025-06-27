@@ -1,5 +1,5 @@
 // Google Cloud Text-to-Speech プロキシAPI
-const textToSpeech = require('@google-cloud/text-to-speech');
+import textToSpeech from '@google-cloud/text-to-speech';
 
 export default async function handler(req, res) {
   // CORSヘッダーを設定

@@ -109,6 +109,3 @@ export default async function handler(req, res) {
     });
   }
 }
-
-  console.log('=== DOWNLOAD ENDPOINT V2.0 - DEBUG MODE ===');
-  console.log('Using RELEASE_TAG:', process.env.RELEASE_TAG || 'latest');
