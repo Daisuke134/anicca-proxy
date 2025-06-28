@@ -58,9 +58,43 @@ export default async function handler(req, res) {
     
     // Exa MCPで検索（ツール名を指定）
     console.log('🔍 Using Exa MCP for search...');
+    
+    // crawlingツールは特別な処理が必要
+    let searchParams = { numResults: 5 };
+    if (toolName === 'crawling') {
+      // crawlingはurlパラメータを期待
+      const result = await exaMcpService.client.callTool({
+        name: 'crawling',
+        arguments: {
+          url: query  // queryをurlとして渡す
+        }
+      });
+      console.log('🌐 Exa MCP response:', JSON.stringify(result, null, 2));
+      
+      // 結果を標準フォーマットに変換
+      let results = [];
+      if (result && result.content) {
+        results = [{
+          title: 'Crawled Content',
+          url: query,
+          snippet: result.content[0]?.text?.substring(0, 500) + '...'
+        }];
+      }
+      
+      return {
+        success: true,
+        tool: toolName,
+        exaTool: 'crawling',
+        query: query,
+        results: results,
+        _instruction: 'Please summarize the crawled content.'
+      };
+    }
+    
+    // 通常の検索処理
     const mcpResult = await exaMcpService.search(query, {
       tool: toolName,  // ツール名を明示的に指定
-      numResults: 5  // MCPサーバーが期待するパラメータ名
+      numResults: searchParams.numResults
     });
     
     console.log('🌐 Exa MCP response:', JSON.stringify(mcpResult, null, 2));

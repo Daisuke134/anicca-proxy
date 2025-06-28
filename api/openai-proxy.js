@@ -180,12 +180,12 @@ async function generateDynamicTools() {
     parameters: {
       type: 'object',
       properties: {
-        query: {
+        url: {
           type: 'string',
           description: 'The URL to crawl and extract content from'
         }
       },
-      required: ['query']
+      required: ['url']
     }
   });
   
