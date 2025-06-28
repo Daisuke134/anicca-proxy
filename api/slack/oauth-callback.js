@@ -4,7 +4,9 @@ import { saveTokens } from '../../services/tokenStorage.js';
 import { saveTokensToDB } from '../../services/database.js';
 
 // 暗号化キー（本番環境では環境変数から取得）
-const ENCRYPTION_KEY = process.env.SLACK_TOKEN_ENCRYPTION_KEY || crypto.randomBytes(32);
+const ENCRYPTION_KEY = process.env.SLACK_TOKEN_ENCRYPTION_KEY 
+  ? Buffer.from(process.env.SLACK_TOKEN_ENCRYPTION_KEY, 'hex')
+  : crypto.randomBytes(32);
 const IV_LENGTH = 16;
 
 // 暗号化関数
