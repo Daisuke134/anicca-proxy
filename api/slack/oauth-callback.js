@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import axios from 'axios';
+import { saveTokens } from '../../services/tokenStorage.js';
 
 // 暗号化キー（本番環境では環境変数から取得）
 const ENCRYPTION_KEY = process.env.SLACK_TOKEN_ENCRYPTION_KEY || crypto.randomBytes(32);
@@ -58,6 +59,8 @@ export default async function handler(req, res) {
     const userToken = data.authed_user?.access_token;
     
     // トークンを暗号化して保存
+    const teamId = data.team?.id || 'default';
+    
     if (botToken) {
       global.slackBotToken = encrypt(botToken);
       process.env.SLACK_BOT_TOKEN = botToken; // MCPサーバー用に環境変数も設定
@@ -67,11 +70,19 @@ export default async function handler(req, res) {
       process.env.SLACK_USER_TOKEN = userToken;
     }
     
+    // トークンを永続化（ファイルに保存）
+    await saveTokens(teamId, {
+      bot_token: encrypt(botToken),
+      user_token: userToken ? encrypt(userToken) : null,
+      team_id: teamId,
+      team_name: data.team?.name,
+      authed_user: data.authed_user
+    });
+    
     // インストール情報を保存（メモリベース）
     global.slackInstallations = global.slackInstallations || {};
-    const key = data.team?.id || 'default';
-    global.slackInstallations[key] = data;
-    console.log('✅ Slack installation stored for team:', key);
+    global.slackInstallations[teamId] = data;
+    console.log('✅ Slack installation stored for team:', teamId);
     
     // sessionIdをstateから取得（stateがsessionIdの場合）
     const sessionId = state || '';

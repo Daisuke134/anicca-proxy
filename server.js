@@ -1,10 +1,28 @@
 import express from 'express';
 import cors from 'cors';
+import { loadTokens } from './services/tokenStorage.js';
 
 // Only load dotenv in development
 if (process.env.NODE_ENV !== 'production') {
   import('dotenv').then(dotenv => dotenv.config());
 }
+
+// サーバー起動時にトークンを読み込む
+async function loadStoredTokens() {
+  try {
+    // TODO: 複数チームに対応する場合は、全チームのトークンを読み込む
+    const tokens = await loadTokens('default');
+    if (tokens) {
+      global.slackBotToken = tokens.bot_token;
+      global.slackUserToken = tokens.user_token;
+      console.log('✅ Loaded stored Slack tokens');
+    }
+  } catch (error) {
+    console.error('Failed to load stored tokens:', error);
+  }
+}
+
+loadStoredTokens();
 
 const app = express();
 const PORT = process.env.PORT || 3000;

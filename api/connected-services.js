@@ -1,3 +1,5 @@
+import { getAllConnectedServices } from '../services/tokenStorage.js';
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -15,8 +17,14 @@ export default async function handler(req, res) {
   try {
     const connectedServices = [];
     
-    // Slackが接続されているかチェック
-    if (global.slackBotToken || process.env.SLACK_BOT_TOKEN) {
+    // 永続化されたサービス情報を取得
+    const storedServices = await getAllConnectedServices();
+    
+    // Slackが接続されているかチェック（メモリまたは永続化から）
+    const hasSlackInMemory = !!(global.slackBotToken || process.env.SLACK_BOT_TOKEN);
+    const hasSlackStored = storedServices.some(s => s.id === 'slack');
+    
+    if (hasSlackInMemory || hasSlackStored) {
       connectedServices.push({
         id: 'slack',
         name: 'Slack',
