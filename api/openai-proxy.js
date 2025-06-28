@@ -162,17 +162,17 @@ ${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
    - slack_get_channel_history: Get recent messages from a channel
    
    IMPORTANT SLACK GUIDELINES:
+   - Always use channel names (e.g., "#general", "#ai") NOT channel IDs
    - When sending messages, if a channel name is not found, ALWAYS:
      1. First use slack_list_channels to get all available channels
      2. Find channels with similar names (e.g., "ai-channel" → "ai", "general-chat" → "general")
      3. Suggest the most likely match to the user
-     4. Use channel IDs (format: C1234567890) when available for accuracy
    - Be flexible with channel names - users might say "AI channel", "#ai-channel", or just "ai"
    - The tool results contain valuable information - analyze them carefully to help the user
    
    Examples:
-   - User: "Send to AI channel" → First list channels, find "#ai", ask "Did you mean #ai?"
-   - User: "Post in general" → Look for "#general", "#general-chat", etc.
+   - User: "Send to AI channel" → First list channels, find "#ai", use "#ai" (NOT the ID)
+   - User: "Post in general" → Use "#general" directly
 
 ` : ''}2. **search_exa**: Advanced AI-powered search with multiple specialized capabilities
    - Automatically selects the best search tool from:

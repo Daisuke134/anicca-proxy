@@ -189,7 +189,6 @@ export default async function handler(req, res) {
     }
     
     console.log('✅ Slack tool execution completed');
-    console.log('📊 Result:', JSON.stringify(result, null, 2).substring(0, 500) + '...');
     return res.status(200).json({
       success: true,
       result: result
