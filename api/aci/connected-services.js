@@ -13,34 +13,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ACI Linked Accounts APIを使って接続済みサービスを確認
-    const linkedAccountOwnerId = process.env.ACI_LINKED_ACCOUNT_OWNER_ID || 'cmboo2kkp0002c1uu0bunorf5';
-    
-    // 各サービスの接続状態を確認
-    const services = ['SLACK', 'GMAIL', 'GITHUB', 'GOOGLE_CALENDAR'];
     const connectedServices = [];
     
-    // 各サービスのLinked Accountを確認
-    for (const appName of services) {
-      const params = new URLSearchParams({
-        app_name: appName,
-        linked_account_owner_id: linkedAccountOwnerId
-      });
-      
-      const response = await fetch(`https://api.aci.dev/v1/linked-accounts?${params}`, {
-        headers: {
-          'X-API-KEY': process.env.ACI_API_KEY
-        }
-      });
-      
-      if (response.ok) {
-        const accounts = await response.json();
-        // アカウントが存在し、有効な場合は接続済みとみなす
-        if (accounts.length > 0 && accounts[0].enabled) {
-          connectedServices.push(appName.toLowerCase());
-        }
-      }
+    // Slackの接続状態を確認（トークンの存在で判定）
+    if (global.slackBotToken || process.env.SLACK_BOT_TOKEN) {
+      connectedServices.push('slack');
     }
+    
+    // 他のサービスは未実装
+    // TODO: Gmail, GitHub, Google Calendar
     
     return res.status(200).json({
       success: true,

@@ -1,7 +1,4 @@
-import { aciMcpService } from '../../services/aciMcpService.js';
-
-// MCPサービスの初期化状態を管理
-let isInitialized = false;
+import { slackMcpService } from '../../services/slackMcpService.js';
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -22,57 +19,40 @@ export default async function handler(req, res) {
     
     console.log('🔧 Slack tool request:', { action, args });
     
-    // MCPサービスを初期化（初回のみ）
-    if (!isInitialized) {
-      console.log('📡 Initializing MCP service for Slack...');
-      await aciMcpService.initialize();
-      isInitialized = true;
-    }
-    
-    // アクションに応じて適切なSlack関数を実行
+    // Slack MCPサービスを使用
     let result;
     
     switch (action) {
       case 'send_message':
-        // SLACK__SEND_CHAT_MESSAGE を実行
-        result = await aciMcpService.executeFunction(
-          'SLACK',
-          'SEND_CHAT_MESSAGE',
-          {
-            channel: args.channel,
-            message: args.message
-          }
-        );
+        result = await slackMcpService.callTool('slack_send_message', {
+          channel: args.channel,
+          text: args.message || args.text
+        });
         break;
         
       case 'list_channels':
-        // SLACK__LIST_CHANNELS を実行
-        result = await aciMcpService.executeFunction(
-          'SLACK',
-          'LIST_CHANNELS',
-          {}
-        );
+        result = await slackMcpService.callTool('slack_list_channels', {});
         break;
         
-      case 'search_user':
-        // SLACK__SEARCH_USER を実行
-        result = await aciMcpService.executeFunction(
-          'SLACK',
-          'SEARCH_USER',
-          {
-            query: args.query
-          }
-        );
+      case 'get_channel_history':
+        result = await slackMcpService.callTool('slack_get_channel_history', {
+          channel: args.channel,
+          limit: args.limit || 10
+        });
+        break;
+        
+      case 'add_reaction':
+        result = await slackMcpService.callTool('slack_add_reaction', {
+          channel: args.channel,
+          timestamp: args.timestamp,
+          name: args.name
+        });
         break;
         
       default:
-        // 汎用的な実行（function_nameを直接指定）
-        if (args.function_name) {
-          result = await aciMcpService.executeFunction(
-            'SLACK',
-            args.function_name.replace('SLACK__', ''),
-            args.function_args || {}
-          );
+        // 直接ツール名を指定
+        if (args.tool_name) {
+          result = await slackMcpService.callTool(args.tool_name, args.tool_args || {});
         } else {
           throw new Error(`Unknown action: ${action}`);
         }
