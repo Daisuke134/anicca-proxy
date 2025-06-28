@@ -30,21 +30,22 @@ export default async function handler(req, res) {
   }
   
   try {
-    const { sessionId } = req.query;
-    console.log('📝 Session ID:', sessionId);
-    
-    if (!sessionId) {
-      console.log('❌ No session ID provided');
-      return res.status(400).json({ error: 'Session ID is required' });
-    }
-    
-    // セッションIDに紐づくSlackトークンをDBから取得
-    const tokenData = await loadTokensFromDB(sessionId);
-    console.log('🗄️ Token data from DB:', tokenData ? 'Found' : 'Not found');
-    
-    if (tokenData && tokenData.bot_token) {
-      // 暗号化されたトークンを復号化
-      const decryptedToken = decrypt(tokenData.bot_token);
+    // グローバル変数から直接トークンをチェック
+    if (global.slackBotToken || global.slackUserToken) {
+      console.log('🔑 Found global Slack tokens');
+      
+      // どちらかのトークンで認証テスト
+      const tokenToTest = global.slackUserToken || global.slackBotToken;
+      let decryptedToken;
+      
+      try {
+        // 暗号化されている場合は復号化
+        decryptedToken = decrypt(tokenToTest);
+      } catch (e) {
+        // 暗号化されていない場合はそのまま使用
+        decryptedToken = tokenToTest;
+      }
+      
       // Slack APIでトークンの有効性を確認
       const slackResponse = await fetch('https://slack.com/api/auth.test', {
         method: 'POST',
@@ -64,8 +65,33 @@ export default async function handler(req, res) {
           team: slackData.team,
           user: slackData.user
         });
-      } else {
-        console.log('❌ Slack auth test failed:', slackData.error);
+      }
+    }
+    
+    // セッションIDに紐づくSlackトークンをDBから取得（フォールバック）
+    const { sessionId } = req.query;
+    if (sessionId) {
+      const tokenData = await loadTokensFromDB(sessionId);
+      console.log('🗄️ Token data from DB:', tokenData ? 'Found' : 'Not found');
+      
+      if (tokenData && tokenData.bot_token) {
+        const decryptedToken = decrypt(tokenData.bot_token);
+        const slackResponse = await fetch('https://slack.com/api/auth.test', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${decryptedToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const slackData = await slackResponse.json();
+        if (slackData.ok) {
+          return res.status(200).json({ 
+            connected: true,
+            team: slackData.team,
+            user: slackData.user
+          });
+        }
       }
     }
     
