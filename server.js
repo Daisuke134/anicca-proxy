@@ -45,6 +45,8 @@ import slackOauthCallbackHandler from './api/slack/oauth-callback.js'; // 新し
 // Tool handlers
 import slackToolHandler from './api/tools/slack.js';
 // import genericToolHandler from './api/tools/[tool].js'; // ACI関連なので無効化
+// Connected services
+import connectedServicesHandler from './api/connected-services.js';
 
 // API Routes - 完全移植
 app.all('/api/gemini', geminiHandler);
@@ -71,6 +73,8 @@ app.all('/api/slack/oauth-callback', slackOauthCallbackHandler);
 // Slack tool endpoints
 app.all('/api/tools/slack', slackToolHandler);
 // app.all('/api/tools/:tool', genericToolHandler); // ACI関連なので無効化
+// Connected services
+app.all('/api/connected-services', connectedServicesHandler);
 
 // Root endpoint
 app.get('/', (req, res) => {

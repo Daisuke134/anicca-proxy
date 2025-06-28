@@ -1,3 +1,121 @@
+// 動的にツールを生成する関数
+async function generateDynamicTools() {
+  const tools = [];
+  
+  // 接続済みサービスを確認
+  const hasSlack = !!(global.slackBotToken || process.env.SLACK_BOT_TOKEN);
+  
+  // Slackが接続されている場合
+  if (hasSlack) {
+    tools.push({
+      type: 'function',
+      name: 'slack_send_message',
+      description: 'Send a message to a Slack channel',
+      parameters: {
+        type: 'object',
+        properties: {
+          channel: {
+            type: 'string',
+            description: 'Channel name (e.g., "#general") or channel ID'
+          },
+          message: {
+            type: 'string',
+            description: 'The message to send'
+          }
+        },
+        required: ['channel', 'message']
+      }
+    });
+    
+    tools.push({
+      type: 'function',
+      name: 'slack_list_channels',
+      description: 'List all channels in the Slack workspace',
+      parameters: {
+        type: 'object',
+        properties: {}
+      }
+    });
+    
+    tools.push({
+      type: 'function',
+      name: 'slack_get_channel_history',
+      description: 'Get recent messages from a Slack channel',
+      parameters: {
+        type: 'object',
+        properties: {
+          channel: {
+            type: 'string',
+            description: 'Channel name or ID'
+          },
+          limit: {
+            type: 'number',
+            description: 'Number of messages to retrieve (default: 10)',
+            optional: true
+          }
+        },
+        required: ['channel']
+      }
+    });
+  }
+  
+  // 基本ツール（常に利用可能）
+  tools.push({
+    type: 'function',
+    name: 'get_hacker_news_stories',
+    description: 'Get the latest stories from Hacker News',
+    parameters: {
+      type: 'object',
+      properties: {
+        limit: {
+          type: 'number',
+          description: 'Number of stories to retrieve',
+          default: 5
+        }
+      }
+    }
+  });
+  
+  tools.push({
+    type: 'function',
+    name: 'search_exa',
+    description: 'Search for information using Exa',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Search query'
+        }
+      },
+      required: ['query']
+    }
+  });
+  
+  tools.push({
+    type: 'function',
+    name: 'think_with_claude',
+    description: 'Use Claude for complex tasks, code analysis, file operations, and MCP tools',
+    parameters: {
+      type: 'object',
+      properties: {
+        task: {
+          type: 'string',
+          description: 'The task or question for Claude to handle'
+        },
+        context: {
+          type: 'string',
+          description: 'Additional context if needed',
+          optional: true
+        }
+      },
+      required: ['task']
+    }
+  });
+  
+  return tools;
+}
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,6 +134,9 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'GET' && (req.url?.includes('/session') || req.url === '/api/openai-proxy/session')) {
+      // 接続済みサービスを確認
+      const hasSlack = !!(global.slackBotToken || process.env.SLACK_BOT_TOKEN);
+      
       // Return complete session configuration for OpenAI Realtime
       return res.json({
         id: `sess_${Date.now()}`,
@@ -35,7 +156,17 @@ You have powerful MCP (Model Context Protocol) tools at your disposal. Your role
 
 AVAILABLE TOOLS:
 
-1. **search_exa**: Advanced AI-powered search with multiple specialized capabilities
+${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
+   - slack_send_message: Send messages to any channel
+   - slack_list_channels: List all channels in your workspace  
+   - slack_get_channel_history: Get recent messages from a channel
+   
+   Examples:
+   - "Send a message to #general saying..."
+   - "What channels are in my Slack?"
+   - "Show me the latest messages in #random"
+
+` : ''}2. **search_exa**: Advanced AI-powered search with multiple specialized capabilities
    - Automatically selects the best search tool from:
      • web_search_exa: General web search
      • research_paper_search: Academic papers (100M+ papers)
@@ -47,144 +178,30 @@ AVAILABLE TOOLS:
      • github_search: GitHub repositories
    - The MCP will intelligently choose based on your query context
 
-2. **get_hacker_news_stories**: Tech news from Hacker News
-   - Latest technology news and discussions
+3. **get_hacker_news_stories**: Tech news from Hacker News
 
-3. **think_with_aci**: 600+ integrations via ACI platform
-   - Slack, Google Calendar, GitHub, Gmail, and more
-   - Automatically handles OAuth authenticated services
-   - Example: "Post message to #general channel in Slack"
+4. **think_with_claude**: Use Claude for complex reasoning, code analysis, and file operations
+   - Best for: Complex tasks, code generation, detailed analysis
+   - Has access to additional MCP tools for files and browser automation
 
-4. **think_with_claude**: Complex task execution and automation
-   - App/game development
-   - Code generation and analysis
-   - File operations
-   - Browser automation
-   - Multi-step workflows
+TOOL SELECTION GUIDELINES:
+- For connected services (${hasSlack ? 'like Slack' : 'when available'}), use their specific tools
+- For information searches, use search_exa
+- For tech news, use get_hacker_news_stories  
+- For complex reasoning or code tasks, use think_with_claude
 
-INTELLIGENT TOOL SELECTION:
-- Analyze the user's intent, not just keywords
-- Consider context and desired outcome
-- Use search_exa for ANY information gathering (it will auto-select the right sub-tool)
-- Use think_with_claude for creative tasks or complex operations
-- Combine tools when appropriate
-
-RESPONSE QUALITY:
-- When using search_exa, always:
-  • Summarize key findings
-  • Extract important points
-  • Provide actionable insights
-  • Avoid raw data dumps
-- Be concise but comprehensive
-
-TASK EXECUTION RULES:
-- When think_with_claude returns error: 'busy', a task is already running
-- For progress questions while busy: respond with current task info
-- Don't send new requests while busy
-
-Be friendly, helpful, and intelligent in your tool selection and responses.`,
+Remember: You can see visual information on the user's screen when they share it, allowing you to provide context-aware assistance with their applications and content.`,
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
-        input_audio_transcription: null,
-        turn_detection: {
+        input_audio_transcription: { model: 'whisper-1' },
+        turn_detection: { 
           type: 'server_vad',
           threshold: 0.5,
           prefix_padding_ms: 300,
           silence_duration_ms: 200,
           create_response: true
         },
-        tools: [
-          {
-            type: 'function',
-            name: 'get_hacker_news_stories',
-            description: 'Get the latest stories from Hacker News',
-            parameters: {
-              type: 'object',
-              properties: {
-                limit: {
-                  type: 'number',
-                  description: 'Number of stories to retrieve',
-                  default: 5
-                }
-              }
-            }
-          },
-          {
-            type: 'function',
-            name: 'search_exa',
-            description: 'Search for information using Exa',
-            parameters: {
-              type: 'object',
-              properties: {
-                query: {
-                  type: 'string',
-                  description: 'Search query'
-                }
-              },
-              required: ['query']
-            }
-          },
-          {
-            type: 'function',
-            name: 'think_with_claude',
-            description: 'Use Claude for complex tasks, code analysis, file operations, and MCP tools',
-            parameters: {
-              type: 'object',
-              properties: {
-                task: {
-                  type: 'string',
-                  description: 'The task or question for Claude to handle'
-                },
-                context: {
-                  type: 'string',
-                  description: 'Additional context if needed',
-                  optional: true
-                }
-              },
-              required: ['task']
-            }
-          },
-          {
-            type: 'function',
-            name: 'think_with_aci',
-            description: 'Use ACI (600+ integrations) including Slack, Google Calendar, GitHub, etc. Handles complex tasks with connected services',
-            parameters: {
-              type: 'object',
-              properties: {
-                task: {
-                  type: 'string',
-                  description: 'The task to perform (e.g., "Post message to #general channel", "Create calendar event", "Search GitHub issues")'
-                },
-                context: {
-                  type: 'string',
-                  description: 'Additional context if needed',
-                  optional: true
-                }
-              },
-              required: ['task']
-            }
-          },
-          {
-            type: 'function',
-            name: 'think_with_claude_sdk',
-            description: '[BETA] Use Claude SDK with MCP for Slack, file operations, and browser automation',
-            parameters: {
-              type: 'object',
-              properties: {
-                task: {
-                  type: 'string',
-                  description: 'The task or question for Claude to handle'
-                },
-                context: {
-                  type: 'string',
-                  description: 'Additional context if needed',
-                  optional: true
-                }
-              },
-              required: ['task']
-            }
-          }
-        ],
+        tools: await generateDynamicTools(),
         temperature: 0.8,
         max_response_output_tokens: 'inf',
         modalities: ['audio', 'text'],
