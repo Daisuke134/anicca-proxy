@@ -26,7 +26,7 @@ import ttsHandler from './api/tts.js';
 import whisperHandler from './api/whisper.js';
 import openaiProxyHandler from './api/openai-proxy.js';
 import slackOauthHandler from './api/slack-oauth.js';
-import slackOauthCallbackHandler from './api/slack-oauth/callback.js';
+import slackOauthCallbackHandlerOld from './api/slack-oauth/callback.js'; // 古いエンドポイント（名前変更）
 import downloadHandler from './api/download.js';
 import landingHandler from './api/landing.js';
 import hackerNewsHandler from './api/tools/get_hacker_news_stories.js';
@@ -39,7 +39,7 @@ import aciOauthCallbackHandler from './api/aci/oauth-callback.js';
 import aciConnectedServicesHandler from './api/aci/connected-services.js';
 // New Slack OAuth handlers
 import slackOauthUrlHandler from './api/slack/oauth-url.js';
-import slackOauthCallbackHandler from './api/slack/oauth-callback.js';
+import slackOauthCallbackHandler from './api/slack/oauth-callback.js'; // 新しいエンドポイント
 // Tool handlers
 import slackToolHandler from './api/tools/slack.js';
 import genericToolHandler from './api/tools/[tool].js';
@@ -51,7 +51,7 @@ app.all('/api/whisper', whisperHandler);
 app.all('/api/openai-proxy*', openaiProxyHandler);
 app.all('/api/claude*', claudeHandler);
 app.all('/api/slack-oauth', slackOauthHandler);
-app.all('/api/slack-oauth/callback', slackOauthCallbackHandler);
+app.all('/api/slack-oauth/callback', slackOauthCallbackHandlerOld); // 古いエンドポイント
 app.all('/api/download', downloadHandler);
 app.all('/api/landing', landingHandler);
 app.all('/api/tools/get_hacker_news_stories', hackerNewsHandler);
