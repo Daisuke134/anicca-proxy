@@ -1,28 +1,47 @@
 import express from 'express';
 import cors from 'cors';
 import { loadTokens } from './services/tokenStorage.js';
+import { initDatabase, loadLatestTokensFromDB } from './services/database.js';
 
 // Only load dotenv in development
 if (process.env.NODE_ENV !== 'production') {
   import('dotenv').then(dotenv => dotenv.config());
 }
 
-// サーバー起動時にトークンを読み込む
-async function loadStoredTokens() {
-  try {
-    // TODO: 複数チームに対応する場合は、全チームのトークンを読み込む
-    const tokens = await loadTokens('default');
-    if (tokens) {
-      global.slackBotToken = tokens.bot_token;
-      global.slackUserToken = tokens.user_token;
-      console.log('✅ Loaded stored Slack tokens');
+// サーバー起動時の初期化処理
+async function initializeServer() {
+  // データベースを初期化
+  const dbInitialized = await initDatabase();
+  
+  if (dbInitialized) {
+    // データベースから最新のトークンを読み込む
+    try {
+      const dbTokens = await loadLatestTokensFromDB();
+      if (dbTokens) {
+        global.slackBotToken = dbTokens.bot_token;
+        global.slackUserToken = dbTokens.user_token;
+        global.currentSessionId = dbTokens.session_id;
+        console.log('✅ Loaded Slack tokens from database');
+      }
+    } catch (error) {
+      console.error('Failed to load tokens from DB:', error);
     }
-  } catch (error) {
-    console.error('Failed to load stored tokens:', error);
+  } else {
+    // データベースが使えない場合はファイルから読み込む（後方互換性）
+    try {
+      const tokens = await loadTokens('default');
+      if (tokens) {
+        global.slackBotToken = tokens.bot_token;
+        global.slackUserToken = tokens.user_token;
+        console.log('✅ Loaded Slack tokens from file');
+      }
+    } catch (error) {
+      console.error('Failed to load tokens from file:', error);
+    }
   }
 }
 
-loadStoredTokens();
+initializeServer();
 
 const app = express();
 const PORT = process.env.PORT || 3000;

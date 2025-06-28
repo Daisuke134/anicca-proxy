@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import axios from 'axios';
 import { saveTokens } from '../../services/tokenStorage.js';
+import { saveTokensToDB } from '../../services/database.js';
 
 // 暗号化キー（本番環境では環境変数から取得）
 const ENCRYPTION_KEY = process.env.SLACK_TOKEN_ENCRYPTION_KEY || crypto.randomBytes(32);
@@ -70,22 +71,29 @@ export default async function handler(req, res) {
       process.env.SLACK_USER_TOKEN = userToken;
     }
     
-    // トークンを永続化（ファイルに保存）
-    await saveTokens(teamId, {
+    // sessionIdをstateから取得（stateがsessionIdの場合）
+    const sessionId = state || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // トークンを永続化（ファイルとDBに保存）
+    const tokenData = {
       bot_token: encrypt(botToken),
       user_token: userToken ? encrypt(userToken) : null,
       team_id: teamId,
       team_name: data.team?.name,
       authed_user: data.authed_user
-    });
+    };
+    
+    // ファイルに保存（後方互換性のため）
+    await saveTokens(teamId, tokenData);
+    
+    // データベースに保存
+    await saveTokensToDB(sessionId, tokenData);
     
     // インストール情報を保存（メモリベース）
     global.slackInstallations = global.slackInstallations || {};
     global.slackInstallations[teamId] = data;
+    global.currentSessionId = sessionId; // 現在のセッションIDを保存
     console.log('✅ Slack installation stored for team:', teamId);
-    
-    // sessionIdをstateから取得（stateがsessionIdの場合）
-    const sessionId = state || '';
     
     // フロントエンドにリダイレクト
     const redirectUrl = process.env.ANICCA_WEB_URL || 'http://localhost:3000';

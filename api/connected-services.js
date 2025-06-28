@@ -1,4 +1,5 @@
 import { getAllConnectedServices } from '../services/tokenStorage.js';
+import { loadLatestTokensFromDB } from '../services/database.js';
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -20,11 +21,20 @@ export default async function handler(req, res) {
     // 永続化されたサービス情報を取得
     const storedServices = await getAllConnectedServices();
     
-    // Slackが接続されているかチェック（メモリまたは永続化から）
+    // Slackが接続されているかチェック（メモリ、DB、またはファイルから）
     const hasSlackInMemory = !!(global.slackBotToken || process.env.SLACK_BOT_TOKEN);
     const hasSlackStored = storedServices.some(s => s.id === 'slack');
     
-    if (hasSlackInMemory || hasSlackStored) {
+    // DBから最新のトークンを確認
+    let hasSlackInDB = false;
+    try {
+      const dbTokens = await loadLatestTokensFromDB();
+      hasSlackInDB = !!(dbTokens && dbTokens.bot_token);
+    } catch (error) {
+      // DBエラーは無視
+    }
+    
+    if (hasSlackInMemory || hasSlackStored || hasSlackInDB) {
       connectedServices.push({
         id: 'slack',
         name: 'Slack',
