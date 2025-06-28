@@ -36,15 +36,19 @@ export default async function handler(req, res) {
     let botToken = process.env.SLACK_BOT_TOKEN || global.slackBotToken;
     let userToken = process.env.SLACK_USER_TOKEN || global.slackUserToken;
     
+    console.log('🔑 Token check - Bot:', !!botToken, 'User:', !!userToken);
+    
     if (!botToken) {
       throw new Error('Slack is not connected. Please reconnect your Slack account.');
     }
     
     if (botToken && botToken.includes(':')) {
       botToken = decrypt(botToken);
+      console.log('🔓 Bot token decrypted');
     }
     if (userToken && userToken.includes(':')) {
       userToken = decrypt(userToken);
+      console.log('🔓 User token decrypted');
     }
     
     // Slack Web APIクライアントを作成
@@ -72,30 +76,20 @@ export default async function handler(req, res) {
         break;
         
       case 'list_channels':
-        result = await slack.conversations.list({
+        const listParams = {
           types: 'public_channel,private_channel',
-          exclude_archived: true,
-          limit: args.limit || 100
+          // exclude_archived: true, // 削除
+          limit: args.limit || 1000
+        };
+        console.log('📤 Slack API params:', listParams);
+        
+        result = await slack.conversations.list(listParams);
+        
+        console.log('📥 Slack API response:', {
+          ok: result.ok,
+          channels_count: result.channels?.length || 0,
+          next_cursor: result.response_metadata?.next_cursor || 'none'
         });
-        // ボットがメンバーのチャンネルのみをフィルタリング
-        const botUserId = (await slack.auth.test()).user_id;
-        const channelsWithMembership = [];
-        
-        for (const channel of result.channels) {
-          try {
-            const members = await slack.conversations.members({
-              channel: channel.id,
-              limit: 1000
-            });
-            if (members.members.includes(botUserId)) {
-              channelsWithMembership.push(channel);
-            }
-          } catch (e) {
-            // プライベートチャンネルなどでメンバー取得できない場合はスキップ
-          }
-        }
-        
-        result.channels = channelsWithMembership;
         break;
         
       case 'get_channel_history':
