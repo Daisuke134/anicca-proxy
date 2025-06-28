@@ -1,5 +1,3 @@
-import { installer } from '../../services/slackOAuthService.js';
-
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,29 +15,39 @@ export default async function handler(req, res) {
   try {
     const { sessionId } = req.query;
     
-    // OAuth URLを生成
-    const url = await installer.generateInstallUrl({
-      scopes: [
-        'channels:read',
-        'channels:history',
-        'chat:write',
-        'groups:read',
-        'groups:history',
-        'im:read',
-        'im:history',
-        'users:read',
-        'reactions:read',
-        'reactions:write'
-      ],
-      metadata: sessionId ? JSON.stringify({ sessionId }) : undefined,
-      redirectUri: process.env.SLACK_REDIRECT_URI || 'http://localhost:3000/api/slack/oauth-callback'
-    });
+    // Slack OAuth URLを直接構築
+    const clientId = process.env.SLACK_CLIENT_ID;
+    const redirectUri = process.env.SLACK_REDIRECT_URI || 'https://anicca-proxy-production.up.railway.app/api/slack/oauth-callback';
     
-    console.log('🔗 Generated Slack OAuth URL');
+    // シンプルなstate生成（sessionIdを含める）
+    const state = sessionId || Math.random().toString(36).substring(2, 15);
+    
+    // 必要なスコープ
+    const scopes = [
+      'channels:read',
+      'channels:history',
+      'chat:write',
+      'groups:read',
+      'groups:history',
+      'im:read',
+      'im:history',
+      'users:read',
+      'reactions:read',
+      'reactions:write'
+    ].join(',');
+    
+    // OAuth URLを構築
+    const oauthUrl = `https://slack.com/oauth/v2/authorize?` +
+      `client_id=${clientId}&` +
+      `scope=${scopes}&` +
+      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+      `state=${state}`;
+    
+    console.log('🔗 Generated Slack OAuth URL (Simple)');
     
     return res.status(200).json({
       success: true,
-      url: url
+      url: oauthUrl
     });
     
   } catch (error) {
