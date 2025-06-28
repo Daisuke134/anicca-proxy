@@ -36,10 +36,22 @@ export default async function handler(req, res) {
       'reactions:write'
     ].join(',');
     
+    // User Token Scopes（ユーザーとして操作）
+    const userScopes = [
+      'channels:read',
+      'channels:history',
+      'chat:write',
+      'groups:read',
+      'groups:history',
+      'im:read',
+      'users:read'
+    ].join(',');
+    
     // OAuth URLを構築
     const oauthUrl = `https://slack.com/oauth/v2/authorize?` +
       `client_id=${clientId}&` +
       `scope=${scopes}&` +
+      `user_scope=${userScopes}&` +  // User scopeを追加
       `redirect_uri=${encodeURIComponent(redirectUri)}&` +
       `state=${state}`;
     

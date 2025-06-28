@@ -52,8 +52,12 @@ export default async function handler(req, res) {
     }
     
     // Slack Web APIクライアントを作成
-    const slack = new WebClient(botToken);
-    const userSlack = userToken ? new WebClient(userToken) : null;
+    // User Tokenを優先的に使用（全チャンネルアクセス可能）
+    const primaryToken = userToken || botToken;
+    const slack = new WebClient(primaryToken);
+    const botSlack = new WebClient(botToken); // Bot専用の操作用
+    
+    console.log('🎯 Using token type:', userToken ? 'User Token' : 'Bot Token');
     
     // チャンネル名をIDに変換する関数
     async function resolveChannelId(channelNameOrId) {
@@ -93,13 +97,15 @@ export default async function handler(req, res) {
         // チャンネル名をIDに変換
         const sendChannelId = await resolveChannelId(args.channel);
         
-        // チャンネルに参加していない場合は自動的に参加を試みる
-        try {
-          await slack.conversations.join({
-            channel: sendChannelId
-          });
-        } catch (joinError) {
-          // 既に参加している場合やプライベートチャンネルの場合はエラーを無視
+        // Bot Tokenの場合のみチャンネル参加を試みる
+        if (!userToken) {
+          try {
+            await botSlack.conversations.join({
+              channel: sendChannelId
+            });
+          } catch (joinError) {
+            // 既に参加している場合やプライベートチャンネルの場合はエラーを無視
+          }
         }
         
         result = await slack.chat.postMessage({
@@ -148,11 +154,14 @@ export default async function handler(req, res) {
         break;
         
       case 'post_as_user':
-        if (!userSlack) {
+        if (!userToken) {
           throw new Error('User token not available. This action requires user authentication.');
         }
-        result = await userSlack.chat.postMessage({
-          channel: args.channel,
+        // チャンネル名をIDに変換
+        const userChannelId = await resolveChannelId(args.channel);
+        
+        result = await slack.chat.postMessage({
+          channel: userChannelId,
           text: args.message || args.text,
           as_user: true
         });
