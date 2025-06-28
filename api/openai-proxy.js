@@ -63,7 +63,7 @@ async function generateDynamicTools() {
   tools.push({
     type: 'function',
     name: 'get_hacker_news_stories',
-    description: 'Get the latest stories from Hacker News',
+    description: 'Get the latest technology and startup news from Hacker News (tech news only)',
     parameters: {
       type: 'object',
       properties: {
@@ -79,13 +79,13 @@ async function generateDynamicTools() {
   tools.push({
     type: 'function',
     name: 'search_exa',
-    description: 'Search for information using Exa',
+    description: 'Advanced search using Exa - automatically selects the best search type: web search, research papers, company info, GitHub repos, Wikipedia, LinkedIn, or crawl specific URLs',
     parameters: {
       type: 'object',
       properties: {
         query: {
           type: 'string',
-          description: 'Search query'
+          description: 'Search query - Exa will automatically choose the best search type based on your query'
         }
       },
       required: ['query']
@@ -174,19 +174,24 @@ ${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
    - User: "Send to AI channel" → First list channels, find "#ai", use "#ai" (NOT the ID)
    - User: "Post in general" → Use "#general" directly
 
-` : ''}2. **search_exa**: Advanced AI-powered search with multiple specialized capabilities
-   - Automatically selects the best search tool from:
-     • web_search_exa: General web search
-     • research_paper_search: Academic papers (100M+ papers)
-     • company_research: Detailed company information
-     • crawling: Extract content from specific URLs
-     • competitor_finder: Find similar companies
-     • linkedin_search: LinkedIn company pages
-     • wikipedia_search_exa: Wikipedia articles
-     • github_search: GitHub repositories
-   - The MCP will intelligently choose based on your query context
+` : ''}2. **search_exa**: Advanced search that automatically chooses the best search type
+   - Just tell me what you're looking for, and I'll automatically use:
+     • General web search for news, current events, general information
+     • Academic search for research papers and studies
+     • Company search for business information
+     • GitHub search for code repositories
+     • Wikipedia for encyclopedic information
+     • LinkedIn for professional/company profiles
+     • URL crawling to extract content from specific pages
+   - Examples:
+     • "Latest news about AI" → Web search
+     • "Research papers on quantum computing" → Academic search
+     • "Apple company information" → Company search
+     • "React GitHub repository" → GitHub search
 
-3. **get_hacker_news_stories**: Tech news from Hacker News
+3. **get_hacker_news_stories**: Technology and startup news ONLY
+   - For tech industry news, programming, startups
+   - NOT for general news (use search_exa instead)
 
 4. **think_with_claude**: Use Claude for complex reasoning, code analysis, and file operations
    - Best for: Complex tasks, code generation, detailed analysis

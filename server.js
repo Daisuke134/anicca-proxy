@@ -62,26 +62,17 @@ import geminiHandler from './api/gemini.js';
 import ttsHandler from './api/tts.js';
 import whisperHandler from './api/whisper.js';
 import openaiProxyHandler from './api/openai-proxy.js';
-// 古いSlack OAuthハンドラー（無効化）
-// import slackOauthHandler from './api/slack-oauth.js';
-// import slackOauthCallbackHandlerOld from './api/slack-oauth/callback.js';
 import downloadHandler from './api/download.js';
 import landingHandler from './api/landing.js';
 import hackerNewsHandler from './api/tools/get_hacker_news_stories.js';
 import exaHandler from './api/tools/search_exa.js';
 import thinkWithClaudeHandler from './api/tools/think_with_claude.js';
-// import thinkWithAciHandler from './api/tools/think_with_aci.js'; // ACI無効化
 import claudeHandler from './api/claude.js';
-// ACI関連ハンドラー（無効化）
-// import aciOauthUrlHandler from './api/aci/oauth-url.js';
-// import aciOauthCallbackHandler from './api/aci/oauth-callback.js';
-// import aciConnectedServicesHandler from './api/aci/connected-services.js';
 // New Slack OAuth handlers
 import slackOauthUrlHandler from './api/slack/oauth-url.js';
 import slackOauthCallbackHandler from './api/slack/oauth-callback.js'; // 新しいエンドポイント
 // Tool handlers
 import slackToolHandler from './api/tools/slack.js';
-// import genericToolHandler from './api/tools/[tool].js'; // ACI関連なので無効化
 // Connected services
 import connectedServicesHandler from './api/connected-services.js';
 
@@ -99,17 +90,11 @@ app.all('/api/landing', landingHandler);
 app.all('/api/tools/get_hacker_news_stories', hackerNewsHandler);
 app.all('/api/tools/search_exa', exaHandler);
 app.all('/api/tools/think_with_claude', thinkWithClaudeHandler);
-// app.all('/api/tools/think_with_aci', thinkWithAciHandler); // ACI無効化
-// ACI関連エンドポイント（無効化）
-// app.all('/api/aci/oauth-url', aciOauthUrlHandler);
-// app.all('/api/aci/oauth-callback', aciOauthCallbackHandler);
-// app.all('/api/aci/connected-services', aciConnectedServicesHandler);
 // New Slack OAuth routes
 app.all('/api/slack/oauth-url', slackOauthUrlHandler);
 app.all('/api/slack/oauth-callback', slackOauthCallbackHandler);
 // Slack tool endpoints
 app.all('/api/tools/slack', slackToolHandler);
-// app.all('/api/tools/:tool', genericToolHandler); // ACI関連なので無効化
 // Connected services
 app.all('/api/connected-services', connectedServicesHandler);
 

@@ -66,19 +66,67 @@ export class ExaMcpService {
     }
   }
 
+  // クエリの内容から適切な検索ツールを選択
+  selectSearchTool(query) {
+    const lowerQuery = query.toLowerCase();
+    
+    // GitHub関連
+    if (lowerQuery.includes('github') || lowerQuery.includes('repository') || lowerQuery.includes('repo')) {
+      return 'github_search';
+    }
+    
+    // 学術論文・研究
+    if (lowerQuery.includes('paper') || lowerQuery.includes('research') || lowerQuery.includes('study') || 
+        lowerQuery.includes('academic') || lowerQuery.includes('journal') || lowerQuery.includes('論文')) {
+      return 'research_paper_search';
+    }
+    
+    // 企業情報
+    if (lowerQuery.includes('company') || lowerQuery.includes('企業') || lowerQuery.includes('会社') ||
+        lowerQuery.includes('startup') || lowerQuery.includes('business')) {
+      return 'company_research';
+    }
+    
+    // LinkedIn
+    if (lowerQuery.includes('linkedin')) {
+      return 'linkedin_search';
+    }
+    
+    // Wikipedia
+    if (lowerQuery.includes('wikipedia') || lowerQuery.includes('wiki')) {
+      return 'wikipedia_search_exa';
+    }
+    
+    // URL指定（クローリング）
+    if (lowerQuery.match(/https?:\/\/[^\s]+/)) {
+      return 'crawling';
+    }
+    
+    // 競合分析
+    if (lowerQuery.includes('competitor') || lowerQuery.includes('競合')) {
+      return 'competitor_finder';
+    }
+    
+    // デフォルトは一般的なウェブ検索
+    return 'web_search_exa';
+  }
+
   async search(query, options = {}) {
     if (!this.client) {
       throw new Error('Exa MCP service not initialized');
     }
 
     try {
+      // 適切なツールを選択
+      const toolName = options.tool || this.selectSearchTool(query);
+      
       console.log(`🔍 Searching with Exa MCP: "${query}"`);
+      console.log(`🎯 Selected tool: ${toolName}`);
       console.log('🔧 Search options:', JSON.stringify(options, null, 2));
       
       // MCPツールを呼び出し
-      // 注意: callToolの第一引数はツール名、第二引数は {arguments: {...}} の形式
       const result = await this.client.callTool({
-        name: 'web_search_exa',
+        name: toolName,
         arguments: {
           query,
           ...options
