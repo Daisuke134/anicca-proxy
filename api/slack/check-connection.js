@@ -1,4 +1,4 @@
-import { getTokensFromDB } from '../../services/database.js';
+import { loadTokensFromDB } from '../../services/database.js';
 import crypto from 'crypto';
 
 // 復号化キー（暗号化と同じキーを使用）
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     }
     
     // セッションIDに紐づくSlackトークンをDBから取得
-    const tokenData = await getTokensFromDB(sessionId);
+    const tokenData = await loadTokensFromDB(sessionId);
     
     if (tokenData && tokenData.bot_token) {
       // 暗号化されたトークンを復号化
