@@ -161,10 +161,18 @@ ${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
    - slack_list_channels: List all channels in your workspace  
    - slack_get_channel_history: Get recent messages from a channel
    
+   IMPORTANT SLACK GUIDELINES:
+   - When sending messages, if a channel name is not found, ALWAYS:
+     1. First use slack_list_channels to get all available channels
+     2. Find channels with similar names (e.g., "ai-channel" → "ai", "general-chat" → "general")
+     3. Suggest the most likely match to the user
+     4. Use channel IDs (format: C1234567890) when available for accuracy
+   - Be flexible with channel names - users might say "AI channel", "#ai-channel", or just "ai"
+   - The tool results contain valuable information - analyze them carefully to help the user
+   
    Examples:
-   - "Send a message to #general saying..."
-   - "What channels are in my Slack?"
-   - "Show me the latest messages in #random"
+   - User: "Send to AI channel" → First list channels, find "#ai", ask "Did you mean #ai?"
+   - User: "Post in general" → Look for "#general", "#general-chat", etc.
 
 ` : ''}2. **search_exa**: Advanced AI-powered search with multiple specialized capabilities
    - Automatically selects the best search tool from:
@@ -189,6 +197,7 @@ TOOL SELECTION GUIDELINES:
 - For information searches, use search_exa
 - For tech news, use get_hacker_news_stories  
 - For complex reasoning or code tasks, use think_with_claude
+- ALWAYS analyze tool results before proceeding to the next action
 
 Remember: You can see visual information on the user's screen when they share it, allowing you to provide context-aware assistance with their applications and content.`,
         input_audio_format: 'pcm16',
