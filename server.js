@@ -37,6 +37,12 @@ import claudeHandler from './api/claude.js';
 import aciOauthUrlHandler from './api/aci/oauth-url.js';
 import aciOauthCallbackHandler from './api/aci/oauth-callback.js';
 import aciConnectedServicesHandler from './api/aci/connected-services.js';
+// New Slack OAuth handlers
+import slackOauthUrlHandler from './api/slack/oauth-url.js';
+import slackOauthCallbackHandler from './api/slack/oauth-callback.js';
+// Tool handlers
+import slackToolHandler from './api/tools/slack.js';
+import genericToolHandler from './api/tools/[tool].js';
 
 // API Routes - 完全移植
 app.all('/api/gemini', geminiHandler);
@@ -55,6 +61,12 @@ app.all('/api/tools/think_with_aci', thinkWithAciHandler);
 app.all('/api/aci/oauth-url', aciOauthUrlHandler);
 app.all('/api/aci/oauth-callback', aciOauthCallbackHandler);
 app.all('/api/aci/connected-services', aciConnectedServicesHandler);
+// New Slack OAuth routes
+app.all('/api/slack/oauth-url', slackOauthUrlHandler);
+app.all('/api/slack/oauth-callback', slackOauthCallbackHandler);
+// Slack tool endpoints
+app.all('/api/tools/slack', slackToolHandler);
+app.all('/api/tools/:tool', genericToolHandler);
 
 // Root endpoint
 app.get('/', (req, res) => {
