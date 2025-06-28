@@ -1,6 +1,8 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import crypto from 'crypto';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
 // 復号化関数
 function decrypt(text) {
@@ -50,9 +52,13 @@ export class SlackMcpService {
       console.log('🔑 Slack tokens found');
       
       // Slack MCPサーバーを起動
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = dirname(__filename);
+      const mcpServerPath = join(__dirname, '../node_modules/@ubie-oss/slack-mcp-server/dist/index.js');
+      
       this.transport = new StdioClientTransport({
-        command: 'npx',
-        args: ['@ubie-oss/slack-mcp-server'],
+        command: 'node',
+        args: [mcpServerPath],
         env: {
           ...process.env,
           SLACK_BOT_TOKEN: botToken,
