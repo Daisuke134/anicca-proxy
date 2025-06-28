@@ -55,22 +55,55 @@ export default async function handler(req, res) {
     const slack = new WebClient(botToken);
     const userSlack = userToken ? new WebClient(userToken) : null;
     
+    // チャンネル名をIDに変換する関数
+    async function resolveChannelId(channelNameOrId) {
+      // すでにIDの形式（Cで始まる）ならそのまま返す
+      if (channelNameOrId.match(/^[CGD][A-Z0-9]+$/)) {
+        return channelNameOrId;
+      }
+      
+      // #を削除
+      const channelName = channelNameOrId.replace(/^#/, '');
+      
+      // チャンネル一覧を取得して名前で検索
+      try {
+        const channelsList = await slack.conversations.list({
+          types: 'public_channel,private_channel',
+          limit: 1000
+        });
+        
+        const channel = channelsList.channels?.find(ch => ch.name === channelName);
+        if (channel) {
+          console.log(`🔄 Resolved channel name "${channelName}" to ID: ${channel.id}`);
+          return channel.id;
+        }
+        
+        throw new Error(`Channel "${channelName}" not found`);
+      } catch (error) {
+        console.error('Failed to resolve channel name:', error);
+        throw error;
+      }
+    }
+    
     let result;
     
     // アクションに応じて処理
     switch (action) {
       case 'send_message':
+        // チャンネル名をIDに変換
+        const sendChannelId = await resolveChannelId(args.channel);
+        
         // チャンネルに参加していない場合は自動的に参加を試みる
         try {
           await slack.conversations.join({
-            channel: args.channel
+            channel: sendChannelId
           });
         } catch (joinError) {
           // 既に参加している場合やプライベートチャンネルの場合はエラーを無視
         }
         
         result = await slack.chat.postMessage({
-          channel: args.channel,
+          channel: sendChannelId,
           text: args.message || args.text
         });
         break;
@@ -93,8 +126,11 @@ export default async function handler(req, res) {
         break;
         
       case 'get_channel_history':
+        // チャンネル名をIDに変換
+        const historyChannelId = await resolveChannelId(args.channel);
+        
         result = await slack.conversations.history({
-          channel: args.channel,
+          channel: historyChannelId,
           limit: args.limit || 10
         });
         break;
