@@ -18,8 +18,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // URLパスからツール名を取得
-    const { tool } = req.query;
+    // URLパスからツール名を取得（Express routeの場合はreq.params、Vercelの場合はreq.query）
+    const tool = req.params?.tool || req.query?.tool;
     const { arguments: args } = req.body;
     
     console.log(`🔧 Tool call via MCP: ${tool}`, args);
@@ -77,7 +77,7 @@ export default async function handler(req, res) {
     res.status(500).json({
       error: 'Failed to execute tool',
       message: error.message,
-      tool: req.query.tool
+      tool: req.params?.tool || req.query?.tool
     });
   }
 }

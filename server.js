@@ -25,8 +25,9 @@ import geminiHandler from './api/gemini.js';
 import ttsHandler from './api/tts.js';
 import whisperHandler from './api/whisper.js';
 import openaiProxyHandler from './api/openai-proxy.js';
-import slackOauthHandler from './api/slack-oauth.js';
-import slackOauthCallbackHandlerOld from './api/slack-oauth/callback.js'; // 古いエンドポイント（名前変更）
+// 古いSlack OAuthハンドラー（無効化）
+// import slackOauthHandler from './api/slack-oauth.js';
+// import slackOauthCallbackHandlerOld from './api/slack-oauth/callback.js';
 import downloadHandler from './api/download.js';
 import landingHandler from './api/landing.js';
 import hackerNewsHandler from './api/tools/get_hacker_news_stories.js';
@@ -34,9 +35,10 @@ import exaHandler from './api/tools/search_exa.js';
 import thinkWithClaudeHandler from './api/tools/think_with_claude.js';
 import thinkWithAciHandler from './api/tools/think_with_aci.js';
 import claudeHandler from './api/claude.js';
-import aciOauthUrlHandler from './api/aci/oauth-url.js';
-import aciOauthCallbackHandler from './api/aci/oauth-callback.js';
-import aciConnectedServicesHandler from './api/aci/connected-services.js';
+// ACI関連ハンドラー（無効化）
+// import aciOauthUrlHandler from './api/aci/oauth-url.js';
+// import aciOauthCallbackHandler from './api/aci/oauth-callback.js';
+// import aciConnectedServicesHandler from './api/aci/connected-services.js';
 // New Slack OAuth handlers
 import slackOauthUrlHandler from './api/slack/oauth-url.js';
 import slackOauthCallbackHandler from './api/slack/oauth-callback.js'; // 新しいエンドポイント
@@ -50,17 +52,19 @@ app.all('/api/tts', ttsHandler);
 app.all('/api/whisper', whisperHandler);
 app.all('/api/openai-proxy*', openaiProxyHandler);
 app.all('/api/claude*', claudeHandler);
-app.all('/api/slack-oauth', slackOauthHandler);
-app.all('/api/slack-oauth/callback', slackOauthCallbackHandlerOld); // 古いエンドポイント
+// 古いSlack OAuthエンドポイント（無効化）
+// app.all('/api/slack-oauth', slackOauthHandler);
+// app.all('/api/slack-oauth/callback', slackOauthCallbackHandlerOld);
 app.all('/api/download', downloadHandler);
 app.all('/api/landing', landingHandler);
 app.all('/api/tools/get_hacker_news_stories', hackerNewsHandler);
 app.all('/api/tools/search_exa', exaHandler);
 app.all('/api/tools/think_with_claude', thinkWithClaudeHandler);
 app.all('/api/tools/think_with_aci', thinkWithAciHandler);
-app.all('/api/aci/oauth-url', aciOauthUrlHandler);
-app.all('/api/aci/oauth-callback', aciOauthCallbackHandler);
-app.all('/api/aci/connected-services', aciConnectedServicesHandler);
+// ACI関連エンドポイント（無効化）
+// app.all('/api/aci/oauth-url', aciOauthUrlHandler);
+// app.all('/api/aci/oauth-callback', aciOauthCallbackHandler);
+// app.all('/api/aci/connected-services', aciConnectedServicesHandler);
 // New Slack OAuth routes
 app.all('/api/slack/oauth-url', slackOauthUrlHandler);
 app.all('/api/slack/oauth-callback', slackOauthCallbackHandler);
@@ -74,7 +78,7 @@ app.get('/', (req, res) => {
 });
 
 // Check required environment variables
-const requiredEnvVars = ['ACI_API_KEY'];
+const requiredEnvVars = [];
 const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
 if (missingVars.length > 0) {
@@ -87,5 +91,5 @@ app.listen(PORT, () => {
   console.log(`🚀 Anicca Proxy Server running on port ${PORT}`);
   console.log(`📍 Health check: http://localhost:${PORT}/health`);
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔑 ACI_API_KEY: ${process.env.ACI_API_KEY ? 'Set' : '❌ Not set'}`);
+  // console.log(`🔑 ACI_API_KEY: ${process.env.ACI_API_KEY ? 'Set' : '❌ Not set'}`);
 });
