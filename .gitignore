@@ -25,3 +25,6 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Slack OAuth states
+.slack-states/

@@ -52,7 +52,7 @@ export class SlackMcpService {
       // Slack MCPサーバーを起動
       this.transport = new StdioClientTransport({
         command: 'npx',
-        args: ['@modelcontextprotocol/server-slack'],
+        args: ['@ubie-oss/slack-mcp-server'],
         env: {
           ...process.env,
           SLACK_BOT_TOKEN: botToken,
