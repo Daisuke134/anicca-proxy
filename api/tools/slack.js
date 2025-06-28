@@ -56,6 +56,15 @@ export default async function handler(req, res) {
     // アクションに応じて処理
     switch (action) {
       case 'send_message':
+        // チャンネルに参加していない場合は自動的に参加を試みる
+        try {
+          await slack.conversations.join({
+            channel: args.channel
+          });
+        } catch (joinError) {
+          // 既に参加している場合やプライベートチャンネルの場合はエラーを無視
+        }
+        
         result = await slack.chat.postMessage({
           channel: args.channel,
           text: args.message || args.text
@@ -65,8 +74,28 @@ export default async function handler(req, res) {
       case 'list_channels':
         result = await slack.conversations.list({
           types: 'public_channel,private_channel',
+          exclude_archived: true,
           limit: args.limit || 100
         });
+        // ボットがメンバーのチャンネルのみをフィルタリング
+        const botUserId = (await slack.auth.test()).user_id;
+        const channelsWithMembership = [];
+        
+        for (const channel of result.channels) {
+          try {
+            const members = await slack.conversations.members({
+              channel: channel.id,
+              limit: 1000
+            });
+            if (members.members.includes(botUserId)) {
+              channelsWithMembership.push(channel);
+            }
+          } catch (e) {
+            // プライベートチャンネルなどでメンバー取得できない場合はスキップ
+          }
+        }
+        
+        result.channels = channelsWithMembership;
         break;
         
       case 'get_channel_history':
