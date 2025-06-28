@@ -24,6 +24,11 @@ export default async function handler(req, res) {
       isInitialized = true;
     }
     
+    // URLからツール名を取得（例: /api/tools/github_search → github_search）
+    const urlParts = req.url.split('/');
+    const toolName = urlParts[urlParts.length - 1];
+    console.log('🛠️ Tool name from URL:', toolName);
+    
     // 両方の形式に対応
     let query;
     
@@ -51,9 +56,10 @@ export default async function handler(req, res) {
       throw new Error('EXA_API_KEY is not configured');
     }
     
-    // Exa MCPで検索
+    // Exa MCPで検索（ツール名を指定）
     console.log('🔍 Using Exa MCP for search...');
     const mcpResult = await exaMcpService.search(query, {
+      tool: toolName,  // ツール名を明示的に指定
       numResults: 5  // MCPサーバーが期待するパラメータ名
     });
     

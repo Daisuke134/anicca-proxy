@@ -76,16 +76,129 @@ async function generateDynamicTools() {
     }
   });
   
+  // Exaの8つの検索ツールを個別に登録（MCPツール名をそのまま使用）
   tools.push({
     type: 'function',
-    name: 'search_exa',
-    description: 'Advanced search using Exa - automatically selects the best search type: web search, research papers, company info, GitHub repos, Wikipedia, LinkedIn, or crawl specific URLs',
+    name: 'web_search_exa',
+    description: 'General web search for news, current events, and general information',
     parameters: {
       type: 'object',
       properties: {
         query: {
           type: 'string',
-          description: 'Search query - Exa will automatically choose the best search type based on your query'
+          description: 'Search query for general web content'
+        }
+      },
+      required: ['query']
+    }
+  });
+  
+  tools.push({
+    type: 'function',
+    name: 'research_paper_search',
+    description: 'Search academic research papers and scientific studies',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Search query for academic papers'
+        }
+      },
+      required: ['query']
+    }
+  });
+  
+  tools.push({
+    type: 'function',
+    name: 'company_research',
+    description: 'Search for company information and business details',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Company name or business-related query'
+        }
+      },
+      required: ['query']
+    }
+  });
+  
+  tools.push({
+    type: 'function',
+    name: 'github_search',
+    description: 'Search GitHub repositories and code',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Repository name, code, or GitHub-related query'
+        }
+      },
+      required: ['query']
+    }
+  });
+  
+  tools.push({
+    type: 'function',
+    name: 'wikipedia_search_exa',
+    description: 'Search Wikipedia for encyclopedic information',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Topic or subject to search on Wikipedia'
+        }
+      },
+      required: ['query']
+    }
+  });
+  
+  tools.push({
+    type: 'function',
+    name: 'linkedin_search',
+    description: 'Search LinkedIn for professional profiles and company pages',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Person name, company, or professional query'
+        }
+      },
+      required: ['query']
+    }
+  });
+  
+  tools.push({
+    type: 'function',
+    name: 'crawling',
+    description: 'Extract and analyze content from a specific URL',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'The URL to crawl and extract content from'
+        }
+      },
+      required: ['query']
+    }
+  });
+  
+  tools.push({
+    type: 'function',
+    name: 'competitor_finder',
+    description: 'Find similar companies or competitors',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Company name to find competitors for'
         }
       },
       required: ['query']
@@ -174,24 +287,26 @@ ${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
    - User: "Send to AI channel" → First list channels, find "#ai", use "#ai" (NOT the ID)
    - User: "Post in general" → Use "#general" directly
 
-` : ''}2. **search_exa**: Advanced search that automatically chooses the best search type
-   - Just tell me what you're looking for, and I'll automatically use:
-     • General web search for news, current events, general information
-     • Academic search for research papers and studies
-     • Company search for business information
-     • GitHub search for code repositories
-     • Wikipedia for encyclopedic information
-     • LinkedIn for professional/company profiles
-     • URL crawling to extract content from specific pages
-   - Examples:
-     • "Latest news about AI" → Web search
-     • "Research papers on quantum computing" → Academic search
-     • "Apple company information" → Company search
-     • "React GitHub repository" → GitHub search
+` : ''}2. **Search Tools** (powered by Exa):
+   - **web_search_exa**: General web search for news, current events, general info
+   - **research_paper_search**: Academic research papers and scientific studies
+   - **company_research**: Company information and business details
+   - **github_search**: GitHub repositories and code
+   - **wikipedia_search_exa**: Encyclopedia articles and reference information
+   - **linkedin_search**: Professional profiles and company pages
+   - **crawling**: Extract content from a specific URL
+   - **competitor_finder**: Find similar companies or competitors
+   
+   Examples:
+   - "Latest AI news" → I'll use web_search_exa
+   - "Research on quantum computing" → I'll use research_paper_search
+   - "Apple company details" → I'll use company_research
+   - "React repository" → I'll use github_search
+   - "John Doe LinkedIn" → I'll use linkedin_search
 
 3. **get_hacker_news_stories**: Technology and startup news ONLY
    - For tech industry news, programming, startups
-   - NOT for general news (use search_exa instead)
+   - NOT for general news (use web_search_exa instead)
 
 4. **think_with_claude**: Use Claude for complex reasoning, code analysis, and file operations
    - Best for: Complex tasks, code generation, detailed analysis
@@ -199,8 +314,8 @@ ${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
 
 TOOL SELECTION GUIDELINES:
 - For connected services (${hasSlack ? 'like Slack' : 'when available'}), use their specific tools
-- For information searches, use search_exa
-- For tech news, use get_hacker_news_stories  
+- For searches, choose the appropriate search tool based on content type
+- For tech news specifically, use get_hacker_news_stories  
 - For complex reasoning or code tasks, use think_with_claude
 - ALWAYS analyze tool results before proceeding to the next action
 

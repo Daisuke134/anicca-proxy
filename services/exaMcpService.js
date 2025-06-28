@@ -117,11 +117,11 @@ export class ExaMcpService {
     }
 
     try {
-      // 適切なツールを選択
+      // ツール名が明示的に指定されていればそれを使用、なければ自動選択（後方互換性のため）
       const toolName = options.tool || this.selectSearchTool(query);
       
       console.log(`🔍 Searching with Exa MCP: "${query}"`);
-      console.log(`🎯 Selected tool: ${toolName}`);
+      console.log(`🎯 Using tool: ${toolName}`);
       console.log('🔧 Search options:', JSON.stringify(options, null, 2));
       
       // MCPツールを呼び出し

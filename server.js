@@ -88,7 +88,15 @@ app.all('/api/claude*', claudeHandler);
 app.all('/api/download', downloadHandler);
 app.all('/api/landing', landingHandler);
 app.all('/api/tools/get_hacker_news_stories', hackerNewsHandler);
-app.all('/api/tools/search_exa', exaHandler);
+// Exaの8つの検索ツールをすべて同じハンドラーにルーティング
+app.all('/api/tools/web_search_exa', exaHandler);
+app.all('/api/tools/research_paper_search', exaHandler);
+app.all('/api/tools/company_research', exaHandler);
+app.all('/api/tools/github_search', exaHandler);
+app.all('/api/tools/wikipedia_search_exa', exaHandler);
+app.all('/api/tools/linkedin_search', exaHandler);
+app.all('/api/tools/crawling', exaHandler);
+app.all('/api/tools/competitor_finder', exaHandler);
 app.all('/api/tools/think_with_claude', thinkWithClaudeHandler);
 // New Slack OAuth routes
 app.all('/api/slack/oauth-url', slackOauthUrlHandler);
