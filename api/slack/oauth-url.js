@@ -1,22 +1,4 @@
-import { InstallProvider } from '@slack/oauth';
-
-// Slack OAuth設定
-const installer = new InstallProvider({
-  clientId: process.env.SLACK_CLIENT_ID,
-  clientSecret: process.env.SLACK_CLIENT_SECRET,
-  stateSecret: process.env.SLACK_STATE_SECRET || 'my-state-secret', // 本番環境では強力なシークレットを使用
-  installationStore: {
-    // 簡易的なメモリストア（本番環境ではデータベースを使用）
-    storeInstallation: async (installation) => {
-      // TODO: データベースに保存
-      console.log('Installation would be stored:', installation);
-    },
-    fetchInstallation: async (installQuery) => {
-      // TODO: データベースから取得
-      console.log('Installation would be fetched:', installQuery);
-    },
-  },
-});
+import { installer } from '../../services/slackOAuthService.js';
 
 export default async function handler(req, res) {
   // Enable CORS

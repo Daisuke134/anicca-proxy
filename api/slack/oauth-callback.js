@@ -1,4 +1,4 @@
-import { InstallProvider } from '@slack/oauth';
+import { installer } from '../../services/slackOAuthService.js';
 import crypto from 'crypto';
 
 // 暗号化キー（本番環境では環境変数から取得）
@@ -13,27 +13,6 @@ function encrypt(text) {
   encrypted = Buffer.concat([encrypted, cipher.final()]);
   return iv.toString('hex') + ':' + encrypted.toString('hex');
 }
-
-// Slack OAuth設定（oauth-url.jsと同じ）
-const installer = new InstallProvider({
-  clientId: process.env.SLACK_CLIENT_ID,
-  clientSecret: process.env.SLACK_CLIENT_SECRET,
-  stateSecret: process.env.SLACK_STATE_SECRET || 'my-state-secret',
-  installationStore: {
-    storeInstallation: async (installation) => {
-      // メモリに保存（簡易実装）
-      global.slackInstallations = global.slackInstallations || {};
-      const key = installation.team ? installation.team.id : 'default';
-      global.slackInstallations[key] = installation;
-      console.log('✅ Slack installation stored for team:', key);
-    },
-    fetchInstallation: async (installQuery) => {
-      const installations = global.slackInstallations || {};
-      const key = installQuery.teamId || 'default';
-      return installations[key];
-    },
-  },
-});
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
