@@ -31,13 +31,16 @@ export default async function handler(req, res) {
   
   try {
     const { sessionId } = req.query;
+    console.log('📝 Session ID:', sessionId);
     
     if (!sessionId) {
+      console.log('❌ No session ID provided');
       return res.status(400).json({ error: 'Session ID is required' });
     }
     
     // セッションIDに紐づくSlackトークンをDBから取得
     const tokenData = await loadTokensFromDB(sessionId);
+    console.log('🗄️ Token data from DB:', tokenData ? 'Found' : 'Not found');
     
     if (tokenData && tokenData.bot_token) {
       // 暗号化されたトークンを復号化
@@ -52,16 +55,21 @@ export default async function handler(req, res) {
       });
       
       const slackData = await slackResponse.json();
+      console.log('🔒 Slack auth.test response:', slackData.ok ? 'Success' : 'Failed');
       
       if (slackData.ok) {
+        console.log('✅ Slack connection verified - Team:', slackData.team, 'User:', slackData.user);
         return res.status(200).json({ 
           connected: true,
           team: slackData.team,
           user: slackData.user
         });
+      } else {
+        console.log('❌ Slack auth test failed:', slackData.error);
       }
     }
     
+    console.log('⚠️ No valid token found, returning connected: false');
     return res.status(200).json({ connected: false });
     
   } catch (error) {
