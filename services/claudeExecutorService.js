@@ -472,6 +472,18 @@ ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "$@"
 - このディレクトリ外のファイルは絶対に読み書きしないでください
 - ユーザーのプライバシーを守るため、ワークスペース外へのアクセスは禁止です
 
+${this.slackTokens ? `【Slackが使えます】
+ユーザーのSlackワークスペースに接続されています。
+作業の進捗や重要な結果はSlackに投稿してください。
+
+使えるアクション:
+- send_message: メッセージを送信
+- list_channels: チャンネル一覧を取得
+- get_channel_history: チャンネル履歴を取得
+
+Slack API: https://anicca-proxy-production.up.railway.app/api/tools/slack
+userId: ${this.slackTokens.userId || ''}
+` : ''}
 【成果物の届け方】
 - 作業の進捗や結果は定期的に報告してください
 - 重要な成果物（作成したアプリなど）がある場合は、その旨を明確に伝えてください
