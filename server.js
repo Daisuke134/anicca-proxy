@@ -72,6 +72,7 @@ import claudeHandler from './api/claude.js';
 import slackOauthUrlHandler from './api/slack/oauth-url.js';
 import slackOauthCallbackHandler from './api/slack/oauth-callback.js'; // 新しいエンドポイント
 import slackCheckConnectionHandler from './api/slack/check-connection.js';
+import migrateConnectionHandler from './api/migrate-connection.js';
 // Tool handlers
 import slackToolHandler from './api/tools/slack.js';
 // Connected services
@@ -103,6 +104,7 @@ app.all('/api/tools/think_with_claude', thinkWithClaudeHandler);
 app.all('/api/slack/oauth-url', slackOauthUrlHandler);
 app.all('/api/slack/oauth-callback', slackOauthCallbackHandler);
 app.all('/api/slack/check-connection', slackCheckConnectionHandler);
+app.all('/api/migrate-connection', migrateConnectionHandler);
 // Slack tool endpoints
 app.all('/api/tools/slack', slackToolHandler);
 // Connected services

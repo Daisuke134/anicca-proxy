@@ -68,11 +68,40 @@ export default async function handler(req, res) {
       }
     }
     
-    // セッションIDに紐づくSlackトークンをDBから取得（フォールバック）
-    const { sessionId } = req.query;
+    // セッションIDまたはユーザーIDに紐づくSlackトークンをDBから取得（フォールバック）
+    const { sessionId, userId } = req.query;
+    
+    // ユーザーIDベースで検索（優先）
+    if (userId) {
+      const userSessionId = `user_${userId}_slack`;
+      const userTokenData = await loadTokensFromDB(userSessionId);
+      console.log('🗄️ User token data from DB:', userTokenData ? 'Found' : 'Not found');
+      
+      if (userTokenData && userTokenData.bot_token) {
+        const decryptedToken = decrypt(userTokenData.bot_token);
+        const slackResponse = await fetch('https://slack.com/api/auth.test', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${decryptedToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const slackData = await slackResponse.json();
+        if (slackData.ok) {
+          return res.status(200).json({ 
+            connected: true,
+            team: slackData.team,
+            user: slackData.user
+          });
+        }
+      }
+    }
+    
+    // セッションIDベースで検索（後方互換性）
     if (sessionId) {
       const tokenData = await loadTokensFromDB(sessionId);
-      console.log('🗄️ Token data from DB:', tokenData ? 'Found' : 'Not found');
+      console.log('🗄️ Session token data from DB:', tokenData ? 'Found' : 'Not found');
       
       if (tokenData && tokenData.bot_token) {
         const decryptedToken = decrypt(tokenData.bot_token);
