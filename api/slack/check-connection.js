@@ -30,45 +30,7 @@ export default async function handler(req, res) {
   }
   
   try {
-    // グローバル変数から直接トークンをチェック
-    if (global.slackBotToken || global.slackUserToken) {
-      console.log('🔑 Found global Slack tokens');
-      
-      // どちらかのトークンで認証テスト
-      const tokenToTest = global.slackUserToken || global.slackBotToken;
-      let decryptedToken;
-      
-      try {
-        // 暗号化されている場合は復号化
-        decryptedToken = decrypt(tokenToTest);
-      } catch (e) {
-        // 暗号化されていない場合はそのまま使用
-        decryptedToken = tokenToTest;
-      }
-      
-      // Slack APIでトークンの有効性を確認
-      const slackResponse = await fetch('https://slack.com/api/auth.test', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${decryptedToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      const slackData = await slackResponse.json();
-      console.log('🔒 Slack auth.test response:', slackData.ok ? 'Success' : 'Failed');
-      
-      if (slackData.ok) {
-        console.log('✅ Slack connection verified - Team:', slackData.team, 'User:', slackData.user);
-        return res.status(200).json({ 
-          connected: true,
-          team: slackData.team,
-          user: slackData.user
-        });
-      }
-    }
-    
-    // セッションIDまたはユーザーIDに紐づくSlackトークンをDBから取得（フォールバック）
+    // ユーザーIDまたはセッションIDを取得
     const { sessionId, userId } = req.query;
     
     // ユーザーIDベースで検索（優先）
