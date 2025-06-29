@@ -153,10 +153,9 @@ export class ClaudeExecutorService extends EventEmitter {
   setSlackTokens(tokens) {
     this.slackTokens = tokens;
     console.log('🔐 Slack tokens set for user');
-    
-    // MCPではなくSlack APIを直接使うため、ここでは保存のみ
-    // 実際のSlack投稿は別途実装
+    // SDKがHTTP経由で/api/tools/slackを呼び出すため、ここでは保存のみ
   }
+  
   
   /**
    * 生成されたファイルを検出
@@ -193,8 +192,9 @@ export class ClaudeExecutorService extends EventEmitter {
 
   /**
    * SDKメッセージをログ出力（進捗の可視化）
+   * オプションでSlackにも送信
    */
-  logSDKMessage(message) {
+  logSDKMessage(message, slackChannel = null) {
     const msg = message;
     let logContent = '';
     let logType = message.type;
