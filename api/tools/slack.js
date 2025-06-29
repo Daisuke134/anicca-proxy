@@ -1,5 +1,6 @@
 import { WebClient } from '@slack/web-api';
 import crypto from 'crypto';
+import { getSlackTokensForUser } from '../../services/database.js';
 
 // 復号化関数
 function decrypt(text) {
@@ -28,13 +29,27 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { action, arguments: args } = req.body;
+    const { action, arguments: args, userId } = req.body;
     
-    console.log('🔧 Slack tool request:', { action, args });
+    console.log('🔧 Slack tool request:', { action, args, userId });
     
-    // トークンを取得（暗号化されている場合は復号化）
-    let botToken = process.env.SLACK_BOT_TOKEN || global.slackBotToken;
-    let userToken = process.env.SLACK_USER_TOKEN || global.slackUserToken;
+    // userIdがある場合はデータベースからトークンを取得
+    let botToken, userToken;
+    
+    if (userId) {
+      const userTokens = await getSlackTokensForUser(userId);
+      if (userTokens) {
+        botToken = userTokens.bot_token;
+        userToken = userTokens.user_token;
+        console.log('🔐 Retrieved tokens for user:', userId);
+      }
+    }
+    
+    // フォールバック：環境変数またはグローバル変数
+    if (!botToken) {
+      botToken = process.env.SLACK_BOT_TOKEN || global.slackBotToken;
+      userToken = process.env.SLACK_USER_TOKEN || global.slackUserToken;
+    }
     
     console.log('🔑 Token check - Bot:', !!botToken, 'User:', !!userToken);
     
