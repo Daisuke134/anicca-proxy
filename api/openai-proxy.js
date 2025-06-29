@@ -207,14 +207,14 @@ async function generateDynamicTools() {
   
   tools.push({
     type: 'function',
-    name: 'think_with_claude',
-    description: 'Use Claude for complex tasks, code analysis, file operations, and MCP tools',
+    name: 'claude_code',
+    description: 'Use Claude Code for complex tasks, code analysis, file operations, and MCP tools',
     parameters: {
       type: 'object',
       properties: {
         task: {
           type: 'string',
-          description: 'The task or question for Claude to handle'
+          description: 'The task or question for Claude Code to handle'
         },
         context: {
           type: 'string',
