@@ -482,13 +482,14 @@ ${this.slackTokens ? `【Slackが使えます】
 作業の進捗や重要な結果はSlackに投稿してください。
 
 使い方:
-1. MCPツールを使用: slack_send_message, slack_list_channels
+1. MCPツールを使用: slack_send_message, slack_list_channels, slack_get_channel_history
 2. チャンネル名は"#general"のような形式で指定
 3. userIdは自動的に含まれます: ${this.slackTokens.userId || ''}
 
 例:
 - slack_send_message(channel="#general", message="作業を開始します")
 - slack_list_channels()で利用可能なチャンネルを確認
+- slack_get_channel_history(channel="#ai", limit=5)で最新のメッセージを取得
 
 HTTPツールも使えます（http_request）ので、他のAPIも呼び出せます。
 ` : ''}

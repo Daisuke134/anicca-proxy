@@ -79,6 +79,25 @@ const httpTools = [
       properties: {},
     },
   },
+  {
+    name: 'slack_get_channel_history',
+    description: 'Get recent messages from a Slack channel',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        channel: {
+          type: 'string',
+          description: 'Channel name (e.g., "#ai") or channel ID',
+        },
+        limit: {
+          type: 'number',
+          description: 'Number of messages to retrieve (default: 10)',
+          default: 10,
+        },
+      },
+      required: ['channel'],
+    },
+  },
 ];
 
 // Handle tool listing
@@ -206,6 +225,50 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           {
             type: 'text',
             text: `Found ${channels.length} channels:\n${channelList}`,
+          },
+        ],
+      };
+    }
+    
+    if (name === 'slack_get_channel_history') {
+      const { channel, limit = 10 } = args;
+      const slackApiUrl = process.env.SLACK_API_URL || 'https://anicca-proxy-production.up.railway.app/api/tools/slack';
+      const userId = process.env.USER_ID; // 環境変数から取得
+      
+      console.error(`[HTTP MCP] Getting ${limit} messages from ${channel} for user ${userId}`);
+      
+      const response = await fetch(slackApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'get_channel_history',
+          arguments: { channel, limit },
+          userId,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || `Slack API error: ${response.status}`);
+      }
+      
+      // Format message history
+      const messages = result.result?.messages || [];
+      const formattedMessages = messages
+        .map(msg => {
+          const time = new Date(parseFloat(msg.ts) * 1000).toLocaleString();
+          return `[${time}] ${msg.user}: ${msg.text}`;
+        })
+        .join('\n\n');
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Recent messages from ${channel}:\n\n${formattedMessages}`,
           },
         ],
       };
