@@ -23,7 +23,13 @@ export default async function handler(req, res) {
     let state;
     if (userId) {
       // userIdがある場合は、JSON形式でstateを作成
-      state = JSON.stringify({ sessionId, userId });
+      // リダイレクトURLも含める（開発環境対応）
+      const stateData = { 
+        sessionId, 
+        userId,
+        redirectUrl: req.headers.referer || req.query.redirectUrl || undefined
+      };
+      state = JSON.stringify(stateData);
     } else {
       // 後方互換性のため、sessionIdのみの場合は単純な文字列
       state = sessionId || Math.random().toString(36).substring(2, 15);

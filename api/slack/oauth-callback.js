@@ -117,7 +117,22 @@ export default async function handler(req, res) {
     console.log('✅ Slack installation stored for team:', teamId);
     
     // フロントエンドにリダイレクト
-    const redirectUrl = process.env.ANICCA_WEB_URL || 'http://localhost:3000';
+    // stateからリダイレクトURLを取得（もしある場合）
+    let redirectUrl = process.env.ANICCA_WEB_URL || 'http://localhost:3000';
+    
+    // userIdがある場合は、開発環境の可能性が高い
+    if (userId && process.env.NODE_ENV !== 'production') {
+      // staging環境では、リファラーまたはstateから判断
+      try {
+        const stateData = JSON.parse(state);
+        if (stateData.redirectUrl) {
+          redirectUrl = stateData.redirectUrl;
+        }
+      } catch (e) {
+        // stateがJSON形式でない場合は、デフォルトを使用
+      }
+    }
+    
     res.redirect(`${redirectUrl}?success=true&service=slack&sessionId=${sessionId}`);
     
   } catch (error) {
