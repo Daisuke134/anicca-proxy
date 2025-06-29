@@ -77,6 +77,8 @@ import migrateConnectionHandler from './api/migrate-connection.js';
 import slackToolHandler from './api/tools/slack.js';
 // Connected services
 import connectedServicesHandler from './api/connected-services.js';
+// Debug endpoint (REMOVE IN PRODUCTION!)
+import debugDeleteTokensHandler from './api/debug-delete-tokens.js';
 
 // API Routes - 完全移植
 app.all('/api/gemini', geminiHandler);
@@ -109,6 +111,8 @@ app.all('/api/migrate-connection', migrateConnectionHandler);
 app.all('/api/tools/slack', slackToolHandler);
 // Connected services
 app.all('/api/connected-services', connectedServicesHandler);
+// Debug endpoint (REMOVE IN PRODUCTION!)
+app.all('/api/debug-delete-tokens', debugDeleteTokensHandler);
 
 // Root endpoint
 app.get('/', (req, res) => {
