@@ -106,13 +106,14 @@ export default async function handler(req, res) {
     await saveTokens(teamId, tokenData);
     
     // データベースに保存
-    // userIdがある場合は、ユーザーベースのキーも使用
-    await saveTokensToDB(sessionId, tokenData);
-    
     if (userId) {
-      const userSessionId = `user_${userId}_slack`;
-      await saveTokensToDB(userSessionId, tokenData);
+      // userIdのみを渡す（saveSlackTokensForUserが自動的にプレフィックスを追加する）
+      await saveTokensToDB(userId, tokenData);
       console.log('✅ Saved tokens for user:', userId);
+    } else {
+      // userIdがない場合のみ一時的なセッションIDで保存
+      await saveTokensToDB(sessionId, tokenData);
+      console.log('⚠️ Saved tokens with temporary session ID:', sessionId);
     }
     
     // インストール情報を保存（メモリベース）
