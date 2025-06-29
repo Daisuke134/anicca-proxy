@@ -465,7 +465,7 @@ ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "$@"
           maxTurns: 30, // アプリ作成なども考慮して余裕を持せる
           mcpServers: this.mcpServers,
           cwd: workingDir,  // 作業ディレクトリを指定（常にworkspaceRoot）
-          permissionMode: 'default',  // Railway環境はrootで実行されるため
+          permissionMode: 'bypassPermissions',  // 自動実行のため権限確認をスキップ
           // 環境変数をSDKに渡す（SDKのspawnに反映されるか確認）
           env: envWithNode,
           appendSystemPrompt: `
