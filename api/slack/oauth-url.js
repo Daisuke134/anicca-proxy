@@ -19,6 +19,11 @@ export default async function handler(req, res) {
     const clientId = process.env.SLACK_CLIENT_ID;
     const redirectUri = process.env.SLACK_REDIRECT_URI || 'https://anicca-proxy-production.up.railway.app/api/slack/oauth-callback';
     
+    // デバッグログ
+    console.log('🔍 OAuth URL generation debug:');
+    console.log('  - referer:', req.headers.referer);
+    console.log('  - redirectUrl query:', req.query.redirectUrl);
+    
     // stateを生成（sessionIdとuserIdを含める）
     let state;
     if (userId) {
@@ -29,6 +34,7 @@ export default async function handler(req, res) {
         userId,
         redirectUrl: req.headers.referer || req.query.redirectUrl || undefined
       };
+      console.log('  - stateData to be sent:', stateData);
       state = JSON.stringify(stateData);
     } else {
       // 後方互換性のため、sessionIdのみの場合は単純な文字列
