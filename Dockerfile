@@ -38,15 +38,30 @@ RUN apt-get update -qq && \
     python3 \
     python3-pip \
     curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl -LsSf https://astral.sh/uv/install.sh | sh \
-    && echo 'export PATH="/root/.cargo/bin:$PATH"' >> /root/.bashrc
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user early
+RUN useradd -m -s /bin/bash appuser
+
+# Install uv for the appuser
+USER appuser
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && echo 'export PATH="/home/appuser/.cargo/bin:$PATH"' >> /home/appuser/.bashrc
 
 # Set PATH to include uv
-ENV PATH="/root/.cargo/bin:$PATH"
+ENV PATH="/home/appuser/.cargo/bin:$PATH"
+
+# Switch back to root for copying files
+USER root
 
 # Copy built application
 COPY --from=build /app /app
+
+# Change ownership to appuser
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
 
 # Start the server by default, this can be overwritten at runtime
 EXPOSE 3000
