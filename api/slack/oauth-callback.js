@@ -73,8 +73,18 @@ export default async function handler(req, res) {
       process.env.SLACK_USER_TOKEN = userToken;
     }
     
-    // sessionIdをstateから取得（stateがsessionIdの場合）
-    const sessionId = state || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // stateからsessionIdとuserIdを取得
+    let sessionId, userId;
+    try {
+      // stateがJSON形式の場合（新しい形式）
+      const stateData = JSON.parse(state);
+      sessionId = stateData.sessionId;
+      userId = stateData.userId;
+    } catch (e) {
+      // stateが単純な文字列の場合（後方互換性）
+      sessionId = state || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      userId = null;
+    }
     
     // トークンを永続化（ファイルとDBに保存）
     const tokenData = {
@@ -82,14 +92,23 @@ export default async function handler(req, res) {
       user_token: userToken ? encrypt(userToken) : null,
       team_id: teamId,
       team_name: data.team?.name,
-      authed_user: data.authed_user
+      authed_user: data.authed_user,
+      user_id: userId, // ユーザーIDを追加
+      created_at: new Date().toISOString()
     };
     
     // ファイルに保存（後方互換性のため）
     await saveTokens(teamId, tokenData);
     
     // データベースに保存
+    // userIdがある場合は、ユーザーベースのキーも使用
     await saveTokensToDB(sessionId, tokenData);
+    
+    if (userId) {
+      const userSessionId = `user_${userId}_slack`;
+      await saveTokensToDB(userSessionId, tokenData);
+      console.log('✅ Saved tokens for user:', userId);
+    }
     
     // インストール情報を保存（メモリベース）
     global.slackInstallations = global.slackInstallations || {};

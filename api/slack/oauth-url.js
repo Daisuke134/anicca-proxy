@@ -13,14 +13,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { sessionId } = req.query;
+    const { sessionId, userId } = req.query;
     
     // Slack OAuth URLを直接構築
     const clientId = process.env.SLACK_CLIENT_ID;
     const redirectUri = process.env.SLACK_REDIRECT_URI || 'https://anicca-proxy-production.up.railway.app/api/slack/oauth-callback';
     
-    // シンプルなstate生成（sessionIdを含める）
-    const state = sessionId || Math.random().toString(36).substring(2, 15);
+    // stateを生成（sessionIdとuserIdを含める）
+    let state;
+    if (userId) {
+      // userIdがある場合は、JSON形式でstateを作成
+      state = JSON.stringify({ sessionId, userId });
+    } else {
+      // 後方互換性のため、sessionIdのみの場合は単純な文字列
+      state = sessionId || Math.random().toString(36).substring(2, 15);
+    }
     
     // 必要なスコープ
     const scopes = [
