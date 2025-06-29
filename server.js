@@ -53,10 +53,10 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static('public'));
 
 // Import auth middleware
-import { authMiddleware } from './middleware/auth.js';
+// import { authMiddleware } from './middleware/auth.js';
 
 // Apply auth middleware to all routes
-app.use(authMiddleware);
+// app.use(authMiddleware);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
