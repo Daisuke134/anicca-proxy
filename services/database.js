@@ -1,6 +1,6 @@
 // Database service for managing user data and Slack tokens
 
-import { tokenStorage } from './tokenStorage.js';
+import { loadTokens, saveTokens } from './tokenStorage.js';
 
 /**
  * Get Slack tokens for a specific user
@@ -12,7 +12,7 @@ export async function getSlackTokensForUser(userId) {
     console.log('🔍 Getting Slack tokens for user:', userId);
     
     // Get tokens from storage
-    const tokens = await tokenStorage.getTokens(userId);
+    const tokens = await loadTokens(userId);
     
     if (tokens && tokens.bot_token) {
       console.log('✅ Found Slack tokens for user');
@@ -40,7 +40,7 @@ export async function getSlackTokensForUser(userId) {
 export async function saveSlackTokensForUser(userId, tokens) {
   try {
     console.log('💾 Saving Slack tokens for user:', userId);
-    await tokenStorage.saveTokens(userId, tokens);
+    await saveTokens(userId, tokens);
     return true;
   } catch (error) {
     console.error('❌ Error saving Slack tokens:', error);
