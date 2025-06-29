@@ -226,12 +226,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // Start the server
 async function main() {
+  console.error('[HTTP MCP] Starting server...');
+  console.error('[HTTP MCP] Environment:', {
+    USER_ID: process.env.USER_ID,
+    SLACK_API_URL: process.env.SLACK_API_URL,
+    NODE_VERSION: process.version
+  });
+  
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('[HTTP MCP] Server started');
+  console.error('[HTTP MCP] Server started successfully');
 }
 
 main().catch((error) => {
   console.error('[HTTP MCP] Fatal error:', error);
+  console.error('[HTTP MCP] Stack trace:', error.stack);
   process.exit(1);
 });

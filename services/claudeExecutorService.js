@@ -418,9 +418,9 @@ ${action.parameters.query}`;
       
       // process.envを直接更新（SDKがenvオプションをサポートしない場合のため）
       process.env.ELECTRON_RUN_AS_NODE = '1';
-      // DEBUG環境変数を無効化（出力が多すぎるため）
-      // process.env.DEBUG = 'true';
-      // process.env.ANTHROPIC_LOG = 'debug';
+      // DEBUG環境変数を有効化（問題の調査のため）
+      process.env.DEBUG = 'true';
+      process.env.ANTHROPIC_LOG = 'debug';
       
       // Electronの実行ファイルのディレクトリをPATHに追加
       const electronDir = path.dirname(process.execPath);
