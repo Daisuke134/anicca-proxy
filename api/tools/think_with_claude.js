@@ -3,6 +3,7 @@
 
 import { ClaudeExecutorService } from '../../services/claudeExecutorService.js';
 import { MockDatabase } from '../../services/mockDatabase.js';
+import { getSlackTokensForUser } from '../../services/database.js';
 
 // タスク実行状態
 let taskState = {
@@ -40,31 +41,49 @@ export default async function handler(req, res) {
 
   try {
     // 両方の形式に対応
-    let task, context;
+    let task, context, userId;
     
     console.log('📥 Request body:', JSON.stringify(req.body, null, 2));
     
     if (req.body.arguments) {
-      // デスクトップ版形式: { arguments: { task: "...", context: "..." } }
+      // デスクトップ版形式: { arguments: { task: "...", context: "...", userId: "..." } }
       const args = typeof req.body.arguments === 'string' 
         ? JSON.parse(req.body.arguments) 
         : req.body.arguments;
       task = args.task;
       context = args.context;
-      console.log('🔧 Using arguments format - task:', task);
+      userId = args.userId;
+      console.log('🔧 Using arguments format - task:', task, 'userId:', userId);
     } else {
-      // Web版形式: { task: "...", context: "..." }
+      // Web版形式: { task: "...", context: "...", userId: "..." }
       task = req.body.task;
       context = req.body.context;
-      console.log('🔧 Using direct format - task:', task);
+      userId = req.body.userId;
+      console.log('🔧 Using direct format - task:', task, 'userId:', userId);
     }
     
     if (!task) {
       return res.status(400).json({ error: 'Task is required' });
     }
 
+    // userIdがある場合はSlackトークンを取得
+    let slackTokens = null;
+    if (userId) {
+      try {
+        slackTokens = await getSlackTokensForUser(userId);
+        console.log(`🔐 Retrieved Slack tokens for user ${userId}:`, slackTokens ? 'Found' : 'Not found');
+      } catch (error) {
+        console.error('Failed to get Slack tokens:', error);
+      }
+    }
+    
     // ClaudeExecutorServiceを初期化
     const service = await initializeService();
+    
+    // Slackトークンがある場合は設定
+    if (slackTokens) {
+      service.setSlackTokens(slackTokens);
+    }
     
     // 実行状態をチェック（VoiceServerと同じ）
     if (taskState.isExecuting) {

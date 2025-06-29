@@ -57,6 +57,7 @@ export class ClaudeExecutorService extends EventEmitter {
   workspaceRoot;
   executionTimeout = null;
   MAX_EXECUTION_TIME = 300000; // 5分
+  slackTokens = null; // ユーザーごとのSlackトークン
 
   constructor(database) {
     super();
@@ -146,6 +147,17 @@ export class ClaudeExecutorService extends EventEmitter {
     }
   }
 
+  /**
+   * Slackトークンを設定
+   */
+  setSlackTokens(tokens) {
+    this.slackTokens = tokens;
+    console.log('🔐 Slack tokens set for user');
+    
+    // MCPではなくSlack APIを直接使うため、ここでは保存のみ
+    // 実際のSlack投稿は別途実装
+  }
+  
   /**
    * 生成されたファイルを検出
    */
