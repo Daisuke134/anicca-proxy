@@ -45,7 +45,12 @@ export default async function handler(req, res) {
         client_id: process.env.SLACK_CLIENT_ID,
         client_secret: process.env.SLACK_CLIENT_SECRET,
         code: code,
-        redirect_uri: process.env.SLACK_REDIRECT_URI || 'https://anicca-proxy-production.up.railway.app/api/slack/oauth-callback'
+        // 動的にリダイレクトURIを生成（リクエストから判定）
+        redirect_uri: (() => {
+          const host = req.headers.host || 'anicca-proxy-production.up.railway.app';
+          const protocol = req.headers['x-forwarded-proto'] || 'https';
+          return `${protocol}://${host}/api/slack/oauth-callback`;
+        })()
       }
     });
     
