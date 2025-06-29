@@ -62,6 +62,7 @@ export async function authMiddleware(req, res, next) {
       '/api/slack/oauth-url',
       '/api/slack/oauth-callback',
       '/api/slack/check-connection'
+      // 他のAPIは認証が必要
     ];
     
     const requestPath = req.path || req.url || req.originalUrl;
