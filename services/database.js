@@ -47,3 +47,13 @@ export async function saveSlackTokensForUser(userId, tokens) {
     return false;
   }
 }
+
+/**
+ * Save tokens to database (alias for saveSlackTokensForUser)
+ * @param {string} userId - The user ID
+ * @param {object} tokens - The tokens object
+ * @returns {Promise<void>}
+ */
+export async function saveTokensToDB(userId, tokens) {
+  await saveSlackTokensForUser(userId, tokens);
+}
