@@ -57,3 +57,41 @@ export async function saveSlackTokensForUser(userId, tokens) {
 export async function saveTokensToDB(userId, tokens) {
   await saveSlackTokensForUser(userId, tokens);
 }
+
+/**
+ * Load tokens from database by userId
+ * @param {string} userId - The user ID
+ * @returns {Promise<object|null>}
+ */
+export async function loadTokensFromDB(userId) {
+  return await getSlackTokensForUser(userId);
+}
+
+/**
+ * Load latest tokens from database (for backward compatibility)
+ * @returns {Promise<object|null>}
+ */
+export async function loadLatestTokensFromDB() {
+  try {
+    // For backward compatibility, return global tokens if available
+    if (global.slackBotToken) {
+      return {
+        bot_token: global.slackBotToken,
+        user_token: global.slackUserToken || null
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('❌ Error loading latest tokens:', error);
+    return null;
+  }
+}
+
+/**
+ * Initialize database (no-op for this implementation)
+ * @returns {Promise<void>}
+ */
+export async function initDatabase() {
+  console.log('🔧 Database initialized (using tokenStorage)');
+  return Promise.resolve();
+}
