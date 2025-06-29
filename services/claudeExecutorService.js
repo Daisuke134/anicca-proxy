@@ -476,13 +476,16 @@ ${this.slackTokens ? `【Slackが使えます】
 ユーザーのSlackワークスペースに接続されています。
 作業の進捗や重要な結果はSlackに投稿してください。
 
-使えるアクション:
-- send_message: メッセージを送信
-- list_channels: チャンネル一覧を取得
-- get_channel_history: チャンネル履歴を取得
+使い方:
+1. MCPツールを使用: slack_send_message, slack_list_channels
+2. チャンネル名は"#general"のような形式で指定
+3. userIdは自動的に含まれます: ${this.slackTokens.userId || ''}
 
-Slack API: https://anicca-proxy-production.up.railway.app/api/tools/slack
-userId: ${this.slackTokens.userId || ''}
+例:
+- slack_send_message(channel="#general", message="作業を開始します")
+- slack_list_channels()で利用可能なチャンネルを確認
+
+HTTPツールも使えます（http_request）ので、他のAPIも呼び出せます。
 ` : ''}
 【成果物の届け方】
 - 作業の進捗や結果は定期的に報告してください
@@ -1023,6 +1026,22 @@ ${action.parameters.query || ''}`;
       console.log('✅ ElevenLabs MCP server configured');
     }
     
+    // HTTP MCPサーバーを追加（Slack連携がある場合のみ）
+    if (this.slackTokens && this.slackTokens.userId) {
+      const httpMcpPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'mcp-servers', 'http-mcp-server.js');
+      this.mcpServers.http = {
+        command: 'node',
+        args: [httpMcpPath],
+        env: {
+          SLACK_API_URL: 'https://anicca-proxy-production.up.railway.app/api/tools/slack',
+          USER_ID: this.slackTokens.userId
+        }
+      };
+      console.log('✅ HTTP MCP server configured for Slack integration');
+      console.log('   Path:', httpMcpPath);
+      console.log('   User ID:', this.slackTokens.userId);
+    }
+    
     // Slackトークンの確認
     try {
       const slackConfigPath = path.join(process.env.HOME || '', '.anicca', 'slack-config.json');
@@ -1085,6 +1104,9 @@ ${action.parameters.query || ''}`;
     }
     if (this.mcpServers.elevenlabs) {
       available.push('ElevenLabs');
+    }
+    if (this.mcpServers.http) {
+      available.push('HTTP');
     }
     return available;
   }
