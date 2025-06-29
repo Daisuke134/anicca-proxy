@@ -152,8 +152,13 @@ export class ClaudeExecutorService extends EventEmitter {
    */
   setSlackTokens(tokens) {
     this.slackTokens = tokens;
-    console.log('🔐 Slack tokens set for user');
-    // SDKがHTTP経由で/api/tools/slackを呼び出すため、ここでは保存のみ
+    console.log('🔐 Slack tokens set for user:', {
+      userId: tokens?.userId,
+      hasBot: !!tokens?.bot_token,
+      hasUser: !!tokens?.user_token
+    });
+    // MCPサーバーを再初期化してHTTP MCPを追加
+    this.initializeMCPServers();
   }
   
   

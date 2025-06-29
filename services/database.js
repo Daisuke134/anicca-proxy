@@ -11,16 +11,53 @@ export async function getSlackTokensForUser(userId) {
   try {
     console.log('🔍 Getting Slack tokens for user:', userId);
     
-    // Get tokens from storage
-    const tokens = await loadTokens(userId);
+    // Try multiple key formats to find tokens
+    const keysToTry = [
+      `user_${userId}_slack`,  // New format from oauth-callback
+      userId,                   // Direct userId
+    ];
     
-    if (tokens && tokens.bot_token) {
-      console.log('✅ Found Slack tokens for user');
-      return {
-        bot_token: tokens.bot_token,
-        user_token: tokens.user_token || null,
-        userId: userId
-      };
+    for (const key of keysToTry) {
+      console.log(`  Trying key: ${key}`);
+      const tokens = await loadTokens(key);
+      
+      if (tokens && tokens.bot_token) {
+        console.log(`✅ Found Slack tokens with key: ${key}`);
+        return {
+          bot_token: tokens.bot_token,
+          user_token: tokens.user_token || null,
+          userId: userId
+        };
+      }
+    }
+    
+    // Also check all tokens to find by user_id field
+    try {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const { fileURLToPath } = await import('url');
+      const { dirname } = await import('path');
+      
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = dirname(__filename);
+      const TOKEN_FILE = path.join(__dirname, '../.tokens.json');
+      
+      const content = await fs.readFile(TOKEN_FILE, 'utf-8');
+      const allTokens = JSON.parse(content);
+      
+      console.log('  Checking all tokens for user_id match...');
+      for (const [key, tokenData] of Object.entries(allTokens)) {
+        if (tokenData.user_id === userId && tokenData.bot_token) {
+          console.log(`✅ Found Slack tokens by user_id field with key: ${key}`);
+          return {
+            bot_token: tokenData.bot_token,
+            user_token: tokenData.user_token || null,
+            userId: userId
+          };
+        }
+      }
+    } catch (err) {
+      console.log('  Could not read tokens file:', err.message);
     }
     
     console.log('❌ No Slack tokens found for user');
