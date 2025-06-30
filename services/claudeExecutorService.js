@@ -485,19 +485,29 @@ ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "$@"
 - このディレクトリ外のファイルは絶対に読み書きしないでください
 - ユーザーのプライバシーを守るため、ワークスペース外へのアクセスは禁止です
 
-${this.slackTokens ? `【Slackが使えます】
+${this.slackTokens ? `【Slackが使えます - 必ず使用してください！】
 ユーザーのSlackワークスペースに接続されています。
-作業の進捗や重要な結果はSlackに投稿してください。
+重要：タスクを完了したら、必ずSlackでDMに報告してください。
+
+【重要な報告ルール】
+1. タスク完了時は必ずDMで報告する
+2. DMは以下の方法で送信:
+   - slack_send_message(channel="@${this.slackTokens.userId || ''}", message="報告内容")
+   - または、slack_send_message(channel="${this.slackTokens.userId || ''}", message="報告内容") 
+
+【報告すべきタイミング】
+- タスクが完了したとき（必須）
+- 重要な進捗があったとき
+- エラーが発生して解決できないとき
+
+【報告の例】
+- "✅ TODOアプリの作成が完了しました。todo-app/index.htmlに保存しました。"
+- "✅ YouTube再生機能を実装しました。'YouTube開いて'と言ってお試しください。"
+- "❌ エラー: APIキーが設定されていません。設定してください。"
 
 使い方:
 1. MCPツールを使用: slack_send_message, slack_list_channels, slack_get_channel_history
-2. チャンネル名は"#general"のような形式で指定
-3. userIdは自動的に含まれます: ${this.slackTokens.userId || ''}
-
-例:
-- slack_send_message(channel="#general", message="作業を開始します")
-- slack_list_channels()で利用可能なチャンネルを確認
-- slack_get_channel_history(channel="#ai", limit=5)で最新のメッセージを取得
+2. チャンネル名は"#general"のような形式、DMは"@ユーザーID"の形式で指定
 
 HTTPツールも使えます（http_request）ので、他のAPIも呼び出せます。
 ` : ''}
