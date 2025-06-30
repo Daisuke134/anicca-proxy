@@ -161,6 +161,14 @@ export class ClaudeExecutorService extends EventEmitter {
     this.initializeMCPServers();
   }
   
+  /**
+   * MCPサーバーを設定
+   */
+  setMcpServers(servers) {
+    this.mcpServers = servers;
+    console.log('🔧 MCP servers configured:', Object.keys(servers));
+  }
+  
   
   /**
    * 生成されたファイルを検出

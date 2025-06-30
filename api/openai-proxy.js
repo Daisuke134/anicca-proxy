@@ -226,6 +226,26 @@ async function generateDynamicTools() {
     }
   });
   
+  tools.push({
+    type: 'function',
+    name: 'browse_web',
+    description: 'Browse and interact with websites using cloud browser. Can login, click, type, and perform complex web tasks',
+    parameters: {
+      type: 'object',
+      properties: {
+        task: {
+          type: 'string',
+          description: 'What to do on the web (e.g., "Buy candy on Amazon", "Play music on YouTube")'
+        },
+        userId: {
+          type: 'string',
+          description: 'User ID for context management'
+        }
+      },
+      required: ['task', 'userId']
+    }
+  });
+  
   return tools;
 }
 
