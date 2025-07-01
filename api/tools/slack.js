@@ -31,18 +31,35 @@ export default async function handler(req, res) {
   try {
     const { action, arguments: args, userId } = req.body;
     
-    console.log('🔧 Slack tool request:', { action, args, userId });
+    console.log('🔧 Slack tool request:', { 
+      action, 
+      args, 
+      userId,
+      hasUserId: !!userId,
+      userIdType: typeof userId,
+      requestBody: req.body 
+    });
     
     // userIdがある場合はデータベースからトークンを取得
     let botToken, userToken;
     
     if (userId) {
+      console.log('🔍 Looking up tokens for userId:', userId);
       const userTokens = await getSlackTokensForUser(userId);
+      console.log('🔍 Token lookup result:', {
+        found: !!userTokens,
+        hasBotToken: !!userTokens?.bot_token,
+        hasUserToken: !!userTokens?.user_token
+      });
       if (userTokens) {
         botToken = userTokens.bot_token;
         userToken = userTokens.user_token;
         console.log('🔐 Retrieved tokens for user:', userId);
+      } else {
+        console.log('⚠️ No tokens found for user:', userId);
       }
+    } else {
+      console.log('⚠️ No userId provided in request');
     }
     
     // フォールバック：環境変数またはグローバル変数
@@ -54,6 +71,11 @@ export default async function handler(req, res) {
     console.log('🔑 Token check - Bot:', !!botToken, 'User:', !!userToken);
     
     if (!botToken) {
+      console.error('❌ No bot token available:', {
+        userId: userId || 'none',
+        hasEnvToken: !!process.env.SLACK_BOT_TOKEN,
+        hasGlobalToken: !!global.slackBotToken
+      });
       throw new Error('Slack is not connected. Please reconnect your Slack account.');
     }
     
@@ -234,7 +256,14 @@ export default async function handler(req, res) {
     });
     
   } catch (error) {
-    console.error('❌ Slack tool execution error:', error);
+    console.error('❌ Slack tool execution error:', {
+      error: error.message,
+      stack: error.stack,
+      action: req.body?.action,
+      userId: req.body?.userId,
+      hasToken: !!(process.env.SLACK_BOT_TOKEN || global.slackBotToken),
+      errorData: error.data
+    });
     
     // エラーメッセージを改善
     let errorMessage = error.message;

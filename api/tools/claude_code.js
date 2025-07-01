@@ -43,7 +43,12 @@ export default async function handler(req, res) {
     // 両方の形式に対応
     let task, context, userId;
     
-    console.log('📥 Request body:', JSON.stringify(req.body, null, 2));
+    console.log('📥 Claude Code request:', {
+      bodyKeys: Object.keys(req.body),
+      hasArguments: !!req.body.arguments,
+      argumentsType: typeof req.body.arguments,
+      body: JSON.stringify(req.body, null, 2)
+    });
     
     if (req.body.arguments) {
       // デスクトップ版形式: { arguments: { task: "...", context: "...", userId: "..." } }
@@ -53,13 +58,23 @@ export default async function handler(req, res) {
       task = args.task;
       context = args.context;
       userId = args.userId;
-      console.log('🔧 Using arguments format - task:', task, 'userId:', userId);
+      console.log('🔧 Using arguments format:', { 
+        task: task ? task.substring(0, 50) + '...' : 'none',
+        hasContext: !!context,
+        userId: userId || 'none',
+        userIdType: typeof userId
+      });
     } else {
       // Web版形式: { task: "...", context: "...", userId: "..." }
       task = req.body.task;
       context = req.body.context;
       userId = req.body.userId;
-      console.log('🔧 Using direct format - task:', task, 'userId:', userId);
+      console.log('🔧 Using direct format:', { 
+        task: task ? task.substring(0, 50) + '...' : 'none',
+        hasContext: !!context,
+        userId: userId || 'none',
+        userIdType: typeof userId
+      });
     }
     
     if (!task) {
@@ -71,7 +86,12 @@ export default async function handler(req, res) {
     if (userId) {
       try {
         slackTokens = await getSlackTokensForUser(userId);
-        console.log(`🔐 Retrieved Slack tokens for user ${userId}:`, slackTokens ? 'Found' : 'Not found');
+        console.log('🔐 Slack token lookup:', {
+          userId: userId,
+          tokensFound: !!slackTokens,
+          hasBotToken: !!slackTokens?.bot_token,
+          hasUserToken: !!slackTokens?.user_token
+        });
       } catch (error) {
         console.error('Failed to get Slack tokens:', error);
       }
@@ -82,7 +102,10 @@ export default async function handler(req, res) {
     
     // Slackトークンがある場合は設定
     if (slackTokens) {
+      console.log('🔗 Setting Slack tokens in ClaudeExecutorService');
       service.setSlackTokens(slackTokens);
+    } else {
+      console.log('⚠️ No Slack tokens to set for userId:', userId || 'none');
     }
     
     // 実行状態をチェック（VoiceServerと同じ）

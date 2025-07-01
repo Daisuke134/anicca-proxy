@@ -161,6 +161,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const userId = process.env.USER_ID; // 環境変数から取得
       
       console.error(`[HTTP MCP] Sending Slack message to ${channel} for user ${userId}`);
+      console.error(`[HTTP MCP] Request details:`, {
+        url: slackApiUrl,
+        channel: channel,
+        userId: userId || 'undefined',
+        hasUserId: !!userId,
+        envUserId: process.env.USER_ID || 'not set',
+        messageLength: message?.length || 0
+      });
       
       const response = await fetch(slackApiUrl, {
         method: 'POST',
@@ -176,7 +184,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       
       const result = await response.json();
       
+      console.error(`[HTTP MCP] Slack API response:`, {
+        success: response.ok,
+        status: response.status,
+        hasResult: !!result,
+        hasError: !!result.error,
+        userId: userId
+      });
+      
       if (!response.ok) {
+        console.error(`[HTTP MCP] Slack API error:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: result.error,
+          message: result.message,
+          userId: userId,
+          url: slackApiUrl
+        });
         throw new Error(result.message || `Slack API error: ${response.status}`);
       }
       
@@ -195,6 +219,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const userId = process.env.USER_ID; // 環境変数から取得
       
       console.error(`[HTTP MCP] Listing Slack channels for user ${userId}`);
+      console.error(`[HTTP MCP] Request details:`, {
+        url: slackApiUrl,
+        userId: userId || 'undefined',
+        hasUserId: !!userId,
+        envUserId: process.env.USER_ID || 'not set'
+      });
       
       const response = await fetch(slackApiUrl, {
         method: 'POST',
@@ -210,7 +240,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       
       const result = await response.json();
       
+      console.error(`[HTTP MCP] Slack API response:`, {
+        success: response.ok,
+        status: response.status,
+        hasResult: !!result,
+        hasError: !!result.error,
+        userId: userId
+      });
+      
       if (!response.ok) {
+        console.error(`[HTTP MCP] Slack API error:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: result.error,
+          message: result.message,
+          userId: userId,
+          url: slackApiUrl
+        });
         throw new Error(result.message || `Slack API error: ${response.status}`);
       }
       
@@ -236,6 +282,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const userId = process.env.USER_ID; // 環境変数から取得
       
       console.error(`[HTTP MCP] Getting ${limit} messages from ${channel} for user ${userId}`);
+      console.error(`[HTTP MCP] Request details:`, {
+        url: slackApiUrl,
+        channel: channel,
+        limit: limit,
+        userId: userId || 'undefined',
+        hasUserId: !!userId,
+        envUserId: process.env.USER_ID || 'not set'
+      });
       
       const response = await fetch(slackApiUrl, {
         method: 'POST',
@@ -251,7 +305,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       
       const result = await response.json();
       
+      console.error(`[HTTP MCP] Slack API response:`, {
+        success: response.ok,
+        status: response.status,
+        hasResult: !!result,
+        hasError: !!result.error,
+        userId: userId
+      });
+      
       if (!response.ok) {
+        console.error(`[HTTP MCP] Slack API error:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: result.error,
+          message: result.message,
+          userId: userId,
+          url: slackApiUrl
+        });
         throw new Error(result.message || `Slack API error: ${response.status}`);
       }
       
@@ -279,7 +349,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       `Unknown tool: ${name}`
     );
   } catch (error) {
-    console.error(`[HTTP MCP] Error executing ${name}:`, error);
+    console.error(`[HTTP MCP] Error executing ${name}:`, {
+      tool: name,
+      error: error.message,
+      stack: error.stack,
+      args: args,
+      userId: process.env.USER_ID || 'not set'
+    });
     throw new McpError(
       ErrorCode.InternalError,
       error.message
