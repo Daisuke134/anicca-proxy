@@ -1,5 +1,4 @@
 import { ClaudeExecutorService } from '../../services/claudeExecutorService.js';
-import { getSlackTokensForUser } from '../../services/database.js';
 
 // Browser contextのデータベース操作
 import { createClient } from '@supabase/supabase-js';
@@ -104,12 +103,6 @@ export default async function handler(req, res) {
       for (const [key, value] of Object.entries(userPreferences)) {
         enhancedPrompt += `- "${key}": ${JSON.stringify(value)}\n`;
       }
-    }
-    
-    // Also check for Slack tokens to enable progress reporting
-    const slackTokens = await getSlackTokensForUser(userId);
-    if (slackTokens) {
-      service.setSlackTokens(slackTokens);
     }
     
     // Execute the browser task
