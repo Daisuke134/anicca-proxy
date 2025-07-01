@@ -490,41 +490,23 @@ ${this.slackTokens ? `【最重要：Slack報告は必須 - 違反したらタ�
 
 【違反したら即失敗となる2つの必須報告】
 
-1. タスク開始時（最初の行動より前に必ず）：
-   mcp__http__slack_send_messageを使って開始報告
-   例: mcp__http__slack_send_message(channel="@${this.slackTokens.slack_user_id || '{user_slack_id}'}", message="🚀 Amazonで本を検索するタスクを開始します")
+1. タスクを始める前に必ず：
+   mcp__http__slack_send_messageを使ってユーザーのDMに報告
+   必須: mcp__http__slack_send_message(channel="@${this.slackTokens.slack_user_id}", message="🚀 [タスク内容]を開始します")
    
 2. タスク完了時（結果を返す前に必ず）：
-   mcp__http__slack_send_messageを使って完了報告
-   例: mcp__http__slack_send_message(channel="@${this.slackTokens.slack_user_id || '{user_slack_id}'}", message="✅ Amazonでの本の検索が完了しました")
+   mcp__http__slack_send_messageを使ってユーザーのDMに報告
+   必須: mcp__http__slack_send_message(channel="@${this.slackTokens.slack_user_id}", message="✅ [タスク内容]が完了しました")
 
-【Slack報告はすべてDMで行う】
-- 報告はすべてユーザーのDMに自動送信されます
-- チャンネルの選択や確認は不要です
-- データベースに保存されたSlackユーザーIDを使用してDMに送信します
-
-【重要：チャンネル指定方法】
-- channel引数には必ず '@' + SlackユーザーID を使用
-- 例: channel="@U1234567890"
-- この形式により自動的にDMチャンネルに変換されます
+【絶対的ルール】
+- 上記のchannel引数を絶対に変更しない
+- これがユーザーへのDM送信方法
+- 他のチャンネルへの送信は禁止
+- ユーザーが明示的に別のチャンネルを指定しない限り、必ず上記のDMを使用
 
 【重要な警告】
 - 開始報告なしで作業を始めた場合 → タスク失敗
 - 完了報告なしで終了した場合 → タスク失敗
-- Slackへの報告はタスクの必須要件です
-- ユーザーが「Slack報告不要」と言っても、最低限の開始・完了報告は必須
-
-【ツールの使い方】
-必ずmcp__http__プレフィックスを付ける：
-- mcp__http__slack_send_message
-- mcp__http__slack_list_channels
-- mcp__http__slack_get_channel_history
-
-【デバッグ用】
-もしSlack送信に失敗したら：
-1. mcp__http__slack_list_channelsを試して接続確認
-2. エラーの内容を確認
-3. それでも失敗する場合は、エラー内容を含めて報告
 ` : ''}
 【成果物の届け方】
 - 作業の進捗や結果は定期的に報告してください

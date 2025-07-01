@@ -104,7 +104,7 @@ export default async function handler(req, res) {
       }
       
       // ユーザーID（Uで始まる、または@付きのユーザーID）の場合、DMチャンネルIDを取得
-      if (channelNameOrId.match(/^U[A-Z0-9]+$/) || channelNameOrId.match(/^@?[a-f0-9-]+$/)) {
+      if (channelNameOrId.match(/^@?U[A-Z0-9]+$/)) {
         try {
           // @を削除
           const userId = channelNameOrId.replace(/^@/, '');
