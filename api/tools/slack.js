@@ -41,7 +41,7 @@ export default async function handler(req, res) {
     });
     
     // userIdがある場合はデータベースからトークンを取得
-    let botToken, userToken;
+    let botToken, userToken, slackUserId;
     
     if (userId) {
       console.log('🔍 Looking up tokens for userId:', userId);
@@ -49,11 +49,13 @@ export default async function handler(req, res) {
       console.log('🔍 Token lookup result:', {
         found: !!userTokens,
         hasBotToken: !!userTokens?.bot_token,
-        hasUserToken: !!userTokens?.user_token
+        hasUserToken: !!userTokens?.user_token,
+        hasSlackUserId: !!userTokens?.slack_user_id
       });
       if (userTokens) {
         botToken = userTokens.bot_token;
         userToken = userTokens.user_token;
+        slackUserId = userTokens.slack_user_id; // Store slack_user_id here
         console.log('🔐 Retrieved tokens for user:', userId);
       } else {
         console.log('⚠️ No tokens found for user:', userId);
@@ -273,32 +275,23 @@ export default async function handler(req, res) {
         break;
         
       case 'send_dm_to_user':
-        // ユーザーのSlack IDを取得（Supabaseから）
-        let userSlackId;
+        // ユーザーのSlack IDを使用（上部で既に取得済み）
+        let userSlackIdForDM = slackUserId; // 上部で保存した値を使用
         
-        if (userId) {
-          console.log('🔍 Looking up Slack user ID for userId:', userId);
-          const userTokens = await getSlackTokensForUser(userId);
-          
-          if (!userTokens || !userTokens.slack_user_id) {
-            throw new Error('Slack user ID not found. Please reconnect your Slack account.');
-          }
-          
-          userSlackId = userTokens.slack_user_id;
-        } else {
-          // フォールバック: 環境変数から取得
-          userSlackId = process.env.SLACK_USER_ID;
-          if (!userSlackId) {
-            throw new Error('Slack user ID not found. Please provide userId or set SLACK_USER_ID environment variable.');
+        // slackUserIdが無い場合のフォールバック
+        if (!userSlackIdForDM) {
+          userSlackIdForDM = process.env.SLACK_USER_ID;
+          if (!userSlackIdForDM) {
+            throw new Error('Slack user ID not found. Please reconnect your Slack account or set SLACK_USER_ID environment variable.');
           }
         }
         
-        console.log('📤 Sending DM to user:', userSlackId);
+        console.log('📤 Sending DM to user:', userSlackIdForDM);
         
         try {
           // DMチャンネルを開く/取得
           const dmResult = await slack.conversations.open({
-            users: userSlackId
+            users: userSlackIdForDM
           });
           
           if (!dmResult.ok || !dmResult.channel) {
