@@ -178,7 +178,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         body: JSON.stringify({
           action: 'send_message',
           arguments: { channel, message },
-          userId,
+          userId: userId || process.env.USER_ID,
         }),
       });
       
@@ -234,7 +234,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         body: JSON.stringify({
           action: 'list_channels',
           arguments: {},
-          userId,
+          userId: userId || process.env.USER_ID,
         }),
       });
       
@@ -299,7 +299,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         body: JSON.stringify({
           action: 'get_channel_history',
           arguments: { channel, limit },
-          userId,
+          userId: userId || process.env.USER_ID,
         }),
       });
       
