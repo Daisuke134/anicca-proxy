@@ -25,7 +25,8 @@ export class PlaywrightMcpService {
         args: [
           '-y',
           '@playwright/mcp@latest',
-          '--browser=chrome'  // Chromeを使用（YouTube再生に最適）
+          '--browser=chrome',  // Chromeを使用（YouTube再生に最適）
+          '--connect-over-cdp' // ユーザーのブラウザを直接操作
         ],
         env: {
           ...process.env

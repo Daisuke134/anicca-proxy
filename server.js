@@ -81,6 +81,7 @@ import slackCheckConnectionHandler from './api/slack/check-connection.js';
 import migrateConnectionHandler from './api/migrate-connection.js';
 // Tool handlers
 import slackToolHandler from './api/tools/slack.js';
+import playwrightHandler from './api/tools/playwright.js';
 // Connected services
 import connectedServicesHandler from './api/connected-services.js';
 // Debug endpoint (REMOVE IN PRODUCTION!)
@@ -115,6 +116,12 @@ app.all('/api/slack/check-connection', slackCheckConnectionHandler);
 app.all('/api/migrate-connection', migrateConnectionHandler);
 // Slack tool endpoints
 app.all('/api/tools/slack', slackToolHandler);
+// Playwright tool endpoints - すべてのplaywright_*を同じハンドラーにルーティング
+app.all('/api/tools/playwright', playwrightHandler);
+app.all('/api/tools/playwright_navigate', playwrightHandler);
+app.all('/api/tools/playwright_click', playwrightHandler);
+app.all('/api/tools/playwright_type', playwrightHandler);
+app.all('/api/tools/playwright_screenshot', playwrightHandler);
 // Connected services
 app.all('/api/connected-services', connectedServicesHandler);
 // Debug endpoint (REMOVE IN PRODUCTION!)
