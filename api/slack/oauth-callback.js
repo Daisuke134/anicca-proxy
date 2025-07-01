@@ -66,6 +66,29 @@ export default async function handler(req, res) {
     const botToken = data.access_token;
     const userToken = data.authed_user?.access_token;
     
+    // auth.testを使ってSlackユーザーIDを取得
+    let slackUserId = null;
+    if (botToken) {
+      try {
+        const authTestResponse = await fetch('https://slack.com/api/auth.test', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${botToken}`
+          }
+        });
+        
+        const authTestData = await authTestResponse.json();
+        if (authTestData.ok) {
+          slackUserId = authTestData.user_id;
+          console.log('✅ Retrieved Slack user ID:', slackUserId);
+        } else {
+          console.error('❌ Failed to get Slack user ID:', authTestData.error);
+        }
+      } catch (error) {
+        console.error('❌ Error calling auth.test:', error);
+      }
+    }
+    
     // トークンを暗号化して保存
     const teamId = data.team?.id || 'default';
     
@@ -99,6 +122,7 @@ export default async function handler(req, res) {
       team_name: data.team?.name,
       authed_user: data.authed_user,
       user_id: userId, // ユーザーIDを追加
+      slack_user_id: slackUserId, // SlackユーザーIDを追加
       created_at: new Date().toISOString()
     };
     

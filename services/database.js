@@ -28,9 +28,9 @@ export async function getSlackTokensForUser(userId) {
     const sessionId = `user_${userId}_slack`;
     
     const { data, error } = await supabase
-      .from('tokens')
+      .from('slack_tokens')
       .select('*')
-      .eq('session_id', sessionId)
+      .eq('user_id', userId)
       .single();
     
     if (error) {
@@ -43,6 +43,7 @@ export async function getSlackTokensForUser(userId) {
       return {
         bot_token: data.bot_token,
         user_token: data.user_token || null,
+        slack_user_id: data.slack_user_id || null,
         userId: userId
       };
     }
@@ -74,12 +75,12 @@ export async function saveSlackTokensForUser(userId, tokens) {
     
     // Upsert (insert or update) tokens
     const { error } = await supabase
-      .from('tokens')
+      .from('slack_tokens')
       .upsert({
-        id: sessionId,
-        session_id: sessionId,
+        user_id: userId,
         bot_token: tokens.bot_token,
         user_token: tokens.user_token || null,
+        slack_user_id: tokens.slack_user_id || null,
         updated_at: new Date().toISOString()
       });
     

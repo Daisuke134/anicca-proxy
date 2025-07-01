@@ -488,19 +488,15 @@ ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "$@"
 ${this.slackTokens ? `【最重要：Slack報告は必須 - 違反したらタスク失敗扱い】
 あなたはSlackに接続されています。以下のルールを必ず守ってください。
 
-【違反したら即失敗となる3つの必須報告】
+【違反したら即失敗となる2つの必須報告】
 
 1. タスク開始時（最初の行動より前に必ず）：
    mcp__http__slack_send_messageを使って開始報告
-   例: mcp__http__slack_send_message(channel="@{user_slack_id}", message="🚀 Amazonで本を検索するタスクを開始します")
+   例: mcp__http__slack_send_message(channel="@${this.slackTokens.slack_user_id || '{user_slack_id}'}", message="🚀 Amazonで本を検索するタスクを開始します")
    
-2. 重要な進捗時（各ステップで）：
-   mcp__http__slack_send_messageを使って進捗報告
-   例: mcp__http__slack_send_message(channel="@{user_slack_id}", message="📍 Browser Baseでブラウザを起動しました")
-   
-3. タスク完了時（結果を返す前に必ず）：
+2. タスク完了時（結果を返す前に必ず）：
    mcp__http__slack_send_messageを使って完了報告
-   例: mcp__http__slack_send_message(channel="@{user_slack_id}", message="✅ Amazonでの本の検索が完了しました")
+   例: mcp__http__slack_send_message(channel="@${this.slackTokens.slack_user_id || '{user_slack_id}'}", message="✅ Amazonでの本の検索が完了しました")
 
 【Slack報告はすべてDMで行う】
 - 報告はすべてユーザーのDMに自動送信されます
@@ -1090,12 +1086,14 @@ ${action.parameters.query || ''}`;
         args: [httpMcpPath],
         env: {
           SLACK_API_URL: 'https://anicca-proxy-staging.up.railway.app/api/tools/slack',
-          USER_ID: this.slackTokens.userId
+          USER_ID: this.slackTokens.userId,
+          SLACK_USER_ID: this.slackTokens.slack_user_id || ''
         }
       };
       console.log('✅ HTTP MCP server configured for Slack integration');
       console.log('   Path:', httpMcpPath);
       console.log('   User ID:', this.slackTokens.userId);
+      console.log('   Slack User ID:', this.slackTokens.slack_user_id || 'not set');
     }
     
     // Slackトークンの確認
