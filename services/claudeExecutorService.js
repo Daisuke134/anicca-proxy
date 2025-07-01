@@ -72,7 +72,7 @@ export class ClaudeExecutorService extends EventEmitter {
       console.log('🌐 Using proxy mode for Claude API');
       
       // ANTHROPIC_BASE_URLを設定してプロキシ経由にする
-      const proxyUrl = 'https://anicca-proxy-production.up.railway.app/api/claude';
+      const proxyUrl = 'https://anicca-proxy-staging.up.railway.app/api/claude';
       process.env.ANTHROPIC_BASE_URL = proxyUrl;
       
       // プロキシモードではAPIキーは不要（Railwayの環境変数を使用）
@@ -1088,7 +1088,7 @@ ${action.parameters.query || ''}`;
         command: 'node',
         args: [httpMcpPath],
         env: {
-          SLACK_API_URL: 'https://anicca-proxy-production.up.railway.app/api/tools/slack',
+          SLACK_API_URL: 'https://anicca-proxy-staging.up.railway.app/api/tools/slack',
           USER_ID: this.slackTokens.userId
         }
       };

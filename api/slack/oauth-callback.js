@@ -47,7 +47,7 @@ export default async function handler(req, res) {
         code: code,
         // 動的にリダイレクトURIを生成（リクエストから判定）
         redirect_uri: (() => {
-          const host = req.headers.host || 'anicca-proxy-production.up.railway.app';
+          const host = req.headers.host || 'anicca-proxy-staging.up.railway.app';
           const protocol = req.headers['x-forwarded-proto'] || 'https';
           return `${protocol}://${host}/api/slack/oauth-callback`;
         })()
