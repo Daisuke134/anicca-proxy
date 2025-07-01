@@ -492,22 +492,24 @@ ${this.slackTokens ? `【最重要：Slack報告は必須 - 違反したらタ�
 
 1. タスク開始時（最初の行動より前に必ず）：
    mcp__http__slack_send_messageを使って開始報告
-   例: mcp__http__slack_send_message(channel="#general", message="🚀 Amazonで本を検索するタスクを開始します")
+   例: mcp__http__slack_send_message(channel="#ai", message="🚀 Amazonで本を検索するタスクを開始します")
    
 2. 重要な進捗時（各ステップで）：
    mcp__http__slack_send_messageを使って進捗報告
-   例: mcp__http__slack_send_message(channel="#general", message="📍 Browser Baseでブラウザを起動しました")
+   例: mcp__http__slack_send_message(channel="#ai", message="📍 Browser Baseでブラウザを起動しました")
    
 3. タスク完了時（結果を返す前に必ず）：
    mcp__http__slack_send_messageを使って完了報告
-   例: mcp__http__slack_send_message(channel="#general", message="✅ Amazonでの本の検索が完了しました")
+   例: mcp__http__slack_send_message(channel="#ai", message="✅ Amazonでの本の検索が完了しました")
 
-【最初にすること】
-1. CLAUDE.mdを読んで報告先チャンネルを確認
-2. 記録がない場合：
-   - mcp__http__slack_list_channelsでチャンネル一覧を取得
-   - デフォルトは#general、他に適切なチャンネルがあれば選択
-   - CLAUDE.mdに「報告先チャンネル: #チャンネル名」と保存
+【最初にすること - 報告先チャンネルの設定】
+1. まずCLAUDE.mdを読んで報告先チャンネルが記録されているか確認
+2. 記録がない場合（初回実行時）：
+   - mcp__http__slack_list_channelsで利用可能なチャンネルを確認
+   - 「どのチャンネルに進捗を報告しますか？」とユーザーに質問
+   - ユーザーが選択したチャンネルをCLAUDE.mdに保存（例：「報告先チャンネル: #ai」）
+3. 記録がある場合：
+   - CLAUDE.mdから報告先チャンネルを読み込んで使用
 
 【重要な警告】
 - 開始報告なしで作業を始めた場合 → タスク失敗
