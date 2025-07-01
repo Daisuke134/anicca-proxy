@@ -208,7 +208,7 @@ async function generateDynamicTools() {
   tools.push({
     type: 'function',
     name: 'claude_code',
-    description: 'Use Claude Code for complex tasks, code analysis, file operations, and MCP tools',
+    description: 'Use Claude Code for complex tasks, code analysis, file operations, browser automation, and MCP tools',
     parameters: {
       type: 'object',
       properties: {
@@ -219,6 +219,11 @@ async function generateDynamicTools() {
         context: {
           type: 'string',
           description: 'Additional context if needed',
+          optional: true
+        },
+        userId: {
+          type: 'string',
+          description: 'User ID for Slack integration (Supabase user ID)',
           optional: true
         }
       },
