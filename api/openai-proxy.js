@@ -314,7 +314,7 @@ ${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
    - For tech industry news, programming, startups
    - NOT for general news (use web_search_exa instead)
 
-4. **think_with_claude**: Use Claude for complex reasoning, code analysis, and file operations
+4. **claude_code**: Use Claude Code for complex reasoning, code analysis, and file operations
    - Best for: Complex tasks, code generation, detailed analysis
    - Has access to additional MCP tools for files and browser automation
 
@@ -322,7 +322,7 @@ TOOL SELECTION GUIDELINES:
 - For connected services (${hasSlack ? 'like Slack' : 'when available'}), use their specific tools
 - For searches, choose the appropriate search tool based on content type
 - For tech news specifically, use get_hacker_news_stories  
-- For complex reasoning or code tasks, use think_with_claude
+- For complex reasoning or code tasks, use claude_code
 - ALWAYS analyze tool results before proceeding to the next action
 
 Remember: You can see visual information on the user's screen when they share it, allowing you to provide context-aware assistance with their applications and content.`,
