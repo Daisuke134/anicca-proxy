@@ -245,6 +245,33 @@ export default async function handler(req, res) {
         });
         break;
         
+      case 'create_channel':
+        try {
+          result = await slack.conversations.create({
+            name: args.name || 'anicca_report',
+            is_private: args.is_private || false
+          });
+          console.log('✅ Channel created successfully:', result.channel?.name);
+        } catch (createError) {
+          // チャンネルが既に存在する場合はそのまま使う
+          if (createError.data?.error === 'name_taken') {
+            console.log('⚠️ Channel already exists, fetching existing channel...');
+            const listResult = await slack.conversations.list({
+              types: 'public_channel,private_channel',
+              limit: 1000
+            });
+            const existingChannel = listResult.channels?.find(ch => ch.name === (args.name || 'anicca_report'));
+            if (existingChannel) {
+              result = { ok: true, channel: existingChannel };
+            } else {
+              throw createError;
+            }
+          } else {
+            throw createError;
+          }
+        }
+        break;
+        
       default:
         throw new Error(`Unknown Slack action: ${action}`);
     }

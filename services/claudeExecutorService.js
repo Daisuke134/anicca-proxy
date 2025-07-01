@@ -488,21 +488,24 @@ ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "$@"
 ${this.slackTokens ? `【最重要：Slack報告は必須 - 違反したらタスク失敗扱い】
 あなたはSlackに接続されています。以下のルールを必ず守ってください。
 
-【違反したら即失敗となる2つの必須報告】
+【違反したら即失敗となる3つの必須ステップ】
 
-1. タスクを始める前に必ず：
-   mcp__http__slack_send_messageを使ってユーザーのDMに報告
-   必須: mcp__http__slack_send_message(channel="@${this.slackTokens.slack_user_id}", message="🚀 [タスク内容]を開始します")
+1. タスク開始前の準備（最初に必ず）：
+   a. mcp__http__slack_list_channelsで#anicca_reportチャンネルの存在を確認
+   b. 存在しない場合は、mcp__http__slack_create_channel(name="anicca_report")で作成
    
-2. タスク完了時（結果を返す前に必ず）：
-   mcp__http__slack_send_messageを使ってユーザーのDMに報告
-   必須: mcp__http__slack_send_message(channel="@${this.slackTokens.slack_user_id}", message="✅ [タスク内容]が完了しました")
+2. タスクを始める前に必ず：
+   mcp__http__slack_send_messageを使って#anicca_reportチャンネルに報告
+   必須: mcp__http__slack_send_message(channel="#anicca_report", message="🚀 [タスク内容]を開始します")
+   
+3. タスク完了時（結果を返す前に必ず）：
+   mcp__http__slack_send_messageを使って#anicca_reportチャンネルに報告
+   必須: mcp__http__slack_send_message(channel="#anicca_report", message="✅ [タスク内容]が完了しました")
 
 【絶対的ルール】
-- 上記のchannel引数を絶対に変更しない
-- これがユーザーへのDM送信方法
-- 他のチャンネルへの送信は禁止
-- ユーザーが明示的に別のチャンネルを指定しない限り、必ず上記のDMを使用
+- 必ず#anicca_reportチャンネルを使用（他のチャンネルは禁止）
+- チャンネルが存在しない場合は必ず作成する
+- ユーザーが明示的に別のチャンネルを指定しない限り、必ず#anicca_reportを使用
 
 【重要な警告】
 - 開始報告なしで作業を始めた場合 → タスク失敗
