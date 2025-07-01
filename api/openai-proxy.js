@@ -228,14 +228,14 @@ async function generateDynamicTools() {
   
   tools.push({
     type: 'function',
-    name: 'browse_web',
-    description: 'Browse and interact with websites using cloud browser. Can login, click, type, and perform complex web tasks',
+    name: 'browser_use',
+    description: 'Control and interact with websites using cloud browser. Can login, click, type, fill forms, and perform complex web automation tasks',
     parameters: {
       type: 'object',
       properties: {
         task: {
           type: 'string',
-          description: 'What to do on the web (e.g., "Buy candy on Amazon", "Play music on YouTube")'
+          description: 'What to do on the web (e.g., "Buy candy on Amazon", "Play music on YouTube", "Login and check email")'
         },
         userId: {
           type: 'string',

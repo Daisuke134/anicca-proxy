@@ -9,7 +9,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey) : null;
 
 export default async function handler(req, res) {
-  console.log('🌐 Browse web tool called');
+  console.log('🌐 Browser use tool called');
   
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -38,7 +38,7 @@ export default async function handler(req, res) {
       userId = args.userId;
     }
     
-    console.log('🔧 Browse web request:', { task, userId });
+    console.log('🔧 Browser use request:', { task, userId });
     
     // Get user's browser context for the site
     let browserContext = null;
