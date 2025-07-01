@@ -1076,6 +1076,19 @@ ${action.parameters.query || ''}`;
       console.log('✅ ElevenLabs MCP server configured');
     }
     
+    // Browser Base MCPの設定（常に有効）
+    if (process.env.BROWSERBASE_API_KEY && process.env.BROWSERBASE_PROJECT_ID) {
+      this.mcpServers.browserbase = {
+        command: "npx",
+        args: ["@browserbasehq/mcp"],
+        env: {
+          BROWSERBASE_API_KEY: process.env.BROWSERBASE_API_KEY,
+          BROWSERBASE_PROJECT_ID: process.env.BROWSERBASE_PROJECT_ID
+        }
+      };
+      console.log('✅ Browser Base MCP server configured');
+    }
+    
     // HTTP MCPサーバーを追加（Slack連携がある場合のみ）
     if (this.slackTokens && this.slackTokens.userId) {
       const httpMcpPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'mcp-servers', 'http-mcp-server.js');

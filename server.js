@@ -73,7 +73,6 @@ import landingHandler from './api/landing.js';
 import hackerNewsHandler from './api/tools/get_hacker_news_stories.js';
 import exaHandler from './api/tools/search_exa.js';
 import claudeCodeHandler from './api/tools/claude_code.js';
-import browserUseHandler from './api/tools/browser_use.js';
 import claudeHandler from './api/claude.js';
 // New Slack OAuth handlers
 import slackOauthUrlHandler from './api/slack/oauth-url.js';
@@ -109,7 +108,6 @@ app.all('/api/tools/linkedin_search', exaHandler);
 app.all('/api/tools/crawling', exaHandler);
 app.all('/api/tools/competitor_finder', exaHandler);
 app.all('/api/tools/claude_code', claudeCodeHandler);
-app.all('/api/tools/browser_use', browserUseHandler);
 // New Slack OAuth routes
 app.all('/api/slack/oauth-url', slackOauthUrlHandler);
 app.all('/api/slack/oauth-callback', slackOauthCallbackHandler);
