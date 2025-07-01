@@ -231,6 +231,75 @@ async function generateDynamicTools() {
     }
   });
   
+  // Playwrightツールを追加
+  tools.push({
+    type: 'function',
+    name: 'playwright_navigate',
+    description: 'Navigate to a URL in the browser',
+    parameters: {
+      type: 'object',
+      properties: {
+        url: {
+          type: 'string',
+          description: 'The URL to navigate to'
+        }
+      },
+      required: ['url']
+    }
+  });
+  
+  tools.push({
+    type: 'function',
+    name: 'playwright_click',
+    description: 'Click on an element in the browser',
+    parameters: {
+      type: 'object',
+      properties: {
+        selector: {
+          type: 'string',
+          description: 'CSS selector or text content to click'
+        }
+      },
+      required: ['selector']
+    }
+  });
+  
+  tools.push({
+    type: 'function',
+    name: 'playwright_type',
+    description: 'Type text into an input field',
+    parameters: {
+      type: 'object',
+      properties: {
+        selector: {
+          type: 'string',
+          description: 'CSS selector of the input field'
+        },
+        text: {
+          type: 'string',
+          description: 'Text to type'
+        }
+      },
+      required: ['selector', 'text']
+    }
+  });
+  
+  tools.push({
+    type: 'function',
+    name: 'playwright_screenshot',
+    description: 'Take a screenshot of the current page',
+    parameters: {
+      type: 'object',
+      properties: {
+        fullPage: {
+          type: 'boolean',
+          description: 'Whether to capture the full page',
+          optional: true
+        }
+      }
+    }
+  });
+  
   
   return tools;
 }
