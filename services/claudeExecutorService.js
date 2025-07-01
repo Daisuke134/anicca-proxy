@@ -492,8 +492,8 @@ ${this.slackTokens ? `【Slackが使えます - 必ず使用してください�
 【重要な報告ルール】
 1. タスク完了時は必ずDMで報告する
 2. DMは以下の方法で送信:
-   - slack_send_message(channel="@${this.slackTokens.userId || ''}", message="報告内容")
-   - または、slack_send_message(channel="${this.slackTokens.userId || ''}", message="報告内容") 
+   - slack_send_message(channel="${this.slackTokens.userId || ''}", message="報告内容")
+   - ユーザーIDを直接指定すると自動的にDMチャンネルが開かれます 
 
 【報告すべきタイミング】
 - タスクが完了したとき（必須）

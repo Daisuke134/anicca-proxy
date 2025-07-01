@@ -76,9 +76,33 @@ export default async function handler(req, res) {
     
     // チャンネル名をIDに変換する関数
     async function resolveChannelId(channelNameOrId) {
-      // すでにIDの形式（Cで始まる）ならそのまま返す
+      // すでにIDの形式（C,G,Dで始まる）ならそのまま返す
       if (channelNameOrId.match(/^[CGD][A-Z0-9]+$/)) {
         return channelNameOrId;
+      }
+      
+      // ユーザーID（Uで始まる、または@付きのユーザーID）の場合、DMチャンネルIDを取得
+      if (channelNameOrId.match(/^U[A-Z0-9]+$/) || channelNameOrId.match(/^@?[a-f0-9-]+$/)) {
+        try {
+          // @を削除
+          const userId = channelNameOrId.replace(/^@/, '');
+          console.log(`🔄 Opening DM channel for user: ${userId}`);
+          
+          // conversations.openでDMチャンネルを開く（既存の場合は既存のIDを返す）
+          const result = await slack.conversations.open({
+            users: userId
+          });
+          
+          if (result.ok && result.channel) {
+            console.log(`✅ DM channel ID: ${result.channel.id}`);
+            return result.channel.id;
+          }
+          
+          throw new Error(`Failed to open DM channel for user: ${userId}`);
+        } catch (error) {
+          console.error('Failed to open DM channel:', error);
+          throw error;
+        }
       }
       
       // #を削除
