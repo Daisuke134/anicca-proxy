@@ -272,6 +272,55 @@ export default async function handler(req, res) {
         }
         break;
         
+      case 'send_dm_to_user':
+        // ユーザーのSlack IDを取得（Supabaseから）
+        let userSlackId;
+        
+        if (userId) {
+          console.log('🔍 Looking up Slack user ID for userId:', userId);
+          const userTokens = await getSlackTokensForUser(userId);
+          
+          if (!userTokens || !userTokens.slack_user_id) {
+            throw new Error('Slack user ID not found. Please reconnect your Slack account.');
+          }
+          
+          userSlackId = userTokens.slack_user_id;
+        } else {
+          // フォールバック: 環境変数から取得
+          userSlackId = process.env.SLACK_USER_ID;
+          if (!userSlackId) {
+            throw new Error('Slack user ID not found. Please provide userId or set SLACK_USER_ID environment variable.');
+          }
+        }
+        
+        console.log('📤 Sending DM to user:', userSlackId);
+        
+        try {
+          // DMチャンネルを開く/取得
+          const dmResult = await slack.conversations.open({
+            users: userSlackId
+          });
+          
+          if (!dmResult.ok || !dmResult.channel) {
+            throw new Error('Failed to open DM channel');
+          }
+          
+          const dmChannelId = dmResult.channel.id;
+          console.log('✅ DM channel opened:', dmChannelId);
+          
+          // メッセージ送信
+          result = await slack.chat.postMessage({
+            channel: dmChannelId,
+            text: args.message || args.text
+          });
+          
+          console.log('✅ DM sent successfully');
+        } catch (dmError) {
+          console.error('❌ DM error:', dmError);
+          throw new Error(`Failed to send DM: ${dmError.message}`);
+        }
+        break;
+        
       default:
         throw new Error(`Unknown Slack action: ${action}`);
     }

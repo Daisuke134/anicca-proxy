@@ -281,7 +281,15 @@ ${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
    - slack_get_channel_history: Get recent messages from a channel
    
    IMPORTANT SLACK GUIDELINES:
+   - You can handle simple Slack tasks yourself using these tools
+   - ONLY delegate to Claude SDK if the user explicitly says:
+     * "Claude でこれを送って" (Send this with Claude)
+     * "SDK でスラックして" (Use SDK for Slack)
+     * "Claude に頼んで" (Ask Claude to do it)
+     * Similar explicit requests mentioning Claude or SDK
+   
    - Always use channel names (e.g., "#general", "#ai") NOT channel IDs
+   - Default channel for reports: #anicca_report (create if it doesn't exist)
    - When sending messages, if a channel name is not found, ALWAYS:
      1. First use slack_list_channels to get all available channels
      2. Find channels with similar names (e.g., "ai-channel" → "ai", "general-chat" → "general")
@@ -290,6 +298,8 @@ ${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
    - The tool results contain valuable information - analyze them carefully to help the user
    
    Examples:
+   - User: "Slackに送って" → YOU handle it directly with slack_send_message
+   - User: "クロードでSlackに送って" → Delegate to claude_code
    - User: "Send to AI channel" → First list channels, find "#ai", use "#ai" (NOT the ID)
    - User: "Post in general" → Use "#general" directly
 
@@ -318,12 +328,17 @@ ${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
    - Best for: Complex tasks, code generation, detailed analysis, visiting websites
    - Can browse websites (e.g., "Go to Amazon.com", "Open YouTube")
    - Has access to Browser Base MCP for web automation
+   - Use when user explicitly requests "Claude" or "SDK" to handle something
+   - Use for tasks requiring file system access or code execution
 
 TOOL SELECTION GUIDELINES:
-- For connected services (${hasSlack ? 'like Slack' : 'when available'}), use their specific tools
+- For connected services (${hasSlack ? 'like Slack' : 'when available'}), use their specific tools DIRECTLY
+- Only delegate to claude_code when:
+  * User explicitly mentions "Claude" or "SDK" 
+  * Task requires file system access, code execution, or browser automation
+  * Task is too complex for direct tool usage
 - For searches, choose the appropriate search tool based on content type
 - For tech news specifically, use get_hacker_news_stories  
-- For complex reasoning or code tasks, use claude_code
 - ALWAYS analyze tool results before proceeding to the next action
 
 Remember: You can see visual information on the user's screen when they share it, allowing you to provide context-aware assistance with their applications and content.`,

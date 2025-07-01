@@ -117,6 +117,20 @@ const httpTools = [
       },
     },
   },
+  {
+    name: 'slack_send_dm_to_user',
+    description: 'Send a direct message to the user',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          description: 'The message to send as a DM',
+        },
+      },
+      required: ['message'],
+    },
+  },
 ];
 
 // Handle tool listing
@@ -420,6 +434,64 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             text: channelInfo 
               ? `Channel #${channelInfo.name} created successfully (ID: ${channelInfo.id})`
               : `Channel #${channelName} is ready for use`,
+          },
+        ],
+      };
+    }
+    
+    if (name === 'slack_send_dm_to_user') {
+      const { message } = args;
+      const slackApiUrl = process.env.SLACK_API_URL || 'https://anicca-proxy-staging.up.railway.app/api/tools/slack';
+      const userId = process.env.USER_ID;
+      
+      console.error(`[HTTP MCP] Sending DM to user ${userId}`);
+      console.error(`[HTTP MCP] Request details:`, {
+        url: slackApiUrl,
+        message: message?.substring(0, 100) + '...',
+        userId: userId || 'undefined',
+        hasUserId: !!userId,
+        envUserId: process.env.USER_ID || 'not set'
+      });
+      
+      const response = await fetch(slackApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'send_dm_to_user',
+          arguments: { message },
+          userId: userId || process.env.USER_ID,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      console.error(`[HTTP MCP] Slack API response:`, {
+        success: response.ok,
+        status: response.status,
+        hasResult: !!result,
+        hasError: !!result.error,
+        userId: userId
+      });
+      
+      if (!response.ok) {
+        console.error(`[HTTP MCP] Slack API error:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: result.error,
+          message: result.message,
+          userId: userId,
+          url: slackApiUrl
+        });
+        throw new Error(result.message || `Slack API error: ${response.status}`);
+      }
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `DM sent successfully to user`,
           },
         ],
       };
