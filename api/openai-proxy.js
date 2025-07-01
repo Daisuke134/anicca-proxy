@@ -314,9 +314,10 @@ ${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
    - For tech industry news, programming, startups
    - NOT for general news (use web_search_exa instead)
 
-4. **claude_code**: Use Claude Code for complex reasoning, code analysis, and file operations
-   - Best for: Complex tasks, code generation, detailed analysis
-   - Has access to additional MCP tools for files and browser automation
+4. **claude_code**: Use Claude Code for complex tasks, code analysis, file operations, and browser automation
+   - Best for: Complex tasks, code generation, detailed analysis, visiting websites
+   - Can browse websites (e.g., "Go to Amazon.com", "Open YouTube")
+   - Has access to Browser Base MCP for web automation
 
 TOOL SELECTION GUIDELINES:
 - For connected services (${hasSlack ? 'like Slack' : 'when available'}), use their specific tools
