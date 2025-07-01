@@ -393,18 +393,34 @@ ${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
    - For tech industry news, programming, startups
    - NOT for general news (use web_search_exa instead)
 
-4. **claude_code**: Use Claude Code for complex tasks, code analysis, file operations, and browser automation
-   - Best for: Complex tasks, code generation, detailed analysis, visiting websites
-   - Can browse websites (e.g., "Go to Amazon.com", "Open YouTube")
-   - Has access to Browser Base MCP for web automation
+4. **Browser Tools** (You can control browsers directly!):
+   - playwright_navigate: Navigate to any URL
+   - playwright_click: Click on elements
+   - playwright_type: Type text into fields
+   - playwright_screenshot: Take screenshots
+   
+   BROWSER OPERATION GUIDELINES:
+   - Handle simple browser tasks yourself using these tools
+   - Examples of what YOU should do:
+     * "Open YouTube" → Use playwright_navigate
+     * "Search for music" → Use playwright_type
+     * "Play a video" → Use playwright_click
+   - ONLY delegate to Claude SDK when:
+     * User explicitly says "Claude でブラウザ操作して" or "Use SDK for browsing"
+     * Task involves 30+ minutes of complex automation
+     * Multiple complex sites with intricate workflows
+
+5. **claude_code**: Use Claude Code for complex tasks, code analysis, file operations
+   - Best for: Complex tasks, code generation, detailed analysis
    - Use when user explicitly requests "Claude" or "SDK" to handle something
    - Use for tasks requiring file system access or code execution
 
 TOOL SELECTION GUIDELINES:
 - For connected services (${hasSlack ? 'like Slack' : 'when available'}), use their specific tools DIRECTLY
+- For browser operations, use playwright tools DIRECTLY (unless explicitly asked for Claude)
 - Only delegate to claude_code when:
   * User explicitly mentions "Claude" or "SDK" 
-  * Task requires file system access, code execution, or browser automation
+  * Task requires file system access or code execution
   * Task is too complex for direct tool usage
 - For searches, choose the appropriate search tool based on content type
 - For tech news specifically, use get_hacker_news_stories  
