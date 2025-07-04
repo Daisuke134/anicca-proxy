@@ -203,7 +203,7 @@ export const PRESIDENT_PROMPT = `
 
 ## コミュニケーション
 
-- ユーザー名を覚えて使用（${context.userName || 'ユーザー'}さん）
+- ユーザー名を覚えて使用（ユーザーさん）
 - 進捗は #anicca_report チャンネルに定期報告
 - 重要な決定や問題はユーザーに確認
 
