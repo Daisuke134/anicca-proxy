@@ -61,6 +61,17 @@ export class TodoManager extends EventEmitter {
     process.on('message', async (message) => {
       console.log(`📨 ${this.agentName} received message:`, message.type);
       
+      // デバッグ用：メッセージの詳細を表示
+      if (message.type === 'TASK_LIST' && message.tasks) {
+        console.log(`   └─ Tasks:`, message.tasks.map(t => t.description));
+      }
+      if (message.type === 'TASK_UPDATE') {
+        console.log(`   └─ Task ${message.taskId}: ${message.status} (${message.progress}%)`);
+      }
+      if (message.type === 'TASK_COMPLETE') {
+        console.log(`   └─ Task ${message.taskId} completed by ${message.workerId}`);
+      }
+      
       switch (message.type) {
         case MessageTypes.TASK_LIST:
           await this.handleTaskList(message);

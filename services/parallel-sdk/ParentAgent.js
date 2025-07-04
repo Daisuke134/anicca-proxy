@@ -527,6 +527,11 @@ export class ParentAgent extends EventEmitter {
     
     console.log(`📨 [${this.name}] Message from ${agent.name}:`, message.type);
     
+    // デバッグ用：メッセージの詳細を表示
+    if (message.payload) {
+      console.log(`   └─ Payload:`, JSON.stringify(message.payload).substring(0, 500));
+    }
+    
     switch (message.type) {
       case 'STATUS_UPDATE':
         this.handleStatusUpdate(agentId, message);
