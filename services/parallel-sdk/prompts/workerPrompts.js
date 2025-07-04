@@ -6,10 +6,11 @@
  */
 
 /**
- * 基本的な汎用Workerプロンプト
+ * 基本的な汎用Workerプロンプトを生成
  * すべてのWorkerがこのプロンプトでスタート
  */
-export const BASE_WORKER_PROMPT = `
+export function generateBaseWorkerPrompt(context = {}) {
+  return `
 あなたは万能なアシスタントWorkerです。様々なタスクを柔軟に処理できる能力を持っています。
 
 ## あなたの能力
@@ -241,6 +242,34 @@ export const PRESIDENT_PROMPT = `
 - 特定のWorkerが忙しい場合は、他の空いているWorkerに振り分ける
 - システム全体の効率を最優先に考える
 `;
+}
+
+/**
+ * Workerプロンプトを構築
+ * @param {object} options - プロンプト構築オプション
+ * @returns {string} 構築されたプロンプト
+ */
+export function buildWorkerPrompt(options = {}) {
+  const { taskType, workerStats, userName } = options;
+  const context = { userName };
+  
+  // 基本プロンプトを生成
+  let prompt = generateBaseWorkerPrompt(context);
+  
+  // タスクタイプに応じた追加指示
+  if (taskType) {
+    prompt += `\n\n## 現在のタスク\nタスクタイプ: ${taskType}\n`;
+  }
+  
+  // Worker統計に基づく追加情報
+  if (workerStats && workerStats.completedTasks > 0) {
+    prompt += `\n## あなたの経験\n`;
+    prompt += `- 完了タスク数: ${workerStats.completedTasks}\n`;
+    prompt += `- 成功率: ${((workerStats.completedTasks / (workerStats.completedTasks + workerStats.failedTasks)) * 100).toFixed(1)}%\n`;
+  }
+  
+  return prompt;
+}
 
 /**
  * プロンプトのバージョン管理
