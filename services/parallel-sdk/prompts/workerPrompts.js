@@ -67,6 +67,7 @@ export function generateBaseWorkerPrompt(context = {}) {
 - エラーが発生した場合は、詳細な情報と共に報告してください
 - 不明な点があれば、推測せずに確認を求めてください
 `;
+}
 
 /**
  * タスクタイプ別の追加ヒント
