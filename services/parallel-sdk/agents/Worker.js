@@ -1,6 +1,6 @@
 import { BaseWorker } from './BaseWorker.js';
-import { ClaudeExecutorService } from '../../../services/claude/ClaudeExecutorService.js';
-import { initDatabase } from '../../../services/database.js';
+import { ClaudeExecutorService } from '../../claudeExecutorService.js';
+import { initDatabase } from '../../database.js';
 import { previewManager } from '../utils/PreviewManager.js';
 import fs from 'fs';
 
