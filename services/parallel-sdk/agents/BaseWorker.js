@@ -153,6 +153,9 @@ export class BaseWorker extends IPCHandler {
         appendSystemPrompt: this.getTaskSpecificPrompt(task)
       });
       
+      // 実行結果をログ
+      this.log('info', `Claude execution result: ${JSON.stringify(result).substring(0, 200)}...`);
+      
       // 進捗を報告
       this.send(createStatusUpdateMessage(task.id, TaskStatus.IN_PROGRESS, 90));
       
