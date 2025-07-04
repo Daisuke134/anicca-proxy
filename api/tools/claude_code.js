@@ -1,7 +1,8 @@
 // Claude SDK版のthink_with_claude
-// デスクトップ版と同じClaudeExecutorServiceを使用
+// 並列実行版 - ParentAgentを使用
 
 import { ClaudeExecutorService } from '../../services/claudeExecutorService.js';
+import { ParentAgent } from '../../services/parallel-sdk/ParentAgent.js';
 import { MockDatabase } from '../../services/mockDatabase.js';
 import { getSlackTokensForUser } from '../../services/database.js';
 
@@ -12,17 +13,25 @@ let taskState = {
   startedAt: null
 };
 
-// ClaudeExecutorServiceのインスタンス（再利用）
-let claudeService = null;
+// ParentAgentのインスタンス（再利用）
+let parentAgent = null;
 
-async function initializeService() {
-  if (!claudeService) {
+async function initializeParentAgent() {
+  if (!parentAgent) {
     const database = new MockDatabase();
     await database.init();
-    claudeService = new ClaudeExecutorService(database);
-    console.log('✅ Claude Executor Service initialized for Vercel');
+    parentAgent = new ParentAgent({
+      database,
+      maxConcurrentAgents: 5,  // 同時に最大5つのWorkerを実行可能
+      enableTodoManager: true   // TodoManager有効化
+    });
+    
+    // ParentAgentの初期化（TodoManagerの起動を含む）
+    await parentAgent.initialize();
+    
+    console.log('✅ Parent Agent initialized for parallel execution');
   }
-  return claudeService;
+  return parentAgent;
 }
 
 export default async function handler(req, res) {
@@ -97,13 +106,14 @@ export default async function handler(req, res) {
       }
     }
     
-    // ClaudeExecutorServiceを初期化
-    const service = await initializeService();
+    // ParentAgentを初期化
+    const agent = await initializeParentAgent();
     
-    // Slackトークンがある場合は設定
+    // Slackトークンがある場合はグローバルに設定（Workerが使用）
     if (slackTokens) {
-      console.log('🔗 Setting Slack tokens in ClaudeExecutorService');
-      service.setSlackTokens(slackTokens);
+      console.log('🔗 Setting Slack tokens globally for Workers');
+      global.slackTokens = slackTokens;
+      global.slackBotToken = slackTokens.bot_token;
     } else {
       console.log('⚠️ No Slack tokens to set for userId:', userId || 'none');
     }
@@ -129,14 +139,10 @@ export default async function handler(req, res) {
     console.log(`🚀 Starting task: ${task}`);
     
     try {
-      // VoiceServerと同じ形式でexecuteAction呼び出し
-      const result = await service.executeAction({
-        type: 'general',
-        reasoning: task,
-        parameters: {
-          query: task  // ClaudeExecutorServiceが期待するフォーマット
-        },
-        context: context || ''
+      // ParentAgentでタスクを処理（並列実行対応）
+      const result = await agent.processUserRequest(task, {
+        context: context || '',
+        userId: userId || null
       });
       
       // タスク完了
@@ -146,14 +152,19 @@ export default async function handler(req, res) {
       
       console.log(`✅ Task completed: ${task}`);
       
+      // 結果を統合（複数のWorkerの結果をまとめる）
+      const combinedResult = {
+        response: result.summary || 'タスクを完了しました',
+        toolsUsed: result.toolsUsed || [],
+        generatedFiles: result.generatedFiles || [],
+        parallelTasks: result.tasks || [],  // 並列実行されたタスクの詳細
+        executionTime: result.executionTime || 0
+      };
+      
       // VoiceServerと同じレスポンス形式
       return res.json({
         success: true,
-        result: {
-          response: result.result || 'タスクを完了しました',
-          toolsUsed: result.toolsUsed || [],
-          generatedFiles: result.generatedFiles || []
-        }
+        result: combinedResult
       });
       
     } catch (error) {

@@ -27,10 +27,30 @@ export default async function handler(req, res) {
 
     // Extract the API path from the request
     // e.g., /api/claude/v1/messages -> /v1/messages
-    const apiPath = req.url.replace('/api/claude', '');
+    // Also support agent type in URL: /api/claude/worker/v1/messages
+    let apiPath = req.url.replace('/api/claude', '');
+    let agentType = null;
+    
+    // Check if agent type is in the URL path
+    const pathMatch = apiPath.match(/^\/([^\/]+)(\/v\d+\/.*)$/);
+    if (pathMatch && ['worker', 'executor', 'parent'].includes(pathMatch[1])) {
+      agentType = pathMatch[1];
+      apiPath = pathMatch[2];
+      console.log(`🏷️ Agent type from URL: ${agentType}`);
+    }
+    
     const anthropicUrl = `https://api.anthropic.com${apiPath}`;
     
     console.log(`🚀 Proxying Claude API request to: ${anthropicUrl}`);
+    
+    // Check if this is a Worker request and force Claude 4 Sonnet
+    // Support both header and URL path methods
+    if ((req.headers['x-agent-type'] === 'worker' || agentType === 'worker') && req.body?.model) {
+      console.log('🤖 Worker detected - forcing Claude 4 Sonnet model');
+      console.log('  Original model:', req.body.model);
+      req.body.model = 'claude-4-sonnet-20250514';
+      console.log('  Forced model:', req.body.model);
+    }
     
 
     // Forward the request to Anthropic API

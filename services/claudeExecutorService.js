@@ -71,14 +71,25 @@ export class ClaudeExecutorService extends EventEmitter {
       // プロキシモードの場合
       console.log('🌐 Using proxy mode for Claude API');
       
+      // エージェントタイプを環境変数から取得（デフォルトはexecutor）
+      const agentType = process.env.CLAUDE_AGENT_TYPE || 'executor';
+      
       // ANTHROPIC_BASE_URLを設定してプロキシ経由にする
-      const proxyUrl = 'https://anicca-proxy-staging.up.railway.app/api/claude';
+      // エージェントタイプをURLパスに含める
+      // 環境に応じてプロキシURLを選択
+      const baseProxyUrl = process.env.VERCEL_URL 
+        ? 'https://anicca-proxy-ten.vercel.app'
+        : process.env.RAILWAY_ENVIRONMENT 
+          ? 'https://anicca-proxy-staging.up.railway.app'
+          : 'https://anicca-proxy-ten.vercel.app'; // デフォルトはVercel
+      
+      const proxyUrl = `${baseProxyUrl}/api/claude/${agentType}`;
       process.env.ANTHROPIC_BASE_URL = proxyUrl;
       
       // プロキシモードではAPIキーは不要（Railwayの環境変数を使用）
       this.apiKey = 'using-proxy';
       
-      console.log('✅ Claude Code SDK configured to use proxy server');
+      console.log(`✅ Claude Code SDK configured to use proxy server as ${agentType}`);
       console.log('  Proxy URL:', proxyUrl);
       console.log('  ANTHROPIC_BASE_URL env:', process.env.ANTHROPIC_BASE_URL);
       console.log('  Railway environment?', process.env.RAILWAY_ENVIRONMENT ? 'Yes' : 'No');
