@@ -554,18 +554,21 @@ export class ParentAgent extends EventEmitter {
    * @private
    */
   handleStatusUpdate(agentId, message) {
-    const task = this.tasks.get(message.taskId);
+    const taskId = message.payload?.taskId;
+    const status = message.payload?.status;
+    const progress = message.payload?.progress;
+    const task = this.tasks.get(taskId);
     if (task) {
-      task.status = message.status;
-      task.progress = message.progress || 0;
+      task.status = status;
+      task.progress = progress || 0;
       
       // TodoManagerに進捗更新を通知
       if (this.todoManager && this.todoManager.status === 'ready') {
         this.todoManager.process.send({
           type: 'TASK_UPDATE',
-          taskId: message.taskId,
-          status: message.status,
-          progress: message.progress,
+          taskId: taskId,
+          status: status,
+          progress: progress,
           workerId: this.agents.get(agentId).name,
           timestamp: Date.now()
         });
@@ -573,9 +576,9 @@ export class ParentAgent extends EventEmitter {
       
       // 進捗をイベントとして発信
       this.emit('taskProgress', {
-        taskId: message.taskId,
-        status: message.status,
-        progress: message.progress,
+        taskId: taskId,
+        status: status,
+        progress: progress,
         agentName: this.agents.get(agentId).name
       });
     }
@@ -586,12 +589,14 @@ export class ParentAgent extends EventEmitter {
    * @private
    */
   handleTaskComplete(agentId, message) {
-    const task = this.tasks.get(message.taskId);
+    const taskId = message.payload?.taskId;
+    const result = message.payload?.result;
+    const task = this.tasks.get(taskId);
     const agent = this.agents.get(agentId);
     
     if (task && agent) {
       task.status = 'completed';
-      task.result = message.result;
+      task.result = result;
       task.completedAt = Date.now();
       
       // エージェントのステータスを更新
@@ -614,8 +619,8 @@ export class ParentAgent extends EventEmitter {
       if (this.todoManager && this.todoManager.status === 'ready') {
         this.todoManager.process.send({
           type: 'TASK_COMPLETE',
-          taskId: message.taskId,
-          result: message.result,
+          taskId: taskId,
+          result: result,
           workerId: agent.name,
           timestamp: Date.now()
         });
@@ -623,8 +628,8 @@ export class ParentAgent extends EventEmitter {
       
       // 完了イベントを発信
       this.emit('taskCompleted', {
-        taskId: message.taskId,
-        result: message.result,
+        taskId: taskId,
+        result: result,
         agentName: agent.name,
         duration: task.completedAt - task.startTime
       });
