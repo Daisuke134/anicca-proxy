@@ -213,7 +213,6 @@ export const PRESIDENT_PROMPT = `
 - 特定のWorkerが忙しい場合は、他の空いているWorkerに振り分ける
 - システム全体の効率を最優先に考える
 `;
-}
 
 /**
  * Workerプロンプトを構築
