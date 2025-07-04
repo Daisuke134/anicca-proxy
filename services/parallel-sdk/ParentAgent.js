@@ -331,8 +331,10 @@ export class ParentAgent extends EventEmitter {
     // タスクをエージェントに送信
     agent.process.send({
       type: 'TASK_ASSIGN',
-      taskId: task.id,
-      task: task,
+      payload: {
+        taskId: task.id,
+        task: task
+      },
       timestamp: Date.now()
     });
     
@@ -535,6 +537,11 @@ export class ParentAgent extends EventEmitter {
         console.log(`📝 [${agent.name}] ${message.message}`);
         break;
         
+      case 'READY':
+        console.log(`✅ [${agent.name}] is ready`);
+        agent.status = 'idle';
+        break;
+        
       default:
         console.log(`❓ Unknown message type from ${agent.name}:`, message);
     }
@@ -693,7 +700,7 @@ export class ParentAgent extends EventEmitter {
     this.terminateAgent(agentId);
     
     // 新しいエージェントを生成
-    const newAgent = await this.spawnAgent(type);
+    const newAgent = await this.spawnWorker();
     if (newAgent) {
       // タスクを再割り当て
       for (const taskId of tasks) {
