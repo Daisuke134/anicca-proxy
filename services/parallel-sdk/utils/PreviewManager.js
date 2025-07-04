@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import pkg from 'uuid';
-const { v4: uuidv4 } = pkg;
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { v4: uuidv4 } = require('uuid');
 
 /**
  * PreviewManager - アプリケーションのプレビュー管理

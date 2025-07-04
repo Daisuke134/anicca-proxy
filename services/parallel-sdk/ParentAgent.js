@@ -1,7 +1,8 @@
 import { fork } from 'child_process';
 import { EventEmitter } from 'events';
-import pkg from 'uuid';
-const { v4: uuidv4 } = pkg;
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { v4: uuidv4 } = require('uuid');
 import { fileURLToPath } from 'url';
 import path from 'path';
 
