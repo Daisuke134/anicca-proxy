@@ -164,36 +164,6 @@ function getTaskTypeJapanese(type) {
   return typeNames[type] || type;
 }
 
-/**
- * Workerの完全なプロンプトを構築
- * @param {Object} context - コンテキスト情報
- * @returns {string} 完全なプロンプト
- */
-export function buildWorkerPrompt(context = {}) {
-  const { taskType, workerStats, userName } = context;
-  
-  let prompt = generateBaseWorkerPrompt(context);
-  
-  // ユーザー名をプロンプトに含める
-  if (userName) {
-    prompt = prompt.replace('（例：Daisさん）', `（${userName}さん）`);
-  }
-  
-  // タスクタイプ別のヒントを追加
-  if (taskType && TASK_TYPE_HINTS[taskType]) {
-    prompt += '\n' + TASK_TYPE_HINTS[taskType];
-  }
-  
-  // 経験に基づく専門化を追加
-  if (workerStats) {
-    const specializationPrompt = generateSpecializationPrompt(workerStats);
-    if (specializationPrompt) {
-      prompt += '\n' + specializationPrompt;
-    }
-  }
-  
-  return prompt;
-}
 
 /**
  * President用のプロンプト
