@@ -8,6 +8,10 @@ import {
   createLogMessage
 } from '../IPCProtocol.js';
 import { buildWorkerPrompt } from '../prompts/workerPrompts.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 /**
  * BaseWorker - すべてのWorkerエージェントの基底クラス
@@ -39,8 +43,17 @@ export class BaseWorker extends IPCHandler {
       taskTypes: {}
     };
     
+    // プロファイルとインストラクションのパス
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    this.profilePath = path.join(__dirname, '..', 'workers', 'profiles', `${this.agentName.toLowerCase()}.json`);
+    this.instructionPath = path.join(__dirname, '..', 'workers', 'instructions', `${this.agentName.toLowerCase()}.md`);
+    
     console.log(`🤖 ${this.agentName} (${this.agentId}) is initializing...`);
     this.setupHandlers();
+    
+    // プロファイルを読み込む
+    this.loadProfile();
   }
   
   /**
@@ -245,11 +258,63 @@ export class BaseWorker extends IPCHandler {
   }
   
   /**
+   * プロファイルを読み込む
+   * @private
+   */
+  async loadProfile() {
+    try {
+      const profileData = await fs.readFile(this.profilePath, 'utf-8');
+      const profile = JSON.parse(profileData);
+      
+      // 統計情報を復元
+      this.stats = {
+        completedTasks: profile.totalTasks || 0,
+        failedTasks: 0,
+        taskTypes: profile.taskTypes || {}
+      };
+      
+      this.personality = profile.personality;
+      this.specialization = profile.specialization;
+      
+      this.log('info', `Profile loaded: ${this.personality}`);
+    } catch (error) {
+      this.log('warn', `Failed to load profile: ${error.message}`);
+    }
+  }
+  
+  /**
+   * プロファイルを保存
+   * @private
+   */
+  async saveProfile() {
+    try {
+      const profile = {
+        id: this.agentName,
+        name: this.agentName,
+        totalTasks: this.stats.completedTasks,
+        taskTypes: this.stats.taskTypes,
+        specialization: this.specialization,
+        personality: this.personality,
+        lastActive: new Date().toISOString(),
+        successRate: this.stats.completedTasks / (this.stats.completedTasks + this.stats.failedTasks) || 0
+      };
+      
+      await fs.writeFile(this.profilePath, JSON.stringify(profile, null, 2));
+      this.log('info', 'Profile saved');
+    } catch (error) {
+      this.log('error', `Failed to save profile: ${error.message}`);
+    }
+  }
+
+  /**
    * クリーンアップ処理
    * @override
    */
   async cleanup() {
     this.log('info', 'Shutting down...');
+    
+    // プロファイルを保存
+    await this.saveProfile();
     
     // 現在のタスクがあれば中断を報告
     if (this.currentTask) {

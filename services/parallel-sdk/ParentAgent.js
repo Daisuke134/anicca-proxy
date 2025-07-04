@@ -72,7 +72,16 @@ export class ParentAgent extends EventEmitter {
       await this.spawnTodoManager();
     }
     
+    // 5人の永続的なWorkerを起動
+    console.log(`👥 Spawning permanent worker team...`);
+    for (let i = 1; i <= 5; i++) {
+      await this.spawnWorker(`Worker${i}`);
+      // 少し待機して順番に起動
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
     console.log(`👔 ${this.name} is ready to lead the team.`);
+    console.log(`✨ Team composition: ${this.agents.size} workers ready`);
     this.emit('initialized', { agentId: this.agentId });
   }
 
@@ -321,8 +330,8 @@ export class ParentAgent extends EventEmitter {
       startTime: Date.now()
     });
     
-    // 適切なエージェントを選択または作成
-    const agent = await this.getOrCreateAgent(task.type);
+    // 適切なエージェントを選択
+    const agent = this.getIdleWorker(task.type);
     
     if (!agent) {
       throw new Error(`No suitable agent found for task type: ${task.type}`);
@@ -352,11 +361,12 @@ export class ParentAgent extends EventEmitter {
   }
 
   /**
-   * エージェントを取得または作成
+   * アイドル状態のWorkerを取得
    * @private
    */
-  async getOrCreateAgent(taskType) {
-    // 既存のアイドルWorkerを探す（どのWorkerでも処理可能）
+  getIdleWorker(taskType) {
+    // 既存のアイドルWorkerを探す
+    // TODO: 将来的にはtaskTypeに基づいて最適なWorkerを選択
     for (const [agentId, agent] of this.agents) {
       if (agent.status === 'idle') {
         agent.status = 'busy';
@@ -364,13 +374,9 @@ export class ParentAgent extends EventEmitter {
       }
     }
     
-    // 新しいWorkerを作成（上限チェック）
-    if (this.agents.size >= this.maxConcurrentAgents) {
-      console.log(`⚠️ [${this.name}] Worker limit reached, queueing task`);
-      return null;
-    }
-    
-    return await this.spawnWorker();
+    // 全員忙しい場合
+    console.log(`⚠️ [${this.name}] All workers are busy, task will be queued`);
+    return null;
   }
 
   /**
@@ -453,13 +459,14 @@ export class ParentAgent extends EventEmitter {
   /**
    * 新しいWorkerを生成
    * @private
+   * @param {string} fixedName - 固定のWorker名（例: Worker1）
    */
-  async spawnWorker() {
-    const workerId = `worker-${uuidv4().slice(0, 8)}`;
-    const workerNumber = this.agents.size + 1;
-    const workerName = `${this.workerConfig.name}${workerNumber}`;
+  async spawnWorker(fixedName = null) {
+    const workerId = fixedName || `worker-${uuidv4().slice(0, 8)}`;
+    const workerNumber = fixedName ? parseInt(fixedName.replace('Worker', '')) : this.agents.size + 1;
+    const workerName = fixedName || `${this.workerConfig.name}${workerNumber}`;
     
-    console.log(`🚀 [${this.name}] Spawning new worker: ${workerName} (${workerId})`);
+    console.log(`🚀 [${this.name}] Spawning worker: ${workerName} (${workerId})`);
     
     // 子プロセスとしてWorkerを起動
     const childProcess = fork(this.workerConfig.scriptPath, [], {
@@ -662,14 +669,11 @@ export class ParentAgent extends EventEmitter {
       error
     });
     
-    // 再起動を試みる（3回まで）
+    // Workerは永続的なので再起動はしない
+    console.log(`⚠️ [${this.name}] ${agent.name} encountered an error but will remain active`);
+    // エラー後もidleに戻す（タスクは再割り当て可能）
+    agent.status = 'idle';
     agent.errorCount = (agent.errorCount || 0) + 1;
-    if (agent.errorCount < 3) {
-      console.log(`🔄 [${this.name}] Attempting to restart ${agent.name}...`);
-      setTimeout(() => {
-        this.restartAgent(agentId);
-      }, 5000);
-    }
   }
 
   /**
@@ -724,18 +728,15 @@ export class ParentAgent extends EventEmitter {
    * @private
    */
   terminateAgent(agentId) {
+    // Workerは永続的なので終了しない
     const agent = this.agents.get(agentId);
     if (!agent) return;
     
-    console.log(`👋 [${this.name}] Terminating agent ${agent.name}`);
+    console.log(`🚫 [${this.name}] ${agent.name} is permanent and will not be terminated`);
     
-    // プロセスを終了
-    if (agent.process && !agent.process.killed) {
-      agent.process.kill('SIGTERM');
-    }
-    
-    // エージェントを削除
-    this.agents.delete(agentId);
+    // 代わりにidleに戻す
+    agent.status = 'idle';
+    agent.tasks = [];
   }
 
   /**
