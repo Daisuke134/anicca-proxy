@@ -159,10 +159,20 @@ export async function loadLatestTokensFromDB() {
 }
 
 /**
- * Initialize database (no-op for this implementation)
- * @returns {Promise<void>}
+ * Initialize database and return database client
+ * @returns {Promise<{supabase: object, getSlackTokensForUser: function}>}
  */
 export async function initDatabase() {
-  console.log('🔧 Database initialized (using tokenStorage)');
-  return Promise.resolve();
+  if (!supabase) {
+    throw new Error('Supabase client not initialized - check SUPABASE_SERVICE_ROLE_KEY environment variable');
+  }
+  
+  console.log('🔧 Database initialized (using Supabase)');
+  
+  // Return an object with the supabase client and helper functions
+  return {
+    supabase,
+    getSlackTokensForUser,
+    upsertSlackTokens
+  };
 }
