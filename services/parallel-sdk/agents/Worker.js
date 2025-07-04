@@ -1,6 +1,6 @@
 import { BaseWorker } from './BaseWorker.js';
 import { ClaudeExecutorService } from '../../claudeExecutorService.js';
-import { initDatabase } from '../../database.js';
+import { getSlackTokensForUser } from '../../database.js';
 import { previewManager } from '../utils/PreviewManager.js';
 import fs from 'fs';
 
@@ -25,15 +25,13 @@ class Worker extends BaseWorker {
       process.env.CLAUDE_AGENT_TYPE = 'worker';
       console.log('🏷️ Setting CLAUDE_AGENT_TYPE to "worker"');
       
-      // データベースを初期化
-      const database = await initDatabase();
-      if (!database) {
-        throw new Error('Failed to initialize database');
-      }
-      
       // ClaudeExecutorServiceを作成
-      this.claudeService = new ClaudeExecutorService(database);
+      // databaseパラメータは実際には使われていないのでnullを渡す
+      this.claudeService = new ClaudeExecutorService(null);
       this.setClaudeService(this.claudeService);
+      
+      // getSlackTokensForUserは必要な時に直接呼べるようにしておく
+      this.getSlackTokensForUser = getSlackTokensForUser;
       
       // MCP接続を設定（既存のMCPサービスを使用）
       const mcpConnections = {
