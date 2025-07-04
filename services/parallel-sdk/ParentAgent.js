@@ -534,7 +534,9 @@ export class ParentAgent extends EventEmitter {
         break;
         
       case 'LOG':
-        console.log(`📝 [${agent.name}] ${message.message}`);
+        const logLevel = message.payload?.level || 'info';
+        const logMessage = message.payload?.message || '(no message)';
+        console.log(`📝 [${agent.name}] ${logMessage}`);
         break;
         
       case 'READY':
