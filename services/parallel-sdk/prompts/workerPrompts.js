@@ -172,7 +172,7 @@ function getTaskTypeJapanese(type) {
 export function buildWorkerPrompt(context = {}) {
   const { taskType, workerStats, userName } = context;
   
-  let prompt = BASE_WORKER_PROMPT;
+  let prompt = generateBaseWorkerPrompt(context);
   
   // ユーザー名をプロンプトに含める
   if (userName) {
