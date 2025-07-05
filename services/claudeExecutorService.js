@@ -165,10 +165,10 @@ export class ClaudeExecutorService extends EventEmitter {
   setSlackTokens(tokens) {
     this.slackTokens = tokens;
     // console.log('🔐 Slack tokens set for user:', {
-      userId: tokens?.userId,
-      hasBot: !!tokens?.bot_token,
-      hasUser: !!tokens?.user_token
-    });
+    //   userId: tokens?.userId,
+    //   hasBot: !!tokens?.bot_token,
+    //   hasUser: !!tokens?.user_token
+    // });
     // MCPサーバーを再初期化してHTTP MCPを追加
     this.initializeMCPServers();
   }
@@ -568,10 +568,10 @@ ${workingDir}/CLAUDE.md に保存してください。
         // console.log('📝 Full prompt being sent:');
         // console.log(prompt);
         // console.log('⚙️ Query options:', JSON.stringify({
-          ...queryOptions,
-          env: '(env object present)', // 環境変数は表示しない
-          mcpServers: Object.keys(queryOptions.mcpServers || {})
-        }, null, 2));
+        //   ...queryOptions,
+        //   env: '(env object present)', // 環境変数は表示しない
+        //   mcpServers: Object.keys(queryOptions.mcpServers || {})
+        // }, null, 2));
         
         // queryの戻り値を確認
         let queryIterable;
