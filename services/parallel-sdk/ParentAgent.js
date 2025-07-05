@@ -3,7 +3,8 @@ import { EventEmitter } from 'events';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { v4: uuidv4 } = require('uuid');
-import { query } from '@anthropic-ai/claude-code';
+import { ClaudeExecutorService } from '../claudeExecutorService.js';
+import { MockDatabase } from '../mockDatabase.js';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -24,22 +25,23 @@ export class ParentAgent extends EventEmitter {
     process.env.CLAUDE_AGENT_TYPE = 'parent';
     console.log('👑 Setting CLAUDE_AGENT_TYPE to "parent" for Claude 4 Opus usage');
     
-    // プロキシ設定（ClaudeExecutorServiceと同じ）
-    const baseProxyUrl = process.env.VERCEL_URL 
-      ? 'https://anicca-proxy-ten.vercel.app'
-      : process.env.RAILWAY_ENVIRONMENT 
-        ? 'https://anicca-proxy-staging.up.railway.app'
-        : 'https://anicca-proxy-ten.vercel.app';
-    
-    const proxyUrl = `${baseProxyUrl}/api/claude/parent`;
-    process.env.ANTHROPIC_BASE_URL = proxyUrl;
-    console.log('🌐 ParentAgent proxy URL:', proxyUrl);
-    
     // 基本設定
     this.agentId = 'president';
     this.name = 'President';
     this.maxConcurrentAgents = options.maxConcurrentAgents || 5;
-    this.database = options.database; // データベース参照を保存
+    
+    // ClaudeExecutorServiceをインスタンス化
+    const database = options.database || new MockDatabase();
+    this.executor = new ClaudeExecutorService(database);
+    
+    // Slackトークンが設定されている場合
+    if (global.slackBotToken) {
+      this.executor.setSlackTokens({
+        bot_token: global.slackBotToken,
+        user_token: global.slackUserToken,
+        userId: global.currentUserId || 'system'
+      });
+    }
     
     // エージェント管理
     this.agents = new Map(); // agentId -> { process, type, status, tasks }
@@ -48,10 +50,6 @@ export class ParentAgent extends EventEmitter {
     
     // タスク管理
     this.tasks = new Map(); // taskId -> { id, description, status, assignedTo, result }
-    
-    // TodoManager
-    this.todoManager = null;
-    this.todoManagerEnabled = options.enableTodoManager !== false; // デフォルトは有効
     
     // 汎用Workerの設定
     this.workerConfig = {
@@ -78,11 +76,6 @@ export class ParentAgent extends EventEmitter {
   async initialize() {
     console.log(`\n🎩 ${this.name} is initializing the parallel execution system...`);
     console.log(`🔧 Max concurrent agents: ${this.maxConcurrentAgents}`);
-    
-    // TodoManagerを起動
-    if (this.todoManagerEnabled) {
-      await this.spawnTodoManager();
-    }
     
     // 5人の永続的なWorkerを起動
     console.log(`👥 Spawning permanent worker team...`);
@@ -124,18 +117,10 @@ export class ParentAgent extends EventEmitter {
         }];
       }
       
-      // 2. TodoManagerにタスクリストを送信
-      if (this.todoManager && this.todoManager.status === 'ready') {
-        this.todoManager.process.send({
-          type: 'TASK_LIST',
-          tasks: analyzedTasks.map(t => ({
-            id: t.id,
-            description: t.description,
-            type: t.type
-          })),
-          userName: context.userName || 'ユーザー',
-          timestamp: Date.now()
-        });
+      // 2. タスクリストをSlackに通知（ParentAgentが直接実行）
+      if (this.executor) {
+        console.log(`📋 [${this.name}] Posting task list to Slack...`);
+        // executorが自動的に#anicca_reportに通知してくれる
       }
       
       // 3. 各タスクを適切なエージェントに割り当て
@@ -202,15 +187,8 @@ export class ParentAgent extends EventEmitter {
       // 5. 総合的なサマリーを生成
       const summary = this.generateSummary(userRequest, taskSummaries);
       
-      // 6. TodoManagerに全タスク完了を通知
-      if (this.todoManager && this.todoManager.status === 'ready') {
-        this.todoManager.process.send({
-          type: 'ALL_TASKS_COMPLETE',
-          summary: summary,
-          totalTime: Date.now() - startTime,
-          timestamp: Date.now()
-        });
-      }
+      // 6. 全タスク完了をSlackに通知
+      console.log(`✨ [${this.name}] All tasks completed!`);
       
       return {
         success: true,
@@ -271,8 +249,6 @@ export class ParentAgent extends EventEmitter {
     console.log(`🤔 [${this.name}] Analyzing request with AI...`);
     
     try {
-      const messages = [];
-      
       // AIプロンプト
       const prompt = `あなたは優秀なプロジェクトマネージャーです。
 以下のリクエストを分析し、独立して実行可能なタスクに分解してください。
@@ -299,27 +275,19 @@ export class ParentAgent extends EventEmitter {
 - "Slackに投稿して、アプリも作って"のような場合は2つのタスクに分ける
 - originalRequestには具体的な実行内容を記載`;
 
-      // Claude SDKを使用（デフォルトでClaude 4）
-      const queryOptions = {
-        maxTokens: 2048,
-        temperature: 0.3
-      };
-      
-      const queryIterable = query({
-        prompt,
-        options: queryOptions
+      // ClaudeExecutorServiceを使用してAI分析
+      const result = await this.executor.executeGeneralRequest({
+        type: 'general',
+        parameters: { query: prompt },
+        context: { systemPrompt: '' }
       });
       
-      // レスポンスを収集
-      let responseText = '';
-      for await (const message of queryIterable) {
-        if (message.type === 'assistant' && message.message?.content) {
-          const content = message.message.content;
-          responseText += content.map((c) => c.text || '').join('');
-        }
+      if (!result.success) {
+        throw new Error(result.error || 'AI analysis failed');
       }
       
-      // JSONを抽出してパース
+      // レスポンスからJSONを抽出
+      const responseText = result.result || '';
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         throw new Error('Failed to extract JSON from AI response');
@@ -404,82 +372,6 @@ export class ParentAgent extends EventEmitter {
     return null;
   }
 
-  /**
-   * TodoManagerを起動
-   * @private
-   */
-  async spawnTodoManager() {
-    const todoManagerId = 'todo-manager';
-    const todoManagerPath = new URL('./agents/TodoManager.js', import.meta.url).pathname;
-    
-    console.log(`📋 [${this.name}] Spawning TodoManager...`);
-    
-    try {
-      // 子プロセスとしてTodoManagerを起動
-      const childProcess = fork(todoManagerPath, [], {
-        env: {
-          ...process.env,
-          AGENT_ID: todoManagerId,
-          AGENT_NAME: 'TodoManager'
-        }
-      });
-      
-      // TodoManager情報を保存
-      this.todoManager = {
-        id: todoManagerId,
-        name: 'TodoManager',
-        process: childProcess,
-        status: 'initializing',
-        startTime: Date.now()
-      };
-      
-      // メッセージハンドラーを設定
-      childProcess.on('message', (message) => {
-        this.handleTodoManagerMessage(message);
-      });
-      
-      // エラーハンドラー
-      childProcess.on('error', (error) => {
-        console.error(`❌ [${this.name}] TodoManager error:`, error);
-      });
-      
-      // 終了ハンドラー
-      childProcess.on('exit', (code, signal) => {
-        console.log(`📋 [${this.name}] TodoManager exited with code ${code}`);
-        this.todoManager = null;
-      });
-      
-      // TodoManagerの準備完了を待つ
-      await new Promise((resolve) => {
-        const checkReady = () => {
-          if (this.todoManager && this.todoManager.status === 'ready') {
-            resolve();
-          } else {
-            setTimeout(checkReady, 100);
-          }
-        };
-        checkReady();
-      });
-      
-      console.log(`✅ [${this.name}] TodoManager is ready`);
-      
-    } catch (error) {
-      console.error(`❌ Failed to spawn TodoManager:`, error);
-      this.todoManagerEnabled = false;
-    }
-  }
-  
-  /**
-   * TodoManagerからのメッセージを処理
-   * @private
-   */
-  handleTodoManagerMessage(message) {
-    console.log(`📋 [${this.name}] Message from TodoManager:`, message.type);
-    
-    if (message.type === 'READY') {
-      this.todoManager.status = 'ready';
-    }
-  }
 
   /**
    * 新しいWorkerを生成
@@ -599,17 +491,7 @@ export class ParentAgent extends EventEmitter {
       task.status = status;
       task.progress = progress || 0;
       
-      // TodoManagerに進捗更新を通知
-      if (this.todoManager && this.todoManager.status === 'ready') {
-        this.todoManager.process.send({
-          type: 'TASK_UPDATE',
-          taskId: taskId,
-          status: status,
-          progress: progress,
-          workerId: this.agents.get(agentId).name,
-          timestamp: Date.now()
-        });
-      }
+      // 進捗更新（将来的にはParentAgentが直接Slackに通知）
       
       // 進捗をイベントとして発信
       this.emit('taskProgress', {
@@ -652,16 +534,7 @@ export class ParentAgent extends EventEmitter {
         workerStats.successRate = this.stats.completedTasks / this.stats.totalTasks;
       }
       
-      // TodoManagerにタスク完了を通知
-      if (this.todoManager && this.todoManager.status === 'ready') {
-        this.todoManager.process.send({
-          type: 'TASK_COMPLETE',
-          taskId: taskId,
-          result: result,
-          workerId: agent.name,
-          timestamp: Date.now()
-        });
-      }
+      // タスク完了（将来的にはParentAgentが直接Slackに通知）
       
       // 完了イベントを発信
       this.emit('taskCompleted', {

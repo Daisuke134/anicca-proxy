@@ -8,7 +8,8 @@ import {
   createLogMessage
 } from '../IPCProtocol.js';
 import { buildWorkerPrompt } from '../prompts/workerPrompts.js';
-import { query } from '@anthropic-ai/claude-code';
+import { ClaudeExecutorService } from '../../claudeExecutorService.js';
+import { MockDatabase } from '../../mockDatabase.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -31,14 +32,18 @@ export class BaseWorker extends IPCHandler {
     // 現在のタスク
     this.currentTask = null;
     
-    // MCP接続（後で設定）
-    this.mcpConnections = null;
+    // ClaudeExecutorServiceをインスタンス化
+    const database = new MockDatabase();
+    this.executor = new ClaudeExecutorService(database);
     
-    // ワークスペース
-    this.workspaceRoot = null;
-    
-    // Slackトークン
-    this.slackTokens = null;
+    // Slackトークンが設定されている場合
+    if (global.slackBotToken) {
+      this.executor.setSlackTokens({
+        bot_token: global.slackBotToken,
+        user_token: global.slackUserToken,
+        userId: global.currentUserId || 'system'
+      });
+    }
     
     // 統計情報（将来の専門化のため）
     this.stats = {
@@ -144,10 +149,9 @@ export class BaseWorker extends IPCHandler {
     this.send(createStatusUpdateMessage(task.id, TaskStatus.IN_PROGRESS, 25));
     
     try {
-      const messages = [];
-      const workingDir = this.workspaceRoot || '/tmp/anicca-agent-workspace';
+      const workingDir = '/tmp/anicca-agent-workspace';
       
-      // プロンプトを組み立て
+      // タスク固有のプロンプトを組み立て
       const fullPrompt = `${systemPrompt}
 
 作業ディレクトリ: ${workingDir}
@@ -157,73 +161,33 @@ ${this.getTaskSpecificPrompt(task)}
 
 ${task.originalRequest}`;
       
-      // AbortControllerを作成
-      const abortController = new AbortController();
-      
-      this.log('info', '🎯 Executing task with Claude Code SDK...');
+      this.log('info', '🎯 Executing task with ClaudeExecutorService...');
       this.log('info', `📁 Working directory: ${workingDir}`);
       
-      // SDKオプションを設定
-      const queryOptions = {
-        abortController: abortController,
-        maxTurns: 30,
-        mcpServers: this.mcpConnections || {},
-        cwd: workingDir,
-        permissionMode: 'bypassPermissions',
-        appendSystemPrompt: this.slackTokens ? `
-【最重要：Slack報告は必須】
-あなたはSlackに接続されています。以下のルールを必ず守ってください。
-
-1. タスク開始前に必ず：
-   #anicca_reportチャンネルに報告
-   
-2. タスク完了時（結果を返す前に必ず）：
-   #anicca_reportチャンネルに報告
-
-【絶対的ルール】
-- 必ず#anicca_reportチャンネルを使用
-- チャンネルが存在しない場合は必ず作成する` : ''
-      };
-      
-      // Claude SDKを直接呼び出し
-      const queryIterable = query({
-        prompt: fullPrompt,
-        options: queryOptions
+      // ClaudeExecutorServiceを使用してタスクを実行
+      const result = await this.executor.executeGeneralRequest({
+        type: 'general',
+        parameters: { query: fullPrompt },
+        context: { systemPrompt: '' }
       });
-      
-      // メッセージを収集
-      for await (const message of queryIterable) {
-        messages.push(message);
-        this.logSDKMessage(message);
-      }
       
       // 進捗を報告
       this.send(createStatusUpdateMessage(task.id, TaskStatus.IN_PROGRESS, 90));
       
-      // 結果を取得
-      let textResult = '';
-      const resultMessage = messages.find(m => m.type === 'result');
-      if (resultMessage && resultMessage.result) {
-        textResult = resultMessage.result;
-      } else {
-        const assistantMessages = messages.filter(m => m.type === 'assistant');
-        if (assistantMessages.length > 0) {
-          const lastAssistant = assistantMessages[assistantMessages.length - 1];
-          if (lastAssistant.message?.content) {
-            const content = lastAssistant.message.content;
-            textResult = content.map((c) => c.text || '').join('\n');
-          }
-        }
+      if (!result.success) {
+        throw new Error(result.error || 'Task execution failed');
       }
       
       // 結果を整形
       const formattedResult = {
         success: true,
-        output: textResult || 'Task completed',
+        output: result.result || 'Task completed',
         metadata: {
           executedBy: this.agentName,
           taskType: task.type,
-          duration: Date.now() - this.currentTask.startTime
+          duration: Date.now() - this.currentTask.startTime,
+          toolsUsed: result.toolsUsed || [],
+          generatedFiles: result.generatedFiles || []
         }
       };
       

@@ -26,7 +26,7 @@ ANICCAの並列実行システムを実装するための完全ガイド。全�
     │   ├── Worker.js                # 子エージェント（実行部隊）
     │   │                            # - Claude SDK + MCPで実行
     │   │                            # - 完了したら親に報告
-    │   └── TodoManager.js           # Slackチェックリスト管理
+    │   └── BaseWorker.js            # Workerの基底クラス
     │
     ├── workers/
     │   ├── profiles/                # Worker1〜5の人格設定
@@ -52,12 +52,13 @@ ANICCAの並列実行システムを実装するための完全ガイド。全�
     ↓
 2. ANICCA（音声認識）
     ↓
-3. ParentAgent（Claude SDK使用）
-    ├── タスク分析・分解
+3. ParentAgent（ClaudeExecutorService経由）
+    ├── タスク分析・分解（executor.executeGeneralRequest）
     └── Worker割り当て
          ↓
-4. Worker1〜5（並列実行、Claude SDK使用）
-    ├── MCP利用（Slack、ファイル、Web検索等）
+4. Worker1〜5（並列実行、ClaudeExecutorService経由）
+    ├── executor.executeGeneralRequest実行
+    ├── 自動でMCP利用（Slack通知含む）
     └── 完了報告
          ↓
 5. ParentAgent
@@ -79,36 +80,44 @@ git commit -m "並列実装前の状態を保存"
 git branch
 ```
 
-#### 1.2 Worker.jsの修正（30分）
-**現在の問題**：
-- ClaudeExecutorServiceを子プロセスとして起動しようとしている
-- これがRailway環境で失敗する原因
+#### 1.2 ClaudeExecutorServiceの利用方法（30分）
+**実装方針**：
+- ClaudeExecutorServiceをインスタンス化（継承ではなく合成）
+- 孫プロセスを作らない（同一プロセス内で実行）
 
-**修正内容**：
-- ClaudeExecutorServiceのインスタンス化をやめる
-- 代わりにWorkerプロセス内でSDKを直接実行
-- executeGeneralRequestの中身をWorker内に移植
+**具体的な実装**：
+```javascript
+// ParentAgentとWorkerの両方で
+constructor() {
+  this.executor = new ClaudeExecutorService(database);
+  this.executor.setSlackTokens(slackTokens);
+}
 
-**具体的な変更**：
+// タスク実行時
+async executeTask(request) {
+  return this.executor.executeGeneralRequest({
+    type: 'general',
+    parameters: { query: request }
+  });
+}
 ```
-現在：
-Worker → ClaudeExecutorService → SDK（二重構造）
 
-修正後：
-Worker（SDKを直接実行）
-```
+**なぜインスタンス化か**：
+- 継承より柔軟（複数のexecutorを持てる）
+- 責任分離が明確
+- 既存のClaudeExecutorServiceをそのまま活用
 
 #### 1.3 BaseWorker.jsの調整（20分）
-- executeTaskメソッドを修正
-- ClaudeExecutorServiceへの依存を削除
-- SDK直接呼び出しに変更
+- executeTaskメソッドを修正してexecutor経由に
+- SDK直接呼び出しを削除
+- MCP設定とプロキシ設定を削除（executorに任せる）
 
 ### Phase 2: ParentAgentの強化（30分）
 
-#### 2.1 Claude SDK統合
-- 現在のキーワード分解をやめる
-- Claude SDKを使ったAI分析に変更
-- Opus 4モデルを使用
+#### 2.1 ClaudeExecutorService統合
+- analyzeAndDecomposeTasksをexecutor経由に変更
+- SDK直接呼び出しを削除
+- TodoManager関連を削除（ParentAgentが直接Slack通知）
 
 #### 2.2 タスク管理の改善
 - より賢いタスク分解
@@ -183,11 +192,13 @@ ParentAgent：
 
 ### 2. ClaudeExecutorServiceの扱い
 - **削除しない**（重要な機能が含まれている）
-- **各エージェントが直接利用**
+- **各エージェントがインスタンス化して利用**
+- **database引数は形式的に渡す（実際は使われない）**
 
 ### 3. MCP管理
-- **各エージェントが独立して管理**
-- **必要なツールのみ有効化**
+- **ClaudeExecutorServiceが一元管理**
+- **全エージェントが同じMCP設定を利用**
+- **HTTP MCP、BrowserBase MCP、ElevenLabs MCPなど全て使用可能**
 
 ### 4. エラーハンドリング
 - **Worker失敗時は親が再割り当て**

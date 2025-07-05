@@ -1,5 +1,4 @@
 import { BaseWorker } from './BaseWorker.js';
-import { query } from '@anthropic-ai/claude-code';
 import { getSlackTokensForUser } from '../../database.js';
 import { previewManager } from '../utils/PreviewManager.js';
 import fs from 'fs';
@@ -15,8 +14,6 @@ class Worker extends BaseWorker {
   constructor() {
     super();
     this.workspaceRoot = null;
-    this.mcpServers = null;
-    this.slackTokens = null;
   }
   
   /**
@@ -30,17 +27,6 @@ class Worker extends BaseWorker {
       process.env.CLAUDE_AGENT_TYPE = 'worker';
       console.log('🏷️ Setting CLAUDE_AGENT_TYPE to "worker"');
       
-      // プロキシ設定（ClaudeExecutorServiceと同じ）
-      const baseProxyUrl = process.env.VERCEL_URL 
-        ? 'https://anicca-proxy-ten.vercel.app'
-        : process.env.RAILWAY_ENVIRONMENT 
-          ? 'https://anicca-proxy-staging.up.railway.app'
-          : 'https://anicca-proxy-ten.vercel.app';
-      
-      const proxyUrl = `${baseProxyUrl}/api/claude/worker`;
-      process.env.ANTHROPIC_BASE_URL = proxyUrl;
-      console.log('🌐 Worker proxy URL:', proxyUrl);
-      
       // ワークスペースの設定
       this.workspaceRoot = '/tmp/anicca-agent-workspace';
       if (!fs.existsSync(this.workspaceRoot)) {
@@ -50,39 +36,8 @@ class Worker extends BaseWorker {
       // getSlackTokensForUserは必要な時に直接呼べるようにしておく
       this.getSlackTokensForUser = getSlackTokensForUser;
       
-      // MCP接続を設定（既存のMCPサービスを使用）
-      this.mcpServers = {
-        // ファイルシステム（基本）
-        filesystem: true,
-        
-        // Web検索（Exa）
-        exa: process.env.EXA_API_KEY ? true : false,
-        
-        // Slack
-        slack: global.slackBotToken ? true : false,
-        
-        // GitHub
-        github: process.env.GITHUB_TOKEN ? true : false,
-        
-        // その他の利用可能なMCP
-        // 将来的に追加
-      };
-      
-      this.setMCPConnections(this.mcpServers);
-      
-      // Slackトークンがある場合は設定
-      if (global.slackBotToken) {
-        this.slackTokens = {
-          bot_token: global.slackBotToken,
-          user_token: global.slackUserToken
-        };
-      }
-      
       console.log(`✅ ${this.agentName} initialization complete`);
-      console.log(`📊 Available MCPs: ${Object.entries(this.mcpServers)
-        .filter(([_, enabled]) => enabled)
-        .map(([name]) => name)
-        .join(', ')}`);
+      console.log(`📊 ClaudeExecutorService will handle all MCP connections`);
       
       // 準備完了を親に通知（IPCHandlerが自動的に行う）
       
@@ -96,9 +51,8 @@ class Worker extends BaseWorker {
    * カスタムタスク処理（必要に応じてオーバーライド）
    */
   async executeTask(task) {
-    // workspaceRootとtokensを設定
+    // workspaceRootを設定
     this.workspaceRoot = this.workspaceRoot || '/tmp/anicca-agent-workspace';
-    this.mcpConnections = this.mcpServers;
     
     // 特別な処理が必要な場合はここでオーバーライド
     // 例：アプリ作成後の追加処理など
