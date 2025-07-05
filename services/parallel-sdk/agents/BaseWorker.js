@@ -8,6 +8,7 @@ import {
   createLogMessage
 } from '../IPCProtocol.js';
 import { buildWorkerPrompt } from '../prompts/workerPrompts.js';
+import { query } from '@anthropic-ai/claude-code';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -30,11 +31,14 @@ export class BaseWorker extends IPCHandler {
     // 現在のタスク
     this.currentTask = null;
     
-    // Claudeサービス（後で注入）
-    this.claudeService = null;
-    
     // MCP接続（後で設定）
     this.mcpConnections = null;
+    
+    // ワークスペース
+    this.workspaceRoot = null;
+    
+    // Slackトークン
+    this.slackTokens = null;
     
     // 統計情報（将来の専門化のため）
     this.stats = {
@@ -77,13 +81,6 @@ export class BaseWorker extends IPCHandler {
     });
   }
   
-  /**
-   * Claudeサービスを設定
-   */
-  setClaudeService(claudeService) {
-    this.claudeService = claudeService;
-    this.log('info', 'Claude service configured');
-  }
   
   /**
    * MCP接続を設定
@@ -134,12 +131,8 @@ export class BaseWorker extends IPCHandler {
    * @private
    */
   async executeTask(task) {
-    if (!this.claudeService) {
-      throw new Error('Claude service not configured');
-    }
-    
     // プロンプトを構築
-    const prompt = buildWorkerPrompt({
+    const systemPrompt = buildWorkerPrompt({
       taskType: task.type,
       workerStats: this.stats,
       userName: task.context?.userName
@@ -151,31 +144,82 @@ export class BaseWorker extends IPCHandler {
     this.send(createStatusUpdateMessage(task.id, TaskStatus.IN_PROGRESS, 25));
     
     try {
-      // Claudeに実行を依頼
-      const result = await this.claudeService.executeGeneralRequest({
-        parameters: {
-          query: task.originalRequest
-        },
-        context: {
-          ...task.context,
-          taskId: task.id,
-          taskType: task.type,
-          agentName: this.agentName,
-          systemPrompt: prompt,
-          appendSystemPrompt: this.getTaskSpecificPrompt(task)
-        }
+      const messages = [];
+      const workingDir = this.workspaceRoot || '/tmp/anicca-agent-workspace';
+      
+      // プロンプトを組み立て
+      const fullPrompt = `${systemPrompt}
+
+作業ディレクトリ: ${workingDir}
+プロジェクトごとにサブディレクトリを作成してください。
+
+${this.getTaskSpecificPrompt(task)}
+
+${task.originalRequest}`;
+      
+      // AbortControllerを作成
+      const abortController = new AbortController();
+      
+      this.log('info', '🎯 Executing task with Claude Code SDK...');
+      this.log('info', `📁 Working directory: ${workingDir}`);
+      
+      // SDKオプションを設定
+      const queryOptions = {
+        abortController: abortController,
+        maxTurns: 30,
+        mcpServers: this.mcpConnections || {},
+        cwd: workingDir,
+        permissionMode: 'bypassPermissions',
+        appendSystemPrompt: this.slackTokens ? `
+【最重要：Slack報告は必須】
+あなたはSlackに接続されています。以下のルールを必ず守ってください。
+
+1. タスク開始前に必ず：
+   #anicca_reportチャンネルに報告
+   
+2. タスク完了時（結果を返す前に必ず）：
+   #anicca_reportチャンネルに報告
+
+【絶対的ルール】
+- 必ず#anicca_reportチャンネルを使用
+- チャンネルが存在しない場合は必ず作成する` : ''
+      };
+      
+      // Claude SDKを直接呼び出し
+      const queryIterable = query({
+        prompt: fullPrompt,
+        options: queryOptions
       });
       
-      // 実行結果をログ
-      this.log('info', `Claude execution result: ${JSON.stringify(result).substring(0, 200)}...`);
+      // メッセージを収集
+      for await (const message of queryIterable) {
+        messages.push(message);
+        this.logSDKMessage(message);
+      }
       
       // 進捗を報告
       this.send(createStatusUpdateMessage(task.id, TaskStatus.IN_PROGRESS, 90));
       
+      // 結果を取得
+      let textResult = '';
+      const resultMessage = messages.find(m => m.type === 'result');
+      if (resultMessage && resultMessage.result) {
+        textResult = resultMessage.result;
+      } else {
+        const assistantMessages = messages.filter(m => m.type === 'assistant');
+        if (assistantMessages.length > 0) {
+          const lastAssistant = assistantMessages[assistantMessages.length - 1];
+          if (lastAssistant.message?.content) {
+            const content = lastAssistant.message.content;
+            textResult = content.map((c) => c.text || '').join('\n');
+          }
+        }
+      }
+      
       // 結果を整形
       const formattedResult = {
         success: true,
-        output: result.output || result,
+        output: textResult || 'Task completed',
         metadata: {
           executedBy: this.agentName,
           taskType: task.type,
@@ -186,8 +230,22 @@ export class BaseWorker extends IPCHandler {
       return formattedResult;
       
     } catch (error) {
-      // エラーの詳細を含めて返す
+      this.log('error', `Task execution error: ${error.message}`);
       throw new Error(`Task execution failed: ${error.message}`);
+    }
+  }
+  
+  /**
+   * SDKメッセージをログ出力
+   * @private
+   */
+  logSDKMessage(message) {
+    if (message.type === 'tool_use') {
+      this.log('info', `🔧 Using tool: ${message.name}`);
+    } else if (message.type === 'assistant') {
+      this.log('info', `💬 Assistant message received`);
+    } else if (message.type === 'error') {
+      this.log('error', `❌ Error: ${message.error}`);
     }
   }
   

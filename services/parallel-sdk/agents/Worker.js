@@ -1,8 +1,10 @@
 import { BaseWorker } from './BaseWorker.js';
-import { ClaudeExecutorService } from '../../claudeExecutorService.js';
+import { query } from '@anthropic-ai/claude-code';
 import { getSlackTokensForUser } from '../../database.js';
 import { previewManager } from '../utils/PreviewManager.js';
 import fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 /**
  * Worker - 汎用Workerエージェントの実装
@@ -12,6 +14,9 @@ import fs from 'fs';
 class Worker extends BaseWorker {
   constructor() {
     super();
+    this.workspaceRoot = null;
+    this.mcpServers = null;
+    this.slackTokens = null;
   }
   
   /**
@@ -25,16 +30,17 @@ class Worker extends BaseWorker {
       process.env.CLAUDE_AGENT_TYPE = 'worker';
       console.log('🏷️ Setting CLAUDE_AGENT_TYPE to "worker"');
       
-      // ClaudeExecutorServiceを作成
-      // databaseパラメータは実際には使われていないのでnullを渡す
-      this.claudeService = new ClaudeExecutorService(null);
-      this.setClaudeService(this.claudeService);
+      // ワークスペースの設定
+      this.workspaceRoot = '/tmp/anicca-agent-workspace';
+      if (!fs.existsSync(this.workspaceRoot)) {
+        fs.mkdirSync(this.workspaceRoot, { recursive: true });
+      }
       
       // getSlackTokensForUserは必要な時に直接呼べるようにしておく
       this.getSlackTokensForUser = getSlackTokensForUser;
       
       // MCP接続を設定（既存のMCPサービスを使用）
-      const mcpConnections = {
+      this.mcpServers = {
         // ファイルシステム（基本）
         filesystem: true,
         
@@ -51,23 +57,18 @@ class Worker extends BaseWorker {
         // 将来的に追加
       };
       
-      this.setMCPConnections(mcpConnections);
+      this.setMCPConnections(this.mcpServers);
       
-      // ClaudeExecutorServiceにもMCP接続を設定
-      if (this.claudeService) {
-        this.claudeService.mcpServers = mcpConnections;
-        
-        // Slackトークンがある場合は設定
-        if (global.slackBotToken) {
-          this.claudeService.slackTokens = {
-            bot_token: global.slackBotToken,
-            user_token: global.slackUserToken
-          };
-        }
+      // Slackトークンがある場合は設定
+      if (global.slackBotToken) {
+        this.slackTokens = {
+          bot_token: global.slackBotToken,
+          user_token: global.slackUserToken
+        };
       }
       
       console.log(`✅ ${this.agentName} initialization complete`);
-      console.log(`📊 Available MCPs: ${Object.entries(mcpConnections)
+      console.log(`📊 Available MCPs: ${Object.entries(this.mcpServers)
         .filter(([_, enabled]) => enabled)
         .map(([name]) => name)
         .join(', ')}`);
@@ -84,22 +85,25 @@ class Worker extends BaseWorker {
    * カスタムタスク処理（必要に応じてオーバーライド）
    */
   async executeTask(task) {
+    // workspaceRootとtokensを設定
+    this.workspaceRoot = this.workspaceRoot || '/tmp/anicca-agent-workspace';
+    this.mcpConnections = this.mcpServers;
+    
     // 特別な処理が必要な場合はここでオーバーライド
     // 例：アプリ作成後の追加処理など
     
     const result = await super.executeTask(task);
     
     // アプリ作成タスクの場合、プレビューに公開
-    if (result.success && result.generatedFiles && result.generatedFiles.length > 0) {
+    if (result.success && task.type === 'development') {
       try {
-        // アプリのルートディレクトリを特定
-        const sessionDir = result.sessionDir;
-        if (sessionDir && fs.existsSync(sessionDir)) {
-          // プロジェクト名を推測
-          const projectName = this.extractProjectName(task.originalRequest) || 'app';
-          
+        // プロジェクト名を推測
+        const projectName = this.extractProjectName(task.originalRequest) || 'app';
+        const appDir = path.join(this.workspaceRoot, projectName);
+        
+        if (fs.existsSync(appDir)) {
           // PreviewManagerで公開
-          const previewInfo = await previewManager.publishApp(sessionDir, {
+          const previewInfo = await previewManager.publishApp(appDir, {
             projectName,
             taskId: task.id,
             description: task.description,

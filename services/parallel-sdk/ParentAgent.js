@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { v4: uuidv4 } = require('uuid');
+import { query } from '@anthropic-ai/claude-code';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -243,76 +244,109 @@ export class ParentAgent extends EventEmitter {
    * @private
    */
   async analyzeAndDecomposeTasks(userRequest, context) {
-    // タスク分解のロジック
-    // 現在は簡易的な実装。将来的にはAIを使った高度な分析を行う
+    console.log(`🤔 [${this.name}] Analyzing request with AI...`);
     
-    const tasks = [];
-    const requestLower = userRequest.toLowerCase();
-    
-    // キーワードベースの簡易分解（後でAI化）
-    if (requestLower.includes('slack') || requestLower.includes('メール')) {
-      tasks.push({
-        id: uuidv4(),
-        type: 'communication',
-        description: 'コミュニケーション関連のタスク',
-        originalRequest: userRequest,
-        priority: 'high'
-      });
+    try {
+      const messages = [];
+      
+      // AIプロンプト
+      const prompt = `あなたは優秀なプロジェクトマネージャーです。
+以下のリクエストを分析し、独立して実行可能なタスクに分解してください。
+
+リクエスト: "${userRequest}"
+ユーザー: ${context.userName || 'ユーザー'}
+
+以下のJSON形式で応答してください：
+{
+  "tasks": [
+    {
+      "type": "communication|development|research|execution|creative|general",
+      "description": "具体的なタスクの説明",
+      "originalRequest": "このタスクで実行すべき具体的な内容",
+      "priority": "high|medium|low",
+      "dependencies": []
     }
-    
-    if (requestLower.includes('アプリ') || requestLower.includes('コード') || requestLower.includes('開発')) {
-      tasks.push({
-        id: uuidv4(),
-        type: 'development',
-        description: '開発関連のタスク',
-        originalRequest: userRequest,
-        priority: 'high'
+  ]
+}
+
+重要な指針：
+- タスクは並列実行可能なように独立させる
+- 各タスクは1つのWorkerが完結できる粒度にする
+- "Slackに投稿して、アプリも作って"のような場合は2つのタスクに分ける
+- originalRequestには具体的な実行内容を記載`;
+
+      // Claude SDKを使用（Opus 4）
+      const queryOptions = {
+        model: 'claude-3-opus-20241022',
+        maxTokens: 2048,
+        temperature: 0.3
+      };
+      
+      const queryIterable = query({
+        prompt,
+        options: queryOptions
       });
-    }
-    
-    if (requestLower.includes('調査') || requestLower.includes('リサーチ') || requestLower.includes('分析')) {
-      tasks.push({
+      
+      // レスポンスを収集
+      let responseText = '';
+      for await (const message of queryIterable) {
+        if (message.type === 'assistant' && message.message?.content) {
+          const content = message.message.content;
+          responseText += content.map((c) => c.text || '').join('');
+        }
+      }
+      
+      // JSONを抽出してパース
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('Failed to extract JSON from AI response');
+      }
+      
+      const analysis = JSON.parse(jsonMatch[0]);
+      const tasks = analysis.tasks.map(task => ({
         id: uuidv4(),
-        type: 'research',
-        description: '調査・分析タスク',
-        originalRequest: userRequest,
-        priority: 'medium'
-      });
+        ...task
+      }));
+      
+      console.log(`📊 [${this.name}] AI decomposed into ${tasks.length} tasks`);
+      return tasks;
+      
+    } catch (error) {
+      console.error(`❌ AI analysis failed, falling back to keyword-based:`, error.message);
+      
+      // フォールバック：キーワードベースの分解
+      const tasks = [];
+      const requestLower = userRequest.toLowerCase();
+      
+      if (requestLower.includes('slack') && requestLower.includes('アプリ')) {
+        // 複数タスクの例
+        tasks.push({
+          id: uuidv4(),
+          type: 'communication',
+          description: 'Slackへの投稿',
+          originalRequest: userRequest.split('、')[0] || userRequest,
+          priority: 'high'
+        });
+        tasks.push({
+          id: uuidv4(),
+          type: 'development',
+          description: 'アプリケーション開発',
+          originalRequest: userRequest.split('、')[1] || userRequest,
+          priority: 'high'
+        });
+      } else {
+        // 単一タスク
+        tasks.push({
+          id: uuidv4(),
+          type: 'general',
+          description: userRequest,
+          originalRequest: userRequest,
+          priority: 'medium'
+        });
+      }
+      
+      return tasks;
     }
-    
-    if (requestLower.includes('デプロイ') || requestLower.includes('実行')) {
-      tasks.push({
-        id: uuidv4(),
-        type: 'execution',
-        description: '実行・デプロイタスク',
-        originalRequest: userRequest,
-        priority: 'high'
-      });
-    }
-    
-    if (requestLower.includes('動画') || requestLower.includes('コンテンツ') || requestLower.includes('収益')) {
-      tasks.push({
-        id: uuidv4(),
-        type: 'creative',
-        description: 'クリエイティブタスク',
-        originalRequest: userRequest,
-        priority: 'medium'
-      });
-    }
-    
-    // タスクが見つからない場合は汎用タスクとして処理
-    if (tasks.length === 0) {
-      tasks.push({
-        id: uuidv4(),
-        type: 'general',
-        description: userRequest,
-        originalRequest: userRequest,
-        priority: 'medium'
-      });
-    }
-    
-    console.log(`📊 [${this.name}] Decomposed into ${tasks.length} tasks`);
-    return tasks;
   }
 
   /**
