@@ -1,23 +1,17 @@
 // Claude SDK版のthink_with_claude
 // 並列実行版 - ParentAgentを使用
 
-import { ClaudeExecutorService } from '../../services/claudeExecutorService.js';
 import { ParentAgent } from '../../services/parallel-sdk/ParentAgent.js';
 import { MockDatabase } from '../../services/mockDatabase.js';
 import { getSlackTokensForUser } from '../../services/database.js';
-
-// タスク実行状態
-let taskState = {
-  isExecuting: false,
-  currentTask: null,
-  startedAt: null
-};
 
 // ParentAgentのインスタンス（再利用）
 let parentAgent = null;
 
 async function initializeParentAgent() {
+  console.log('🔄 Checking ParentAgent status...');
   if (!parentAgent) {
+    console.log('📦 Creating new ParentAgent instance...');
     const database = new MockDatabase();
     await database.init();
     parentAgent = new ParentAgent({
@@ -26,10 +20,13 @@ async function initializeParentAgent() {
       enableTodoManager: true   // TodoManager有効化
     });
     
+    console.log('🚀 Initializing ParentAgent...');
     // ParentAgentの初期化（TodoManagerの起動を含む）
     await parentAgent.initialize();
     
     console.log('✅ Parent Agent initialized for parallel execution');
+  } else {
+    console.log('♻️ Reusing existing ParentAgent instance');
   }
   return parentAgent;
 }
@@ -118,37 +115,27 @@ export default async function handler(req, res) {
       console.log('⚠️ No Slack tokens to set for userId:', userId || 'none');
     }
     
-    // 実行状態をチェック（VoiceServerと同じ）
-    if (taskState.isExecuting) {
-      const elapsed = Date.now() - (taskState.startedAt || 0);
-      const elapsedSeconds = Math.floor(elapsed / 1000);
-      return res.json({
-        success: false,
-        error: 'busy',
-        message: `現在「${taskState.currentTask}」を実行中です（${elapsedSeconds}秒経過）`,
-        currentTask: taskState.currentTask,
-        elapsedTime: elapsedSeconds
-      });
-    }
-    
-    // タスク実行開始
-    taskState.isExecuting = true;
-    taskState.currentTask = task;
-    taskState.startedAt = Date.now();
-    
     console.log(`🚀 Starting task: ${task}`);
     
     try {
       // ParentAgentでタスクを処理（並列実行対応）
-      const result = await agent.processUserRequest(task, {
-        context: context || '',
-        userId: userId || null
+      console.log('🎯 Calling ParentAgent.processUserRequest with:', {
+        task: task.substring(0, 100) + '...',
+        hasContext: !!context,
+        userId: userId || 'none'
       });
       
-      // タスク完了
-      taskState.isExecuting = false;
-      taskState.currentTask = null;
-      taskState.startedAt = null;
+      const result = await agent.processUserRequest(task, {
+        context: context || '',
+        userId: userId || null,
+        userName: userId || 'ユーザー'  // userNameも追加
+      });
+      
+      console.log('📊 ParentAgent result:', {
+        success: result.success,
+        tasksCount: result.tasks?.length || 0,
+        executionTime: result.executionTime
+      });
       
       console.log(`✅ Task completed: ${task}`);
       
@@ -168,11 +155,6 @@ export default async function handler(req, res) {
       });
       
     } catch (error) {
-      // エラー時も状態をリセット
-      taskState.isExecuting = false;
-      taskState.currentTask = null;
-      taskState.startedAt = null;
-      
       console.error('Claude execution error:', error);
       return res.status(500).json({
         error: error instanceof Error ? error.message : 'Claude execution failed'
