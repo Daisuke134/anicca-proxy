@@ -108,8 +108,21 @@ export class ParentAgent extends EventEmitter {
     const startTime = Date.now();
     
     try {
-      // 1. タスクを分析・分解
-      const analyzedTasks = await this.analyzeAndDecomposeTasks(userRequest, context);
+      // 1. タスクを分析・分解（オプション）
+      let analyzedTasks;
+      try {
+        analyzedTasks = await this.analyzeAndDecomposeTasks(userRequest, context);
+      } catch (error) {
+        console.log(`⚠️ [${this.name}] AI分解失敗、単一タスクとして処理: ${error.message}`);
+        // 分解できない場合は単一タスクとして扱う
+        analyzedTasks = [{
+          id: uuidv4(),
+          type: 'general',
+          description: userRequest,
+          originalRequest: userRequest,
+          priority: 'medium'
+        }];
+      }
       
       // 2. TodoManagerにタスクリストを送信
       if (this.todoManager && this.todoManager.status === 'ready') {
@@ -286,9 +299,8 @@ export class ParentAgent extends EventEmitter {
 - "Slackに投稿して、アプリも作って"のような場合は2つのタスクに分ける
 - originalRequestには具体的な実行内容を記載`;
 
-      // Claude SDKを使用（Opus 4）
+      // Claude SDKを使用（デフォルトでClaude 4）
       const queryOptions = {
-        model: 'claude-3-opus-20241022',
         maxTokens: 2048,
         temperature: 0.3
       };
