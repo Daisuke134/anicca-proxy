@@ -53,6 +53,19 @@ class Worker extends BaseWorker {
       
       this.setMCPConnections(mcpConnections);
       
+      // ClaudeExecutorServiceにもMCP接続を設定
+      if (this.claudeService) {
+        this.claudeService.mcpServers = mcpConnections;
+        
+        // Slackトークンがある場合は設定
+        if (global.slackBotToken) {
+          this.claudeService.slackTokens = {
+            bot_token: global.slackBotToken,
+            user_token: global.slackUserToken
+          };
+        }
+      }
+      
       console.log(`✅ ${this.agentName} initialization complete`);
       console.log(`📊 Available MCPs: ${Object.entries(mcpConnections)
         .filter(([_, enabled]) => enabled)

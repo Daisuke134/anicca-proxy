@@ -153,17 +153,17 @@ export class BaseWorker extends IPCHandler {
     try {
       // Claudeに実行を依頼
       const result = await this.claudeService.executeGeneralRequest({
-        prompt: task.originalRequest,
-        systemPrompt: prompt,
+        parameters: {
+          query: task.originalRequest
+        },
         context: {
           ...task.context,
           taskId: task.id,
           taskType: task.type,
-          agentName: this.agentName
-        },
-        mcpServers: this.mcpConnections,
-        // エージェント専用のプロンプト追加
-        appendSystemPrompt: this.getTaskSpecificPrompt(task)
+          agentName: this.agentName,
+          systemPrompt: prompt,
+          appendSystemPrompt: this.getTaskSpecificPrompt(task)
+        }
       });
       
       // 実行結果をログ

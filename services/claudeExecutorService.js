@@ -413,8 +413,14 @@ export class ClaudeExecutorService extends EventEmitter {
       // 作業ディレクトリは常にworkspaceRootを使用
       const workingDir = this.workspaceRoot;
       
+      // システムプロンプトとユーザークエリを組み合わせる
+      let systemPrompt = '';
+      if (action.context?.systemPrompt) {
+        systemPrompt = action.context.systemPrompt + '\n\n';
+      }
+      
       // より自然な文章での指示（作業ディレクトリを明示）
-      const prompt = `
+      const prompt = `${systemPrompt}
 作業ディレクトリ: ${workingDir}
 プロジェクトごとにサブディレクトリを作成してください。
 
@@ -495,6 +501,8 @@ ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "$@"
 - 作業ディレクトリ: ${workingDir}
 - このディレクトリ外のファイルは絶対に読み書きしないでください
 - ユーザーのプライバシーを守るため、ワークスペース外へのアクセスは禁止です
+
+${action.context?.appendSystemPrompt || ''}
 
 ${this.slackTokens ? `【最重要：Slack報告は必須 - 違反したらタスク失敗扱い】
 あなたはSlackに接続されています。以下のルールを必ず守ってください。
