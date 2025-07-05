@@ -30,6 +30,17 @@ class Worker extends BaseWorker {
       process.env.CLAUDE_AGENT_TYPE = 'worker';
       console.log('🏷️ Setting CLAUDE_AGENT_TYPE to "worker"');
       
+      // プロキシ設定（ClaudeExecutorServiceと同じ）
+      const baseProxyUrl = process.env.VERCEL_URL 
+        ? 'https://anicca-proxy-ten.vercel.app'
+        : process.env.RAILWAY_ENVIRONMENT 
+          ? 'https://anicca-proxy-staging.up.railway.app'
+          : 'https://anicca-proxy-ten.vercel.app';
+      
+      const proxyUrl = `${baseProxyUrl}/api/claude/worker`;
+      process.env.ANTHROPIC_BASE_URL = proxyUrl;
+      console.log('🌐 Worker proxy URL:', proxyUrl);
+      
       // ワークスペースの設定
       this.workspaceRoot = '/tmp/anicca-agent-workspace';
       if (!fs.existsSync(this.workspaceRoot)) {

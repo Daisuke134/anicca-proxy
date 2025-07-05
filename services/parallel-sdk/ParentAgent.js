@@ -24,6 +24,17 @@ export class ParentAgent extends EventEmitter {
     process.env.CLAUDE_AGENT_TYPE = 'parent';
     console.log('👑 Setting CLAUDE_AGENT_TYPE to "parent" for Claude 4 Opus usage');
     
+    // プロキシ設定（ClaudeExecutorServiceと同じ）
+    const baseProxyUrl = process.env.VERCEL_URL 
+      ? 'https://anicca-proxy-ten.vercel.app'
+      : process.env.RAILWAY_ENVIRONMENT 
+        ? 'https://anicca-proxy-staging.up.railway.app'
+        : 'https://anicca-proxy-ten.vercel.app';
+    
+    const proxyUrl = `${baseProxyUrl}/api/claude/parent`;
+    process.env.ANTHROPIC_BASE_URL = proxyUrl;
+    console.log('🌐 ParentAgent proxy URL:', proxyUrl);
+    
     // 基本設定
     this.agentId = 'president';
     this.name = 'President';
@@ -312,40 +323,8 @@ export class ParentAgent extends EventEmitter {
       return tasks;
       
     } catch (error) {
-      console.error(`❌ AI analysis failed, falling back to keyword-based:`, error.message);
-      
-      // フォールバック：キーワードベースの分解
-      const tasks = [];
-      const requestLower = userRequest.toLowerCase();
-      
-      if (requestLower.includes('slack') && requestLower.includes('アプリ')) {
-        // 複数タスクの例
-        tasks.push({
-          id: uuidv4(),
-          type: 'communication',
-          description: 'Slackへの投稿',
-          originalRequest: userRequest.split('、')[0] || userRequest,
-          priority: 'high'
-        });
-        tasks.push({
-          id: uuidv4(),
-          type: 'development',
-          description: 'アプリケーション開発',
-          originalRequest: userRequest.split('、')[1] || userRequest,
-          priority: 'high'
-        });
-      } else {
-        // 単一タスク
-        tasks.push({
-          id: uuidv4(),
-          type: 'general',
-          description: userRequest,
-          originalRequest: userRequest,
-          priority: 'medium'
-        });
-      }
-      
-      return tasks;
+      console.error(`❌ AI analysis failed:`, error.message);
+      throw new Error(`Task analysis failed: ${error.message}`);
     }
   }
 
