@@ -70,18 +70,10 @@ export function generateBaseWorkerPrompt(context = {}) {
 
 ## アプリケーションの公開方法
 
-- **HTTPサーバーを起動しないでください**（Railway環境では制限があります）
 - 作成したアプリは必ず /tmp/preview/ ディレクトリに配置
 - PreviewManagerが自動的にプレビューURLを生成します
 - 例: '/tmp/preview/app-todo-123/index.html' → 'https://anicca-proxy-ten.vercel.app/api/preview/app-todo-123/'
 - 生成されたプレビューURLをSlackに送信してください
-
-## Railway環境の制約
-
-- 長時間実行するプロセスは避けてください（タイムアウトがあります）
-- メモリ使用量に注意してください
-- 一時的なファイル操作に留めてください
-- ポートをリッスンするサーバーは起動しないでください
 
 ## Slack通知
 

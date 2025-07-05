@@ -1,9 +1,10 @@
 // Claude SDK版のthink_with_claude
 // 並列実行版 - ParentAgentを使用
 
-import { ParentAgent } from '../../services/parallel-sdk/ParentAgent.js';
+import { ParentAgent } from '../../services/parallel-sdk/agents/ParentAgent.js';
 import { MockDatabase } from '../../services/mockDatabase.js';
 import { getSlackTokensForUser } from '../../services/database.js';
+import { v4 as uuidv4 } from 'uuid';
 
 // ParentAgentのインスタンス（再利用）
 let parentAgent = null;
@@ -128,10 +129,16 @@ export default async function handler(req, res) {
       //   userId: userId || 'none'
       // });
       
-      const result = await agent.processUserRequest(task, {
-        context: context || '',
-        userId: userId || null,
-        userName: userId || 'ユーザー'  // userNameも追加
+      // ParentAgentはBaseWorkerベースなので、executeTaskを使う
+      const result = await agent.executeTask({
+        id: uuidv4(),
+        type: 'general',
+        originalRequest: task,
+        context: {
+          context: context || '',
+          userId: userId || null,
+          userName: userId || 'ユーザー'
+        }
       });
       
       // console.log('📊 ParentAgent result:', {

@@ -36,13 +36,18 @@ export class BaseWorker extends IPCHandler {
     const database = new MockDatabase();
     this.executor = new ClaudeExecutorService(database);
     
-    // Slackトークンが設定されている場合
-    if (global.slackBotToken) {
+    // Slackトークンを設定（環境変数またはglobalから）
+    const slackBotToken = process.env.SLACK_BOT_TOKEN || global.slackBotToken;
+    const slackUserToken = process.env.SLACK_USER_TOKEN || global.slackUserToken;
+    const userId = process.env.SLACK_USER_ID || global.currentUserId;
+    
+    if (slackBotToken) {
       this.executor.setSlackTokens({
-        bot_token: global.slackBotToken,
-        user_token: global.slackUserToken,
-        userId: global.currentUserId || 'system'
+        bot_token: slackBotToken,
+        user_token: slackUserToken,
+        userId: userId || 'system'
       });
+      this.log('info', '🔗 Slack tokens configured from environment');
     }
     
     // MCPサーバーを初期化（重要！）
