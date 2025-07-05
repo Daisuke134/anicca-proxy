@@ -43,6 +43,12 @@ export class ParentAgent extends EventEmitter {
       });
     }
     
+    // MCPサーバーを初期化（重要！）
+    console.log('🔧 [President] Initializing MCP servers...');
+    this.executor.initializeMCPServers().catch(error => {
+      console.error(`❌ [President] Failed to initialize MCP servers: ${error.message}`);
+    });
+    
     // エージェント管理
     this.agents = new Map(); // agentId -> { process, type, status, tasks }
     this.taskQueue = [];

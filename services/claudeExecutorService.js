@@ -1100,48 +1100,9 @@ ${action.parameters.query || ''}`;
       console.log('   Slack User ID:', this.slackTokens.slack_user_id || 'not set');
     }
     
-    // Slackトークンの確認
-    try {
-      const slackConfigPath = path.join(process.env.HOME || '', '.anicca', 'slack-config.json');
-      if (fs.existsSync(slackConfigPath)) {
-        const config = JSON.parse(fs.readFileSync(slackConfigPath, 'utf-8'));
-        
-        // 新形式のMCP設定を読み込む
-        if (config.mcpServers?.slack?.env?.SLACK_BOT_TOKEN) {
-          const encryption = new SimpleEncryption();
-          const token = encryption.decrypt(config.mcpServers.slack.env.SLACK_BOT_TOKEN);
-          
-          this.mcpServers.slack = {
-            command: "npx",
-            args: ["-y", "@modelcontextprotocol/server-slack"],
-            env: {
-              SLACK_BOT_TOKEN: token,
-              SLACK_TEAM_ID: config.mcpServers.slack.env.SLACK_TEAM_ID || ''
-            }
-          };
-          
-          console.log('✅ Slack MCP server configured');
-        }
-        // 旧形式も一応サポート（後方互換性）
-        else if (config.token) {
-          const encryption = new SimpleEncryption();
-          const token = encryption.decrypt(config.token);
-          
-          this.mcpServers.slack = {
-            command: "npx",
-            args: ["-y", "@modelcontextprotocol/server-slack"],
-            env: {
-              SLACK_BOT_TOKEN: token,
-              SLACK_TEAM_ID: config.team?.id || ''
-            }
-          };
-          
-          console.log('✅ Slack MCP server configured (legacy format)');
-        }
-      }
-    } catch (error) {
-      console.error('❌ Failed to initialize Slack MCP:', error);
-    }
+    // ファイルベースのSlack設定は削除（HTTP MCPに統一）
+    // HTTP MCPサーバーのみを使用するため、slack-config.jsonは不要
+    console.log('ℹ️ Using HTTP MCP for Slack integration (user-based)');
   }
 
   /**

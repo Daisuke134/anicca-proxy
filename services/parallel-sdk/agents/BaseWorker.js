@@ -45,6 +45,12 @@ export class BaseWorker extends IPCHandler {
       });
     }
     
+    // MCPサーバーを初期化（重要！）
+    this.log('info', '🔧 Initializing MCP servers...');
+    this.executor.initializeMCPServers().catch(error => {
+      this.log('error', `Failed to initialize MCP servers: ${error.message}`);
+    });
+    
     // 統計情報（将来の専門化のため）
     this.stats = {
       completedTasks: 0,
