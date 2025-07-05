@@ -137,6 +137,7 @@ export class BaseWorker extends IPCHandler {
    */
   async executeTask(task) {
     // プロンプトを構築
+    console.log(`🔍 Building prompt with workerName: ${this.name}`);
     const systemPrompt = buildWorkerPrompt({
       taskType: task.type,
       workerStats: this.stats,

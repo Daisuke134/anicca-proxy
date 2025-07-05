@@ -426,7 +426,13 @@ TOOL SELECTION GUIDELINES:
 - For tech news specifically, use get_hacker_news_stories  
 - ALWAYS analyze tool results before proceeding to the next action
 
-Remember: You can see visual information on the user's screen when they share it, allowing you to provide context-aware assistance with their applications and content.`,
+Remember: You can see visual information on the user's screen when they share it, allowing you to provide context-aware assistance with their applications and content.
+
+DUPLICATE REQUEST PREVENTION:
+- If you recently sent a similar request to claude_code tool (within last 2-3 interactions), DO NOT send it again
+- Instead, respond: "その依頼は既にClaude Codeに送信しました。結果をお待ちください。"
+- This prevents duplicate processing when the user hasn't asked for the same thing twice
+- Only send again if the user explicitly asks you to retry or do it again`,
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
         input_audio_transcription: { model: 'whisper-1' },
