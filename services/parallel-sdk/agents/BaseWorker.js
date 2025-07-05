@@ -32,9 +32,9 @@ export class BaseWorker extends IPCHandler {
     // 現在のタスク
     this.currentTask = null;
     
-    // ClaudeExecutorServiceをインスタンス化
+    // ClaudeExecutorServiceをインスタンス化（エージェント名を渡す）
     const database = new MockDatabase();
-    this.executor = new ClaudeExecutorService(database);
+    this.executor = new ClaudeExecutorService(database, this.agentName);
     
     // Slackトークンを設定（環境変数またはglobalから）
     const slackBotToken = process.env.SLACK_BOT_TOKEN || global.slackBotToken;

@@ -6,15 +6,15 @@ import * as os from 'os';
 import { SimpleEncryption } from './simpleEncryption.js';
 
 // Claude SDKのインポートを確認
-// console.log('🔍 Claude SDK import check:');
-// console.log('  query function type:', typeof query);
-// console.log('  query function exists:', query !== undefined);
+console.log('🔍 Claude SDK import check:');
+console.log('  query function type:', typeof query);
+console.log('  query function exists:', query !== undefined);
 
 // モジュール解決を確認（非同期で実行）
 (async () => {
   try {
     const claudeCodePath = await import.meta.resolve('@anthropic-ai/claude-code');
-    // console.log('  Module resolved at:', claudeCodePath);
+    console.log('  Module resolved at:', claudeCodePath);
   } catch (resolveError) {
     console.error('  Module resolution error:', resolveError.message);
   }
@@ -70,7 +70,7 @@ export class ClaudeExecutorService extends EventEmitter {
     
     if (useProxy) {
       // プロキシモードの場合
-      // console.log('🌐 Using proxy mode for Claude API');
+      console.log('🌐 Using proxy mode for Claude API');
       
       // エージェントタイプを環境変数から取得（デフォルトはexecutor）
       const agentType = process.env.CLAUDE_AGENT_TYPE || 'executor';
@@ -90,11 +90,11 @@ export class ClaudeExecutorService extends EventEmitter {
       // プロキシモードではAPIキーは不要（Railwayの環境変数を使用）
       this.apiKey = 'using-proxy';
       
-      // console.log(`✅ Claude Code SDK configured to use proxy server as ${agentType}`);
-      // console.log('  Proxy URL:', proxyUrl);
-      // console.log('  ANTHROPIC_BASE_URL env:', process.env.ANTHROPIC_BASE_URL);
-      // console.log('  Railway environment?', process.env.RAILWAY_ENVIRONMENT ? 'Yes' : 'No');
-      // console.log('  NODE_ENV:', process.env.NODE_ENV);
+      console.log(`✅ Claude Code SDK configured to use proxy server as ${agentType}`);
+      console.log('  Proxy URL:', proxyUrl);
+      console.log('  ANTHROPIC_BASE_URL env:', process.env.ANTHROPIC_BASE_URL);
+      console.log('  Railway environment?', process.env.RAILWAY_ENVIRONMENT ? 'Yes' : 'No');
+      console.log('  NODE_ENV:', process.env.NODE_ENV);
     } else {
       // ローカル開発用（直接APIキーを使用）
       this.apiKey = process.env.ANTHROPIC_API_KEY || '';
@@ -115,8 +115,8 @@ export class ClaudeExecutorService extends EventEmitter {
       console.error('❌ Error creating workspace:', error);
     }
     
-    // console.log('🤖 Claude Executor Service initialized');
-    // console.log('📁 Workspace root:', this.workspaceRoot);
+    console.log('🤖 Claude Executor Service initialized');
+    console.log('📁 Workspace root:', this.workspaceRoot);
     
     // MCPサーバーの初期化
     this.initializeMCPServers();
@@ -134,7 +134,7 @@ export class ClaudeExecutorService extends EventEmitter {
     try {
       if (!fs.existsSync(this.workspaceRoot)) {
         fs.mkdirSync(this.workspaceRoot, { recursive: true });
-        // console.log('📁 Created workspace directory:', this.workspaceRoot);
+        console.log('📁 Created workspace directory:', this.workspaceRoot);
       }
     } catch (error) {
       console.error('❌ Failed to create workspace directory:', error);
@@ -150,7 +150,7 @@ export class ClaudeExecutorService extends EventEmitter {
     
     try {
       fs.mkdirSync(sessionDir, { recursive: true });
-      // console.log('📁 Created session workspace:', sessionDir);
+      console.log('📁 Created session workspace:', sessionDir);
       return sessionDir;
     } catch (error) {
       console.error('❌ Failed to create session workspace:', error);
@@ -164,7 +164,7 @@ export class ClaudeExecutorService extends EventEmitter {
    */
   setSlackTokens(tokens) {
     this.slackTokens = tokens;
-    // console.log('🔐 Slack tokens set for user:', {
+    console.log('🔐 Slack tokens set for user:', {
       userId: tokens?.userId,
       hasBot: !!tokens?.bot_token,
       hasUser: !!tokens?.user_token
@@ -178,7 +178,7 @@ export class ClaudeExecutorService extends EventEmitter {
    */
   setMcpServers(servers) {
     this.mcpServers = servers;
-    // console.log('🔧 MCP servers configured:', Object.keys(servers));
+    console.log('🔧 MCP servers configured:', Object.keys(servers));
   }
   
   
@@ -228,7 +228,7 @@ export class ClaudeExecutorService extends EventEmitter {
       case 'system':
         if (msg.subtype === 'init') {
           logContent = `Claude SDK initialized\nWorking directory: ${msg.cwd}`;
-          // console.log('🚀 Claude SDK initialized');
+          console.log('🚀 Claude SDK initialized');
         }
         break;
         
@@ -258,11 +258,11 @@ export class ClaudeExecutorService extends EventEmitter {
         
       case 'result':
         if (msg.subtype === 'success') {
-          console.log(`✅ [${this.agentName}] Task completed successfully`);
+          console.log('✅ Task completed successfully');
         } else if (msg.subtype === 'error') {
           logContent = `Error: ${msg.error || 'Unknown error'}`;
           logType = 'error';
-          console.log(`❌ [${this.agentName}] Execution error:`, msg.error);
+          console.log('❌ Execution error:', msg.error);
         }
         break;
         
@@ -284,12 +284,12 @@ export class ClaudeExecutorService extends EventEmitter {
    * アクションを実行
    */
   async executeAction(action) {
-    // console.log(`🎯 Executing action: ${action.type}`, action);
+    console.log(`🎯 Executing action: ${action.type}`, action);
     
     // 実行中の場合はキューに追加
     if (this.isExecuting) {
       this.actionQueue.push(action);
-      // console.log('📋 Action queued, current queue size:', this.actionQueue.length);
+      console.log('📋 Action queued, current queue size:', this.actionQueue.length);
       return {
         success: false,
         error: 'Another action is being executed',
@@ -302,7 +302,7 @@ export class ClaudeExecutorService extends EventEmitter {
 
     // 実行タイムアウトを設定
     this.executionTimeout = setTimeout(() => {
-      // console.log('⏰ Execution timeout reached, forcing reset');
+      console.log('⏰ Execution timeout reached, forcing reset');
       this.resetExecutionState();
     }, this.MAX_EXECUTION_TIME);
 
@@ -387,7 +387,7 @@ export class ClaudeExecutorService extends EventEmitter {
       // キューに次のアクションがあれば実行
       if (this.actionQueue.length > 0) {
         const nextAction = this.actionQueue.shift();
-        // console.log('📋 Processing next action from queue');
+        console.log('📋 Processing next action from queue');
         this.executeAction(nextAction);
       }
     }
@@ -474,16 +474,16 @@ ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "$@"
       }
       
         // デバッグ: 環境変数を確認
-        // console.log('🔍 DEBUG - Environment check:');
-        // console.log('  ANTHROPIC_BASE_URL:', process.env.ANTHROPIC_BASE_URL);
-        // console.log('  ANTHROPIC_API_KEY:', process.env.ANTHROPIC_API_KEY ? 'Set' : 'Not set');
-        // console.log('  NODE_ENV:', process.env.NODE_ENV);
-        // console.log('  RAILWAY_ENVIRONMENT:', process.env.RAILWAY_ENVIRONMENT);
-        // console.log('  Platform:', process.platform);
-        // console.log('  Node version:', process.version);
-        // console.log('  Process execPath:', process.execPath);
-        // console.log('  Current working directory:', process.cwd());
-        // console.log('  __dirname equivalent:', path.dirname(new URL(import.meta.url).pathname));
+        console.log('🔍 DEBUG - Environment check:');
+        console.log('  ANTHROPIC_BASE_URL:', process.env.ANTHROPIC_BASE_URL);
+        console.log('  ANTHROPIC_API_KEY:', process.env.ANTHROPIC_API_KEY ? 'Set' : 'Not set');
+        console.log('  NODE_ENV:', process.env.NODE_ENV);
+        console.log('  RAILWAY_ENVIRONMENT:', process.env.RAILWAY_ENVIRONMENT);
+        console.log('  Platform:', process.platform);
+        console.log('  Node version:', process.version);
+        console.log('  Process execPath:', process.execPath);
+        console.log('  Current working directory:', process.cwd());
+        console.log('  __dirname equivalent:', path.dirname(new URL(import.meta.url).pathname));
         
         // SDKの内部動作を確認するため、オプションをログ出力
         const queryOptions = {
@@ -563,11 +563,11 @@ ${workingDir}/CLAUDE.md に保存してください。
         };
         
         
-        // console.log('🚀 Starting Claude SDK query...');
-        // console.log('📁 Working directory:', workingDir);
-        // console.log('📝 Full prompt being sent:');
-        // console.log(prompt);
-        // console.log('⚙️ Query options:', JSON.stringify({
+        console.log('🚀 Starting Claude SDK query...');
+        console.log('📁 Working directory:', workingDir);
+        console.log('📝 Full prompt being sent:');
+        console.log(prompt);
+        console.log('⚙️ Query options:', JSON.stringify({
           ...queryOptions,
           env: '(env object present)', // 環境変数は表示しない
           mcpServers: Object.keys(queryOptions.mcpServers || {})
@@ -576,31 +576,31 @@ ${workingDir}/CLAUDE.md に保存してください。
         // queryの戻り値を確認
         let queryIterable;
         try {
-          // console.log('🔄 Calling query function...');
+          console.log('🔄 Calling query function...');
           
           queryIterable = query({
             prompt,
             options: queryOptions
           });
-          // console.log('✅ Query function returned:', typeof queryIterable);
-          // console.log('   Is iterable?', queryIterable && typeof queryIterable[Symbol.asyncIterator] === 'function');
+          console.log('✅ Query function returned:', typeof queryIterable);
+          console.log('   Is iterable?', queryIterable && typeof queryIterable[Symbol.asyncIterator] === 'function');
         } catch (queryInitError) {
           console.error('❌ Error initializing query:', queryInitError);
           throw queryInitError;
         }
         
         try {
-          // console.log('🔄 Starting to iterate over messages...');
+          console.log('🔄 Starting to iterate over messages...');
           let messageCount = 0;
           for await (const message of queryIterable) {
             messageCount++;
-            // console.log(`📨 Received message #${messageCount}, type: ${message?.type}`);
+            console.log(`📨 Received message #${messageCount}, type: ${message?.type}`);
             messages.push(message);
             
             // リアルタイムで進捗を表示
             this.logSDKMessage(message);
           }
-          // console.log(`✅ Query completed successfully with ${messageCount} messages`);
+          console.log(`✅ Query completed successfully with ${messageCount} messages`);
         } catch (queryError) {
         console.error('❌ Claude SDK query error - Full details:');
         console.error('  Error message:', queryError.message);
@@ -647,15 +647,15 @@ ${workingDir}/CLAUDE.md に保存してください。
         }
       }
 
-      // console.log('📄 Execution Results from Claude Code SDK:');
-      // console.log('----------------------------------------');
-      // console.log(textResult || 'Task completed');
-      // console.log('----------------------------------------');
+      console.log('📄 Execution Results from Claude Code SDK:');
+      console.log('----------------------------------------');
+      console.log(textResult || 'Task completed');
+      console.log('----------------------------------------');
       
       // 生成されたファイルを検出
       const generatedFiles = this.findGeneratedFiles(workingDir);
       if (generatedFiles.length > 0) {
-        // console.log('📁 Generated files:');
+        console.log('📁 Generated files:');
         generatedFiles.forEach(file => console.log(`   - ${file}`));
       }
       
@@ -714,8 +714,8 @@ ${action.parameters.query || ''}`;
       // AbortControllerを作成
       this.abortController = new AbortController();
       
-      // console.log('🔍 Executing search with Claude Code SDK...');
-      // console.log('📁 Working directory:', sessionDir);
+      console.log('🔍 Executing search with Claude Code SDK...');
+      console.log('📁 Working directory:', sessionDir);
       
       // SDK APIを使用して検索を実行
       for await (const message of query({
@@ -750,15 +750,15 @@ ${action.parameters.query || ''}`;
         }
       }
 
-      // console.log('📄 Search Results from Claude Code SDK:');
-      // console.log('----------------------------------------');
-      // console.log(textResult || 'No results found');
-      // console.log('----------------------------------------');
+      console.log('📄 Search Results from Claude Code SDK:');
+      console.log('----------------------------------------');
+      console.log(textResult || 'No results found');
+      console.log('----------------------------------------');
       
       // 生成されたファイルを検出
       const generatedFiles = this.findGeneratedFiles(sessionDir);
       if (generatedFiles.length > 0) {
-        // console.log('📁 Generated files:');
+        console.log('📁 Generated files:');
         generatedFiles.forEach(file => console.log(`   - ${file}`));
       }
       
@@ -818,10 +818,10 @@ ${action.parameters.query || ''}`;
         result = resultMessage.result;
       }
 
-      // console.log('💻 Code Generation Results from Claude Code SDK:');
-      // console.log('----------------------------------------');
-      // console.log(result || 'Code generation completed');
-      // console.log('----------------------------------------');
+      console.log('💻 Code Generation Results from Claude Code SDK:');
+      console.log('----------------------------------------');
+      console.log(result || 'Code generation completed');
+      console.log('----------------------------------------');
       
       return {
         success: true,
@@ -868,10 +868,10 @@ ${action.parameters.query || ''}`;
         result = resultMessage.result;
       }
 
-      // console.log('📁 File Operation Results from Claude Code SDK:');
-      // console.log('----------------------------------------');
-      // console.log(result || 'File operation completed');
-      // console.log('----------------------------------------');
+      console.log('📁 File Operation Results from Claude Code SDK:');
+      console.log('----------------------------------------');
+      console.log(result || 'File operation completed');
+      console.log('----------------------------------------');
       
       return {
         success: true,
@@ -924,10 +924,10 @@ ${action.parameters.query || ''}`;
         result = resultMessage.result;
       }
 
-      // console.log('🖥️ Command Execution Results from Claude Code SDK:');
-      // console.log('----------------------------------------');
-      // console.log(result || 'Command executed');
-      // console.log('----------------------------------------');
+      console.log('🖥️ Command Execution Results from Claude Code SDK:');
+      console.log('----------------------------------------');
+      console.log(result || 'Command executed');
+      console.log('----------------------------------------');
       
       return {
         success: true,
@@ -1001,7 +1001,7 @@ ${action.parameters.query || ''}`;
   async saveExecutionResult(action, result) {
     try {
       // TODO: データベーススキーマに応じて実装
-      // console.log('💾 Saving execution result to database');
+      console.log('💾 Saving execution result to database');
     } catch (error) {
       console.error('❌ Error saving execution result:', error);
     }
@@ -1013,7 +1013,7 @@ ${action.parameters.query || ''}`;
   async addMCPServer(name, config) {
     try {
       this.mcpServers[name] = config;
-      // console.log(`🔌 MCP server '${name}' added:`, config);
+      console.log(`🔌 MCP server '${name}' added:`, config);
       return true;
     } catch (error) {
       console.error(`❌ Error adding MCP server '${name}':`, error);
@@ -1030,10 +1030,10 @@ ${action.parameters.query || ''}`;
       // EXA APIキーを取得（既に無効化済み）
       // const encryptionService = (await import('./encryptionService')).EncryptionService;
       // EXA MCPサーバーは削除（遅いため）
-      // console.log('ℹ️ EXA MCP server disabled for performance')
+      console.log('ℹ️ EXA MCP server disabled for performance')
       
-      // console.log('✅ MCP servers configuration completed');
-      // console.log('📋 Available MCP servers:', Object.keys(this.mcpServers));
+      console.log('✅ MCP servers configuration completed');
+      console.log('📋 Available MCP servers:', Object.keys(this.mcpServers));
     } catch (error) {
       console.error('❌ Error setting up MCP servers:', error);
     }
@@ -1067,7 +1067,7 @@ ${action.parameters.query || ''}`;
           ELEVENLABS_API_KEY: elevenLabsApiKey
         }
       };
-      // console.log('✅ ElevenLabs MCP server configured');
+      console.log('✅ ElevenLabs MCP server configured');
     }
     
     // Browser Base MCPの設定（常に有効）
@@ -1080,7 +1080,7 @@ ${action.parameters.query || ''}`;
           BROWSERBASE_PROJECT_ID: process.env.BROWSERBASE_PROJECT_ID
         }
       };
-      // console.log('✅ Browser Base MCP server configured');
+      console.log('✅ Browser Base MCP server configured');
     }
     
     // HTTP MCPサーバーを追加（Slack連携がある場合のみ）
@@ -1095,15 +1095,15 @@ ${action.parameters.query || ''}`;
           SLACK_USER_ID: this.slackTokens.slack_user_id || ''
         }
       };
-      // console.log('✅ HTTP MCP server configured for Slack integration');
-      // console.log('   Path:', httpMcpPath);
-      // console.log('   User ID:', this.slackTokens.userId);
-      // console.log('   Slack User ID:', this.slackTokens.slack_user_id || 'not set');
+      console.log('✅ HTTP MCP server configured for Slack integration');
+      console.log('   Path:', httpMcpPath);
+      console.log('   User ID:', this.slackTokens.userId);
+      console.log('   Slack User ID:', this.slackTokens.slack_user_id || 'not set');
     }
     
     // ファイルベースのSlack設定は削除（HTTP MCPに統一）
     // HTTP MCPサーバーのみを使用するため、slack-config.jsonは不要
-    // console.log('ℹ️ Using HTTP MCP for Slack integration (user-based)');
+    console.log('ℹ️ Using HTTP MCP for Slack integration (user-based)');
   }
 
   /**
@@ -1111,7 +1111,7 @@ ${action.parameters.query || ''}`;
    */
   async updateMCPServers() {
     await this.initializeMCPServers();
-    // console.log('🔄 MCP servers updated');
+    console.log('🔄 MCP servers updated');
   }
 
   /**
@@ -1135,7 +1135,7 @@ ${action.parameters.query || ''}`;
    * 実行状態をリセット（緊急用）
    */
   resetExecutionState() {
-    // console.log('🔄 Resetting execution state');
+    console.log('🔄 Resetting execution state');
     this.isExecuting = false;
     
     // 実行中のプロセスを中断
