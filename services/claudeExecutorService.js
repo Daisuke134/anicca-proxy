@@ -429,9 +429,9 @@ ${action.parameters.query}`;
       // AbortControllerを作成
       this.abortController = new AbortController();
       
-      console.log('🎯 Executing general request with Claude Code SDK...');
-      console.log('📁 Working directory:', workingDir);
-      console.log('📝 Request:', action.parameters.query);
+      // console.log('🎯 Executing general request with Claude Code SDK...');
+      // console.log('📁 Working directory:', workingDir);
+      // console.log('📝 Request:', action.parameters.query);
       
       
       // ELECTRON_RUN_AS_NODE環境変数を設定

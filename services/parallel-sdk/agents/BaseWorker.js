@@ -148,12 +148,12 @@ export class BaseWorker extends IPCHandler {
    */
   async executeTask(task) {
     // プロンプトを構築
-    console.log(`🔍 Building prompt with workerName: ${this.name}`);
+    // console.log(`🔍 Building prompt with workerName: ${this.agentName}`);
     const systemPrompt = buildWorkerPrompt({
       taskType: task.type,
       workerStats: this.stats,
       userName: task.context?.userName,
-      workerName: this.name
+      workerName: this.agentName
     });
     
     this.log('info', `Executing ${task.type || 'general'} task...`);
@@ -174,8 +174,8 @@ ${this.getTaskSpecificPrompt(task)}
 
 ${task.originalRequest}`;
       
-      this.log('info', '🎯 Executing task with ClaudeExecutorService...');
-      this.log('info', `📁 Working directory: ${workingDir}`);
+      // this.log('info', '🎯 Executing task with ClaudeExecutorService...');
+      // this.log('info', `📁 Working directory: ${workingDir}`);
       
       // ClaudeExecutorServiceを使用してタスクを実行
       const result = await this.executor.executeGeneralRequest({
