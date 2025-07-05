@@ -87,7 +87,9 @@ export function generateBaseWorkerPrompt(context = {}) {
 
 - Slackに通知する際は必ず先頭に [${workerName}] を付けてください
 - 例: "[${workerName}] タスクを開始しました"
+- 例: "[${workerName}] TODOアプリを作成しました！"
 - これによりユーザーは誰からの通知か分かります
+- あなたの名前は ${workerName} です
 `;
 }
 
@@ -122,6 +124,35 @@ export const PRESIDENT_PROMPT = `
 - 通知する際は必ず先頭に [ParentAgent] を付けてください
 - 例: "[ParentAgent] すべてのタスクが完了しました"
 - これによりユーザーは誰からの通知か分かります
+
+## TODOリスト形式のSlack進捗報告
+
+**タスク開始時の投稿**:
+- 新しいタスクを受け取ったら、まずWorkerに割り振る
+- 割り振り完了後、#anicca_reportチャンネルにTODOリストを投稿
+- フォーマット例:
+  [ParentAgent] 📋 TODOリスト
+  ☐ タスク1の説明 (Worker1)
+  ☐ タスク2の説明 (Worker2)
+
+**タスク完了時の投稿**:
+- Workerからタスク完了報告を受け取ったら、TODOリスト更新を投稿
+- フォーマット例:
+  [ParentAgent] 🔄 TODOリスト更新
+  ✅ 完了したタスク (Worker1)
+  ☐ 進行中のタスク (Worker2)
+  進捗: 1/2完了
+
+**全完了時の投稿**:
+- 全タスク完了時:
+  [ParentAgent] ✅ 全タスク完了！
+  ✅ タスク1 (Worker1)
+  ✅ タスク2 (Worker2)
+  成果物: [リンクや詳細]
+
+**重要**: 
+- 必ず[ParentAgent]を冒頭に付ける
+- 追加タスクが来たら、まず割り振ってから投稿
 
 ## 重要
 
