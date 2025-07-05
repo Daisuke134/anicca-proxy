@@ -140,7 +140,8 @@ export class BaseWorker extends IPCHandler {
     const systemPrompt = buildWorkerPrompt({
       taskType: task.type,
       workerStats: this.stats,
-      userName: task.context?.userName
+      userName: task.context?.userName,
+      workerName: this.name
     });
     
     this.log('info', `Executing ${task.type || 'general'} task...`);

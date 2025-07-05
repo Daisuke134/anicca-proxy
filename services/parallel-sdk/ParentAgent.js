@@ -119,7 +119,7 @@ export class ParentAgent extends EventEmitter {
       
       // 2. タスクリストをSlackに通知（ParentAgentが直接実行）
       if (this.executor) {
-        console.log(`📋 [${this.name}] Posting task list to Slack...`);
+        // console.log(`📋 [${this.name}] Posting task list to Slack...`);
         // executorが自動的に#anicca_reportに通知してくれる
       }
       
@@ -246,66 +246,20 @@ export class ParentAgent extends EventEmitter {
    * @private
    */
   async analyzeAndDecomposeTasks(userRequest, context) {
-    console.log(`🤔 [${this.name}] Analyzing request with AI...`);
+    // console.log(`📋 [${this.name}] Creating task for worker assignment...`);
     
-    try {
-      // AIプロンプト
-      const prompt = `あなたは優秀なプロジェクトマネージャーです。
-以下のリクエストを分析し、独立して実行可能なタスクに分解してください。
-
-リクエスト: "${userRequest}"
-ユーザー: ${context.userName || 'ユーザー'}
-
-以下のJSON形式で応答してください：
-{
-  "tasks": [
-    {
-      "type": "communication|development|research|execution|creative|general",
-      "description": "具体的なタスクの説明",
-      "originalRequest": "このタスクで実行すべき具体的な内容",
-      "priority": "high|medium|low",
-      "dependencies": []
-    }
-  ]
-}
-
-重要な指針：
-- タスクは並列実行可能なように独立させる
-- 各タスクは1つのWorkerが完結できる粒度にする
-- "Slackに投稿して、アプリも作って"のような場合は2つのタスクに分ける
-- originalRequestには具体的な実行内容を記載`;
-
-      // ClaudeExecutorServiceを使用してAI分析
-      const result = await this.executor.executeGeneralRequest({
-        type: 'general',
-        parameters: { query: prompt },
-        context: { systemPrompt: '' }
-      });
-      
-      if (!result.success) {
-        throw new Error(result.error || 'AI analysis failed');
-      }
-      
-      // レスポンスからJSONを抽出
-      const responseText = result.result || '';
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('Failed to extract JSON from AI response');
-      }
-      
-      const analysis = JSON.parse(jsonMatch[0]);
-      const tasks = analysis.tasks.map(task => ({
-        id: uuidv4(),
-        ...task
-      }));
-      
-      console.log(`📊 [${this.name}] AI decomposed into ${tasks.length} tasks`);
-      return tasks;
-      
-    } catch (error) {
-      console.error(`❌ AI analysis failed:`, error.message);
-      throw new Error(`Task analysis failed: ${error.message}`);
-    }
+    // 単純にタスクを作成（分解しない）
+    const task = {
+      id: uuidv4(),
+      type: 'general',
+      description: userRequest,
+      originalRequest: userRequest,
+      priority: 'high',
+      dependencies: []
+    };
+    
+    // タスクを配列で返す（既存のインターフェースに合わせる）
+    return [task];
   }
 
   /**
@@ -313,7 +267,7 @@ export class ParentAgent extends EventEmitter {
    * @private
    */
   async assignTask(task) {
-    console.log(`🎯 [${this.name}] Assigning task ${task.id} (${task.type})`);
+    // console.log(`🎯 [${this.name}] Assigning task ${task.id} (${task.type})`);
     
     // タスクを記録
     this.tasks.set(task.id, {

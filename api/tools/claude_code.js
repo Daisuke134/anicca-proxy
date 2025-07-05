@@ -92,12 +92,12 @@ export default async function handler(req, res) {
     if (userId) {
       try {
         slackTokens = await getSlackTokensForUser(userId);
-        console.log('🔐 Slack token lookup:', {
-          userId: userId,
-          tokensFound: !!slackTokens,
-          hasBotToken: !!slackTokens?.bot_token,
-          hasUserToken: !!slackTokens?.user_token
-        });
+        // console.log('🔐 Slack token lookup:', {
+        //   userId: userId,
+        //   tokensFound: !!slackTokens,
+        //   hasBotToken: !!slackTokens?.bot_token,
+        //   hasUserToken: !!slackTokens?.user_token
+        // });
       } catch (error) {
         console.error('Failed to get Slack tokens:', error);
       }
@@ -111,19 +111,22 @@ export default async function handler(req, res) {
       console.log('🔗 Setting Slack tokens globally for Workers');
       global.slackTokens = slackTokens;
       global.slackBotToken = slackTokens.bot_token;
+      global.slackUserToken = slackTokens.user_token;
+      global.currentUserId = userId;  // 実際のuserIdを設定
     } else {
       console.log('⚠️ No Slack tokens to set for userId:', userId || 'none');
+      global.currentUserId = userId || null;  // userIdがない場合もnullで設定
     }
     
     console.log(`🚀 Starting task: ${task}`);
     
     try {
       // ParentAgentでタスクを処理（並列実行対応）
-      console.log('🎯 Calling ParentAgent.processUserRequest with:', {
-        task: task.substring(0, 100) + '...',
-        hasContext: !!context,
-        userId: userId || 'none'
-      });
+      // console.log('🎯 Calling ParentAgent.processUserRequest with:', {
+      //   task: task.substring(0, 100) + '...',
+      //   hasContext: !!context,
+      //   userId: userId || 'none'
+      // });
       
       const result = await agent.processUserRequest(task, {
         context: context || '',
@@ -131,11 +134,11 @@ export default async function handler(req, res) {
         userName: userId || 'ユーザー'  // userNameも追加
       });
       
-      console.log('📊 ParentAgent result:', {
-        success: result.success,
-        tasksCount: result.tasks?.length || 0,
-        executionTime: result.executionTime
-      });
+      // console.log('📊 ParentAgent result:', {
+      //   success: result.success,
+      //   tasksCount: result.tasks?.length || 0,
+      //   executionTime: result.executionTime
+      // });
       
       console.log(`✅ Task completed: ${task}`);
       
