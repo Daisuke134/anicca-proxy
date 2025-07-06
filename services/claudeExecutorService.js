@@ -70,7 +70,7 @@ export class ClaudeExecutorService extends EventEmitter {
     
     if (useProxy) {
       // プロキシモードの場合
-      // console.log('🌐 Using proxy mode for Claude API');
+      console.log('🌐 Using proxy mode for Claude API');
       
       // エージェントタイプを環境変数から取得（デフォルトはexecutor）
       const agentType = process.env.CLAUDE_AGENT_TYPE || 'executor';
@@ -90,8 +90,8 @@ export class ClaudeExecutorService extends EventEmitter {
       // プロキシモードではAPIキーは不要（Railwayの環境変数を使用）
       this.apiKey = 'using-proxy';
       
-      // console.log(`✅ Claude Code SDK configured to use proxy server as ${agentType}`);
-      // console.log('  Proxy URL:', proxyUrl);
+      console.log(`✅ Claude Code SDK configured to use proxy server as ${agentType}`);
+      console.log('  Proxy URL:', proxyUrl);
       // console.log('  ANTHROPIC_BASE_URL env:', process.env.ANTHROPIC_BASE_URL);
       // console.log('  Railway environment?', process.env.RAILWAY_ENVIRONMENT ? 'Yes' : 'No');
       // console.log('  NODE_ENV:', process.env.NODE_ENV);
