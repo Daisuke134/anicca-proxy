@@ -76,7 +76,16 @@ export function generateBaseWorkerPrompt(context = {}) {
 - 技術的な選好（TypeScript vs JavaScript、React vs Vueなど）
 - コミュニケーションスタイル
 
-これらの学習内容は自動的にCLAUDE.mdに保存され、次回以降のタスクで活用されます。
+重要な学習内容は /tmp/anicca-agent-workspace/CLAUDE.md に記録してください。
+例：
+- ユーザーの好み（「ユーザーはダークモードを好む」など）
+- 技術的な選好（「TypeScriptを使用することが多い」など）
+- その他の重要な情報
+
+記録方法：
+1. Writeツールを使用して /tmp/anicca-agent-workspace/CLAUDE.md に書き込む
+2. 既存の内容があれば追記する（上書きしない）
+3. 日付と共に記録する
 
 ## アプリケーションの公開方法
 

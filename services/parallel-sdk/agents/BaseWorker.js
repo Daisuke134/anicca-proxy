@@ -13,6 +13,7 @@ import { ClaudeSession } from '../../claudeSession.js';
 import { MockDatabase } from '../../mockDatabase.js';
 import { loadClaudeMd, saveClaudeMd, appendLearning } from '../../workerMemory.js';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -258,10 +259,11 @@ ${task.originalRequest}
 3. 完了したら#anicca_reportチャンネルに報告:
    [${this.agentName}] ✅ タスク完了: ${task.originalRequest}
 
-4. 重要な学習事項があれば記録:
-   - ユーザーの好みや傾向
+4. 重要な学習事項があれば /tmp/anicca-agent-workspace/CLAUDE.md に記録:
+   - ユーザーの好みや傾向（例：ダークモード好き）
    - 新しく学んだ技術やパターン
    - 今後に活かせる知見
+   - 「覚えて」と言われた内容は必ず記録
 
 作業ディレクトリ: ${workingDir}
 プロジェクトごとにサブディレクトリを作成してください。
@@ -285,6 +287,9 @@ ${task.originalRequest}
           duration: Date.now() - this.currentTask.startTime
         }
       };
+      
+      // WorkerがCLAUDE.mdに保存した内容をSupabaseに転送
+      await this.syncClaudeMdToSupabase(workingDir);
       
       return formattedResult;
       
@@ -423,6 +428,45 @@ ${task.originalRequest}
     }
   }
 
+  /**
+   * CLAUDE.mdをSupabaseに同期
+   * @private
+   */
+  async syncClaudeMdToSupabase(workingDir) {
+    try {
+      const claudeMdPath = path.join(workingDir, 'CLAUDE.md');
+      
+      // ファイルが存在するか確認
+      if (fsSync.existsSync(claudeMdPath)) {
+        this.log('info', `📄 Found CLAUDE.md at ${claudeMdPath}`);
+        
+        // ファイルを読み込む
+        const content = await fs.readFile(claudeMdPath, 'utf-8');
+        const userId = process.env.SLACK_USER_ID || global.currentUserId || 'system';
+        
+        // 既存の内容と新しい内容をマージ
+        const existingContent = await loadClaudeMd(userId, this.agentName);
+        let mergedContent = existingContent;
+        
+        // 新しい内容を追加（重複を避ける）
+        if (!existingContent.includes(content)) {
+          mergedContent = existingContent + '\n' + content;
+        }
+        
+        // Supabase Storageに保存
+        await saveClaudeMd(userId, this.agentName, mergedContent);
+        this.log('info', `✅ Synced CLAUDE.md to Supabase for ${this.agentName}`);
+        
+        // ローカルファイルを削除（オプション）
+        // await fs.unlink(claudeMdPath);
+      } else {
+        this.log('info', `No CLAUDE.md found at ${claudeMdPath}`);
+      }
+    } catch (error) {
+      this.log('error', `Failed to sync CLAUDE.md: ${error.message}`);
+    }
+  }
+  
   /**
    * クリーンアップ処理
    * @override
