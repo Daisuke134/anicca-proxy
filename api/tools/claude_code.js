@@ -13,21 +13,18 @@ async function initializeParentAgent() {
   console.log('🔄 Checking ParentAgent status...');
   if (!parentAgent) {
     console.log('📦 Creating new ParentAgent instance...');
-    const database = new MockDatabase();
-    await database.init();
-    parentAgent = new ParentAgent({
-      database,
-      maxConcurrentAgents: 5,  // 同時に最大5つのWorkerを実行可能
-      enableTodoManager: true   // TodoManager有効化
-    });
+    // ParentAgentはBaseWorkerを継承しているので、引数なしで初期化
+    parentAgent = new ParentAgent();
     
     console.log('🚀 Initializing ParentAgent...');
-    // ParentAgentの初期化（TodoManagerの起動を含む）
+    // ParentAgentの初期化（Workerの起動を含む）
     await parentAgent.initialize();
     
-    console.log('✅ Parent Agent initialized for parallel execution');
+    console.log('✅ Parent Agent initialized with persistent session');
+    console.log(`📂 Session: ${parentAgent.session.getSessionInfo().sessionId}`);
   } else {
     console.log('♻️ Reusing existing ParentAgent instance');
+    console.log(`📂 Session: ${parentAgent.session.getSessionInfo().sessionId}`);
   }
   return parentAgent;
 }

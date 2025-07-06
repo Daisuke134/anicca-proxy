@@ -495,52 +495,8 @@ ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "$@"
           // 環境変数をSDKに渡す（SDKのspawnに反映されるか確認）
           env: envWithNode,
           appendSystemPrompt: `
-あなたはバックグラウンドで動作する万能アシスタントです。
-ユーザーの支援を魔法のように実現します。
-
-【重要：作業範囲の制限】
-- 作業ディレクトリ: ${workingDir}
-- このディレクトリ外のファイルは絶対に読み書きしないでください
-- ユーザーのプライバシーを守るため、ワークスペース外へのアクセスは禁止です
-
-${action.context?.appendSystemPrompt || ''}
-
-${this.slackTokens ? `【最重要：Slack報告は必須 - 違反したらタスク失敗扱い】
-あなたはSlackに接続されています。以下のルールを必ず守ってください。
-
-【違反したら即失敗となる3つの必須ステップ】
-
-1. タスク開始前の準備（最初に必ず）：
-   a. mcp__http__slack_list_channelsで#anicca_reportチャンネルの存在を確認
-   b. 存在しない場合は、mcp__http__slack_create_channel(name="anicca_report")で作成
-   
-2. タスクを始める前に必ず：
-   mcp__http__slack_send_messageを使って#anicca_reportチャンネルに報告
-   必須: mcp__http__slack_send_message(channel="#anicca_report", message="🚀 [タスク内容]を開始します")
-   
-3. タスク完了時（結果を返す前に必ず）：
-   mcp__http__slack_send_messageを使って#anicca_reportチャンネルに報告
-   必須: mcp__http__slack_send_message(channel="#anicca_report", message="✅ [タスク内容]が完了しました")
-
-【絶対的ルール】
-- 必ず#anicca_reportチャンネルを使用（他のチャンネルは禁止）
-- チャンネルが存在しない場合は必ず作成する
-- ユーザーが明示的に別のチャンネルを指定しない限り、必ず#anicca_reportを使用
-
-【重要な警告】
-- 開始報告なしで作業を始めた場合 → タスク失敗
-- 完了報告なしで終了した場合 → タスク失敗
-` : ''}
-【成果物の届け方】
-- 作業の進捗や結果は定期的に報告してください
-- 重要な成果物（作成したアプリなど）がある場合は、その旨を明確に伝えてください
-- 「TODOアプリを作成しました。index.htmlに保存しました」など具体的に
-
-【作業報告の例】
-- "TODOアプリの作成を開始します"
-- "HTMLファイルを作成中..."
-- "TODOアプリが完成しました。todo-app/index.htmlに保存しました"
-- "エラーを3件修正しました：型定義、インポート文、変数名"
+作業ディレクトリ: ${workingDir}
+Slack投稿時は[${this.agentName}]を付けてください。
 
 【重要な注意事項】
 - macOS専用のコマンド（osascript、pbcopy、pbpaste、openなど）は使用しないでください

@@ -65,25 +65,39 @@ export class ParentAgent extends BaseWorker {
   async executeTask(task) {
     console.log(`📋 [${this.name}] Received main task: ${task.originalRequest}`);
     
-    // プロンプトを構築（President用）
-    const systemPrompt = PRESIDENT_PROMPT;
-    
     try {
-      // 1. タスク開始時のTODOリストをSlackに投稿
-      await this.postInitialTodoList(task);
+      // プロンプトベースで全てを処理
+      const prompt = `
+${PRESIDENT_PROMPT}
+
+【受け取ったタスク】
+${task.originalRequest}
+
+【実行手順】
+1. 最適なWorkerを選んで、そのWorkerの名前（Worker1〜Worker5）を決める
+2. 選んだWorkerにタスクを割り振る（内部的に処理されます）
+3. #anicca_reportチャンネルにTODOリストを投稿:
+   [ParentAgent] 📋 TODOリスト
+   ☐ ${task.originalRequest} (Worker{番号})
+4. Workerの完了を待つ
+5. 完了したら#anicca_reportチャンネルに報告:
+   [ParentAgent] ✅ 全タスク完了！
+   ✅ ${task.originalRequest} (Worker{番号})
+
+必ずmcp__http__slack_send_messageツールを使用してSlackに投稿してください。
+`;
+
+      // セッションを使用して実行
+      const result = await this.session.sendMessage(prompt);
       
-      // 2. Workerに割り振り
+      // TODO: 実際のWorker割り振りロジックをここに実装
+      // 今は仮実装
       const assignedWorker = await this.assignTaskToWorker(task);
-      
-      // 3. 完了を待つ
-      const result = await this.waitForTaskCompletion(task.id);
-      
-      // 4. 完了報告をSlackに投稿
-      await this.postCompletionReport(task, result);
+      const taskResult = await this.waitForTaskCompletion(task.id);
       
       return {
         success: true,
-        output: `タスクが完了しました`,
+        output: result,
         metadata: {
           executedBy: this.name,
           assignedTo: assignedWorker,
@@ -97,25 +111,6 @@ export class ParentAgent extends BaseWorker {
     }
   }
   
-  /**
-   * 初期TODOリストをSlackに投稿
-   */
-  async postInitialTodoList(task) {
-    const todoPrompt = `
-#anicca_report チャンネルに以下の形式でTODOリストを投稿してください：
-
-[ParentAgent] 📋 TODOリスト
-☐ ${task.originalRequest} (Worker割り当て予定)
-
-必ずmcp__http__slack_send_messageツールを使用してください。
-`;
-
-    await this.executor.executeGeneralRequest({
-      type: 'general',
-      parameters: { query: todoPrompt },
-      context: { systemPrompt: PRESIDENT_PROMPT }
-    });
-  }
   
   /**
    * タスクをWorkerに割り振る
@@ -182,26 +177,6 @@ export class ParentAgent extends BaseWorker {
     });
   }
   
-  /**
-   * 完了報告をSlackに投稿
-   */
-  async postCompletionReport(task, result) {
-    const completionPrompt = `
-#anicca_report チャンネルに以下の形式で完了報告を投稿してください：
-
-[ParentAgent] ✅ 全タスク完了！
-✅ ${task.originalRequest} (${this.tasks.get(task.id).assignedTo})
-${result.previewUrl ? `成果物: ${result.previewUrl}` : ''}
-
-必ずmcp__http__slack_send_messageツールを使用してください。
-`;
-
-    await this.executor.executeGeneralRequest({
-      type: 'general',
-      parameters: { query: completionPrompt },
-      context: { systemPrompt: PRESIDENT_PROMPT }
-    });
-  }
   
   /**
    * Workerを起動

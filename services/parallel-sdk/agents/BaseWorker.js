@@ -9,6 +9,7 @@ import {
 } from '../IPCProtocol.js';
 import { buildWorkerPrompt } from '../prompts/workerPrompts.js';
 import { ClaudeExecutorService } from '../../claudeExecutorService.js';
+import { ClaudeSession } from '../../claudeSession.js';
 import { MockDatabase } from '../../mockDatabase.js';
 import fs from 'fs/promises';
 import path from 'path';
@@ -23,6 +24,7 @@ import { dirname } from 'path';
  */
 export class BaseWorker extends IPCHandler {
   constructor() {
+    // AGENT_NAMEを先に取得（super()の前に必要）
     const agentName = process.env.AGENT_NAME || 'Worker';
     super(agentName);
     
@@ -35,6 +37,10 @@ export class BaseWorker extends IPCHandler {
     // ClaudeExecutorServiceをインスタンス化（エージェント名を渡す）
     const database = new MockDatabase();
     this.executor = new ClaudeExecutorService(database, this.agentName);
+    
+    // 永続的なセッションを作成
+    this.session = new ClaudeSession(this.executor, this.agentName);
+    console.log(`📂 [${this.agentName}] Persistent session initialized`);
     
     // Slackトークンを設定（環境変数またはglobalから）
     const slackBotToken = process.env.SLACK_BOT_TOKEN || global.slackBotToken;
@@ -74,6 +80,25 @@ export class BaseWorker extends IPCHandler {
     
     // プロファイルを読み込む
     this.loadProfile();
+    
+    // 初期化完了を通知
+    this.sendReady();
+  }
+  
+  /**
+   * 準備完了を親に通知
+   */
+  sendReady() {
+    if (process.send) {
+      process.send({
+        type: 'READY',
+        payload: {
+          agentName: this.agentName,
+          agentId: this.agentId
+        },
+        timestamp: Date.now()
+      });
+    }
   }
   
   /**
@@ -147,15 +172,6 @@ export class BaseWorker extends IPCHandler {
    * @private
    */
   async executeTask(task) {
-    // プロンプトを構築
-    // console.log(`🔍 Building prompt with workerName: ${this.agentName}`);
-    const systemPrompt = buildWorkerPrompt({
-      taskType: task.type,
-      workerStats: this.stats,
-      userName: task.context?.userName,
-      workerName: this.agentName
-    });
-    
     this.log('info', `Executing ${task.type || 'general'} task...`);
     
     // 進捗を報告
@@ -164,43 +180,47 @@ export class BaseWorker extends IPCHandler {
     try {
       const workingDir = '/tmp/anicca-agent-workspace';
       
-      // タスク固有のプロンプトを組み立て
-      const fullPrompt = `${systemPrompt}
+      // Worker用プロンプトを構築
+      const prompt = `
+${buildWorkerPrompt({
+  taskType: task.type,
+  workerStats: this.stats,
+  userName: task.context?.userName,
+  workerName: this.agentName
+})}
+
+【受け取ったタスク】
+${task.originalRequest}
+
+【実行手順】
+1. まず#anicca_reportチャンネルに開始報告:
+   [${this.agentName}] 🚀 タスク開始: ${task.originalRequest}
+
+2. タスクを実行
+
+3. 完了したら#anicca_reportチャンネルに報告:
+   [${this.agentName}] ✅ タスク完了: ${task.originalRequest}
 
 作業ディレクトリ: ${workingDir}
 プロジェクトごとにサブディレクトリを作成してください。
 
-${this.getTaskSpecificPrompt(task)}
-
-${task.originalRequest}`;
+必ずmcp__http__slack_send_messageツールを使用してSlackに投稿してください。
+`;
       
-      // this.log('info', '🎯 Executing task with ClaudeExecutorService...');
-      // this.log('info', `📁 Working directory: ${workingDir}`);
-      
-      // ClaudeExecutorServiceを使用してタスクを実行
-      const result = await this.executor.executeGeneralRequest({
-        type: 'general',
-        parameters: { query: fullPrompt },
-        context: { systemPrompt: '' }
-      });
+      // セッションを使用して実行
+      const result = await this.session.sendMessage(prompt);
       
       // 進捗を報告
       this.send(createStatusUpdateMessage(task.id, TaskStatus.IN_PROGRESS, 90));
       
-      if (!result.success) {
-        throw new Error(result.error || 'Task execution failed');
-      }
-      
       // 結果を整形
       const formattedResult = {
         success: true,
-        output: result.result || 'Task completed',
+        output: result,
         metadata: {
           executedBy: this.agentName,
           taskType: task.type,
-          duration: Date.now() - this.currentTask.startTime,
-          toolsUsed: result.toolsUsed || [],
-          generatedFiles: result.generatedFiles || []
+          duration: Date.now() - this.currentTask.startTime
         }
       };
       
