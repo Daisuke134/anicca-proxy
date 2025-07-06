@@ -3,6 +3,7 @@ import { fork } from 'child_process';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { v4: uuidv4 } = require('uuid');
+import { loadClaudeMd, saveClaudeMd, appendLearning } from '../../workerMemory.js';
 
 /**
  * ParentAgent - BaseWorkerベースの司令塔エージェント
@@ -52,9 +53,41 @@ export class ParentAgent extends BaseWorker {
       console.log(`✅ ${this.agentName} initialization complete`);
       console.log(`👔 Team composition: ${this.workers.size} workers ready`);
       
+      // ParentAgentのCLAUDE.mdを読み込む
+      await this.loadTeamMemory();
+      
     } catch (error) {
       console.error(`❌ ${this.agentName} initialization failed:`, error);
       process.exit(1);
+    }
+  }
+  
+  /**
+   * チーム全体の記憶を読み込む
+   */
+  async loadTeamMemory() {
+    try {
+      const userId = global.currentUserId || 'system';
+      this.teamMemory = await loadClaudeMd(userId, 'ParentAgent');
+      
+      if (this.teamMemory) {
+        console.log(`📚 [${this.agentName}] Loaded team memory (${this.teamMemory.length} chars)`);
+      }
+    } catch (error) {
+      console.error(`Failed to load team memory: ${error.message}`);
+    }
+  }
+  
+  /**
+   * チーム管理の学習内容を保存
+   */
+  async saveTeamLearning(learning) {
+    try {
+      const userId = global.currentUserId || 'system';
+      await appendLearning(userId, 'ParentAgent', learning);
+      console.log(`💾 [${this.agentName}] Saved team learning: ${learning}`);
+    } catch (error) {
+      console.error(`Failed to save team learning: ${error.message}`);
     }
   }
   
@@ -63,6 +96,8 @@ export class ParentAgent extends BaseWorker {
    */
   async executeTask(task) {
     console.log(`📋 [${this.agentName}] Received main task: ${task.originalRequest}`);
+    
+    const startTime = Date.now();
     
     try {
       // 1. 空いているWorkerを取得
@@ -82,6 +117,12 @@ export class ParentAgent extends BaseWorker {
       
       // 5. 完了報告をSlackに投稿
       await this.postCompletionReport(task, worker.name, taskResult);
+      
+      // 6. タスク管理の学習を記録
+      const taskType = this.analyzeTaskType(task.originalRequest);
+      if (taskType) {
+        await this.saveTeamLearning(`${worker.name}が${taskType}タスクを完了。所要時間: ${Date.now() - startTime}ms`);
+      }
       
       return {
         success: true,
@@ -321,6 +362,28 @@ ${statusList}
       default:
         console.log(`❓ Unknown message type from ${worker.name}:`, message);
     }
+  }
+  
+  /**
+   * タスクタイプを分析
+   * @private
+   */
+  analyzeTaskType(request) {
+    if (!request) return null;
+    
+    const lowerRequest = request.toLowerCase();
+    
+    if (lowerRequest.includes('アプリ') || lowerRequest.includes('app')) {
+      return 'アプリ開発';
+    } else if (lowerRequest.includes('修正') || lowerRequest.includes('fix')) {
+      return 'バグ修正';
+    } else if (lowerRequest.includes('デザイン') || lowerRequest.includes('ui')) {
+      return 'デザイン';
+    } else if (lowerRequest.includes('slack') || lowerRequest.includes('メッセージ')) {
+      return 'コミュニケーション';
+    }
+    
+    return '一般';
   }
 }
 

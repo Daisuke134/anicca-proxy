@@ -11,6 +11,7 @@ import { buildWorkerPrompt } from '../prompts/workerPrompts.js';
 import { ClaudeExecutorService } from '../../claudeExecutorService.js';
 import { ClaudeSession } from '../../claudeSession.js';
 import { MockDatabase } from '../../mockDatabase.js';
+import { loadClaudeMd, saveClaudeMd, appendLearning } from '../../workerMemory.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -80,6 +81,9 @@ export class BaseWorker extends IPCHandler {
     // プロファイルを読み込む
     this.loadProfile();
     
+    // CLAUDE.mdを読み込む
+    this.loadMemory();
+    
     // 初期化完了を通知
     this.sendReady();
   }
@@ -94,6 +98,45 @@ export class BaseWorker extends IPCHandler {
     } catch (error) {
       this.log('error', `❌ Failed to initialize MCP servers: ${error.message}`);
       // MCPが使えなくても続行（エラーはログに記録済み）
+    }
+  }
+  
+  /**
+   * CLAUDE.mdを読み込む
+   */
+  async loadMemory() {
+    try {
+      const userId = process.env.SLACK_USER_ID || global.currentUserId || 'system';
+      this.claudeMd = await loadClaudeMd(userId, this.agentName);
+      
+      if (this.claudeMd) {
+        this.log('info', `📚 Loaded CLAUDE.md (${this.claudeMd.length} chars)`);
+        
+        // CLAUDE.mdの内容をシステムプロンプトに追加
+        this.memoryContext = `\n## あなたの記憶（CLAUDE.md）\n${this.claudeMd}\n`;
+      }
+    } catch (error) {
+      this.log('error', `Failed to load CLAUDE.md: ${error.message}`);
+      this.memoryContext = '';
+    }
+  }
+  
+  /**
+   * 学習内容をCLAUDE.mdに保存
+   */
+  async saveMemory(learning) {
+    try {
+      const userId = process.env.SLACK_USER_ID || global.currentUserId || 'system';
+      
+      // 学習内容を追記
+      await appendLearning(userId, this.agentName, learning);
+      
+      // 更新後のCLAUDE.mdを再読み込み
+      await this.loadMemory();
+      
+      this.log('info', `💾 Saved learning to CLAUDE.md: ${learning}`);
+    } catch (error) {
+      this.log('error', `Failed to save to CLAUDE.md: ${error.message}`);
     }
   }
   
@@ -201,6 +244,8 @@ ${buildWorkerPrompt({
   workerName: this.agentName
 })}
 
+${this.memoryContext || ''}
+
 【受け取ったタスク】
 ${task.originalRequest}
 
@@ -212,6 +257,11 @@ ${task.originalRequest}
 
 3. 完了したら#anicca_reportチャンネルに報告:
    [${this.agentName}] ✅ タスク完了: ${task.originalRequest}
+
+4. 重要な学習事項があれば記録:
+   - ユーザーの好みや傾向
+   - 新しく学んだ技術やパターン
+   - 今後に活かせる知見
 
 作業ディレクトリ: ${workingDir}
 プロジェクトごとにサブディレクトリを作成してください。
