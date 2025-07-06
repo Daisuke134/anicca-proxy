@@ -3,7 +3,6 @@ import { fork } from 'child_process';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { v4: uuidv4 } = require('uuid');
-import { PRESIDENT_PROMPT } from '../prompts/workerPrompts.js';
 
 /**
  * ParentAgent - BaseWorkerベースの司令塔エージェント
@@ -32,7 +31,7 @@ export class ParentAgent extends BaseWorker {
     // Workerの設定
     this.workerScriptPath = new URL('./Worker.js', import.meta.url).pathname;
     
-    console.log(`👑 ${this.name} is initializing as the team leader...`);
+    console.log(`👑 ${this.agentName} is initializing as the team leader...`);
   }
   
   /**
@@ -40,7 +39,7 @@ export class ParentAgent extends BaseWorker {
    */
   async initialize() {
     try {
-      console.log(`🎩 ${this.name} is starting initialization...`);
+      console.log(`🎩 ${this.agentName} is starting initialization...`);
       
       // 5人の永続的なWorkerを起動
       console.log(`👥 Spawning permanent worker team...`);
@@ -50,11 +49,11 @@ export class ParentAgent extends BaseWorker {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
       
-      console.log(`✅ ${this.name} initialization complete`);
+      console.log(`✅ ${this.agentName} initialization complete`);
       console.log(`👔 Team composition: ${this.workers.size} workers ready`);
       
     } catch (error) {
-      console.error(`❌ ${this.name} initialization failed:`, error);
+      console.error(`❌ ${this.agentName} initialization failed:`, error);
       process.exit(1);
     }
   }
@@ -63,52 +62,105 @@ export class ParentAgent extends BaseWorker {
    * タスクを受け取って処理（BaseWorkerのexecuteTaskをオーバーライド）
    */
   async executeTask(task) {
-    console.log(`📋 [${this.name}] Received main task: ${task.originalRequest}`);
+    console.log(`📋 [${this.agentName}] Received main task: ${task.originalRequest}`);
     
     try {
-      // プロンプトベースで全てを処理
-      const prompt = `
-${PRESIDENT_PROMPT}
-
-【受け取ったタスク】
-${task.originalRequest}
-
-【実行手順】
-1. 最適なWorkerを選んで、そのWorkerの名前（Worker1〜Worker5）を決める
-2. 選んだWorkerにタスクを割り振る（内部的に処理されます）
-3. #anicca_reportチャンネルにTODOリストを投稿:
-   [ParentAgent] 📋 TODOリスト
-   ☐ ${task.originalRequest} (Worker{番号})
-4. Workerの完了を待つ
-5. 完了したら#anicca_reportチャンネルに報告:
-   [ParentAgent] ✅ 全タスク完了！
-   ✅ ${task.originalRequest} (Worker{番号})
-
-必ずmcp__http__slack_send_messageツールを使用してSlackに投稿してください。
-`;
-
-      // セッションを使用して実行
-      const result = await this.session.sendMessage(prompt);
+      // 1. 空いているWorkerを取得
+      const worker = this.getIdleWorker();
+      if (!worker) {
+        throw new Error('No idle workers available');
+      }
       
-      // TODO: 実際のWorker割り振りロジックをここに実装
-      // 今は仮実装
-      const assignedWorker = await this.assignTaskToWorker(task);
+      // 2. TODOリストをSlackに投稿
+      await this.postTodoList(task, worker.name);
+      
+      // 3. Workerにタスクを割り振る
+      await this.assignTaskToWorker(task);
+      
+      // 4. タスク完了を待つ
       const taskResult = await this.waitForTaskCompletion(task.id);
+      
+      // 5. 完了報告をSlackに投稿
+      await this.postCompletionReport(task, worker.name, taskResult);
       
       return {
         success: true,
-        output: result,
+        output: taskResult?.output || 'Task completed',
         metadata: {
-          executedBy: this.name,
-          assignedTo: assignedWorker,
+          executedBy: this.agentName,
+          assignedTo: worker.name,
           taskId: task.id
         }
       };
       
     } catch (error) {
-      console.error(`❌ [${this.name}] Task execution error:`, error);
+      console.error(`❌ [${this.agentName}] Task execution error:`, error);
       throw error;
     }
+  }
+  
+  /**
+   * TODOリストをSlackに投稿
+   */
+  async postTodoList(task, workerName) {
+    const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:
+
+[ParentAgent] 📋 TODOリスト
+☐ ${task.originalRequest} (${workerName})`;
+    
+    await this.executor.executeGeneralRequest({
+      type: 'general',
+      parameters: { query }
+    });
+  }
+  
+  /**
+   * 完了報告をSlackに投稿
+   */
+  async postCompletionReport(task, workerName, result) {
+    const previewUrl = result?.metadata?.preview?.previewUrl || '';
+    const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:
+
+[ParentAgent] ✅ 全タスク完了！
+✅ ${task.originalRequest} (${workerName})
+${previewUrl ? `成果物: ${previewUrl}` : ''}`;
+    
+    await this.executor.executeGeneralRequest({
+      type: 'general',
+      parameters: { query }
+    });
+  }
+  
+  /**
+   * 進捗更新をSlackに投稿（複数タスクの場合に使用）
+   */
+  async postProgressUpdate(task, completedWorkerName) {
+    // 現在のタスク状況を集計
+    const totalTasks = this.tasks.size;
+    const completedTasks = Array.from(this.tasks.values()).filter(t => t.status === 'completed').length;
+    
+    // 単一タスクの場合は進捗更新不要（完了報告で十分）
+    if (totalTasks === 1) {
+      return;
+    }
+    
+    // 複数タスクの場合の進捗更新
+    let statusList = '';
+    for (const [taskId, taskInfo] of this.tasks) {
+      const status = taskInfo.status === 'completed' ? '✅' : '☐';
+      statusList += `${status} ${taskInfo.task.originalRequest} (${taskInfo.assignedTo})\n`;
+    }
+    
+    const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:
+
+[ParentAgent] 🔄 TODOリスト更新
+${statusList}
+進捗: ${completedTasks}/${totalTasks}完了`;
+    
+    await this.executor.executeGeneralRequest({
+      type: 'general',
+      parameters: { query }
+    });
   }
   
   
@@ -140,7 +192,7 @@ ${task.originalRequest}
     
     worker.status = 'busy';
     
-    console.log(`🎯 [${this.name}] Assigned task to ${worker.name}`);
+    console.log(`🎯 [${this.agentName}] Assigned task to ${worker.name}`);
     return worker.name;
   }
   
@@ -182,7 +234,7 @@ ${task.originalRequest}
    * Workerを起動
    */
   async spawnWorker(workerName) {
-    console.log(`🚀 [${this.name}] Spawning worker: ${workerName}`);
+    console.log(`🚀 [${this.agentName}] Spawning worker: ${workerName}`);
     
     // 子プロセスとしてWorkerを起動（Slackトークンも渡す）
     const childProcess = fork(this.workerScriptPath, [], {
@@ -215,12 +267,12 @@ ${task.originalRequest}
     
     // エラーハンドラー
     childProcess.on('error', (error) => {
-      console.error(`❌ [${this.name}] Worker ${workerName} error:`, error);
+      console.error(`❌ [${this.agentName}] Worker ${workerName} error:`, error);
     });
     
     // 終了ハンドラー
     childProcess.on('exit', (code, signal) => {
-      console.log(`👋 [${this.name}] Worker ${workerName} exited (code: ${code}, signal: ${signal})`);
+      console.log(`👋 [${this.agentName}] Worker ${workerName} exited (code: ${code}, signal: ${signal})`);
       this.workers.delete(worker.id);
     });
     
@@ -234,7 +286,7 @@ ${task.originalRequest}
     const worker = this.workers.get(workerId);
     if (!worker) return;
     
-    console.log(`📨 [${this.name}] Message from ${worker.name}:`, message.type);
+    console.log(`📨 [${this.agentName}] Message from ${worker.name}:`, message.type);
     
     switch (message.type) {
       case 'READY':
@@ -253,7 +305,12 @@ ${task.originalRequest}
           taskInfo.status = 'completed';
           taskInfo.result = message.payload?.result;
           worker.status = 'idle';
-          console.log(`✅ [${this.name}] Task completed by ${worker.name}`);
+          console.log(`✅ [${this.agentName}] Task completed by ${worker.name}`);
+          
+          // 進捗更新をSlackに投稿
+          this.postProgressUpdate(taskInfo.task, worker.name).catch(error => {
+            console.error(`Failed to post progress update: ${error.message}`);
+          });
         }
         break;
         

@@ -58,9 +58,8 @@ export class BaseWorker extends IPCHandler {
     
     // MCPサーバーを初期化（重要！）
     this.log('info', '🔧 Initializing MCP servers...');
-    this.executor.initializeMCPServers().catch(error => {
-      this.log('error', `Failed to initialize MCP servers: ${error.message}`);
-    });
+    // 初期化を同期的に待つ
+    this.initMCPServers();
     
     // 統計情報（将来の専門化のため）
     this.stats = {
@@ -83,6 +82,19 @@ export class BaseWorker extends IPCHandler {
     
     // 初期化完了を通知
     this.sendReady();
+  }
+  
+  /**
+   * MCPサーバーを同期的に初期化
+   */
+  async initMCPServers() {
+    try {
+      await this.executor.initializeMCPServers();
+      this.log('info', '✅ MCP servers initialized successfully');
+    } catch (error) {
+      this.log('error', `❌ Failed to initialize MCP servers: ${error.message}`);
+      // MCPが使えなくても続行（エラーはログに記録済み）
+    }
   }
   
   /**
