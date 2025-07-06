@@ -107,7 +107,8 @@ export class BaseWorker extends IPCHandler {
    */
   async loadMemory() {
     try {
-      const userId = process.env.SLACK_USER_ID || global.currentUserId || 'system';
+      const userId = process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
+      console.log(`📚 [${this.agentName}] Loading CLAUDE.md for userId: ${userId}`);
       this.claudeMd = await loadClaudeMd(userId, this.agentName);
       
       if (this.claudeMd) {
@@ -127,7 +128,8 @@ export class BaseWorker extends IPCHandler {
    */
   async saveMemory(learning) {
     try {
-      const userId = process.env.SLACK_USER_ID || global.currentUserId || 'system';
+      const userId = process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
+      console.log(`💾 [${this.agentName}] Saving to CLAUDE.md for userId: ${userId}`);
       
       // 学習内容を追記
       await appendLearning(userId, this.agentName, learning);
@@ -442,7 +444,15 @@ ${task.originalRequest}
         
         // ファイルを読み込む
         const content = await fs.readFile(claudeMdPath, 'utf-8');
-        const userId = process.env.SLACK_USER_ID || global.currentUserId || 'system';
+        const userId = process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
+        
+        // デバッグ: userIdの取得元を確認
+        console.log(`🔍 [${this.agentName}] syncClaudeMdToSupabase userId sources:`, {
+          SLACK_USER_ID: process.env.SLACK_USER_ID || 'not set',
+          CURRENT_USER_ID: process.env.CURRENT_USER_ID || 'not set',
+          globalCurrentUserId: global.currentUserId || 'not set',
+          finalUserId: userId
+        });
         
         // 既存の内容と新しい内容をマージ
         const existingContent = await loadClaudeMd(userId, this.agentName);

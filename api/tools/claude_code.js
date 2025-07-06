@@ -9,10 +9,18 @@ import { v4 as uuidv4 } from 'uuid';
 // ParentAgentのインスタンス（再利用）
 let parentAgent = null;
 
-async function initializeParentAgent() {
+async function initializeParentAgent(userId = null) {
   console.log('🔄 Checking ParentAgent status...');
   if (!parentAgent) {
     console.log('📦 Creating new ParentAgent instance...');
+    
+    // userIdを環境変数に設定
+    if (userId) {
+      process.env.SLACK_USER_ID = userId;
+      process.env.CURRENT_USER_ID = userId;
+      console.log(`🔑 Setting userId in environment: ${userId}`);
+    }
+    
     // ParentAgentはBaseWorkerを継承しているので、引数なしで初期化
     parentAgent = new ParentAgent();
     
@@ -101,8 +109,8 @@ export default async function handler(req, res) {
       }
     }
     
-    // ParentAgentを初期化
-    const agent = await initializeParentAgent();
+    // ParentAgentを初期化（userIdを渡す）
+    const agent = await initializeParentAgent(userId);
     
     // Slackトークンがある場合はグローバルに設定（Workerが使用）
     if (slackTokens) {

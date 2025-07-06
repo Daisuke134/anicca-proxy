@@ -67,7 +67,7 @@ export class ParentAgent extends BaseWorker {
    */
   async loadTeamMemory() {
     try {
-      const userId = global.currentUserId || 'system';
+      const userId = process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
       this.teamMemory = await loadClaudeMd(userId, 'ParentAgent');
       
       if (this.teamMemory) {
@@ -83,7 +83,7 @@ export class ParentAgent extends BaseWorker {
    */
   async saveTeamLearning(learning) {
     try {
-      const userId = global.currentUserId || 'system';
+      const userId = process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
       await appendLearning(userId, 'ParentAgent', learning);
       console.log(`💾 [${this.agentName}] Saved team learning: ${learning}`);
     } catch (error) {
@@ -275,7 +275,9 @@ ${statusList}
    * Workerを起動
    */
   async spawnWorker(workerName) {
-    console.log(`🚀 [${this.agentName}] Spawning worker: ${workerName}`);
+    // ParentAgent自身が受け取ったuserIdを優先的に使用
+    const userId = process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
+    console.log(`🚀 [${this.agentName}] Spawning ${workerName} with userId: ${userId}`);
     
     // 子プロセスとしてWorkerを起動（Slackトークンも渡す）
     const childProcess = fork(this.workerScriptPath, [], {
@@ -287,7 +289,8 @@ ${statusList}
         // Slackトークンを環境変数で渡す
         SLACK_BOT_TOKEN: global.slackBotToken || '',
         SLACK_USER_TOKEN: global.slackUserToken || '',
-        SLACK_USER_ID: global.currentUserId || ''
+        SLACK_USER_ID: userId,  // 確実にuserIdを渡す
+        CURRENT_USER_ID: userId  // 念のため別名でも渡す
       }
     });
     
