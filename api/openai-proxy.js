@@ -370,7 +370,6 @@ ${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
    - User: "Slackに送って" → YOU handle it directly with slack_send_message
    - User: "クロードでSlackに送って" → Delegate to claude_code
    - User: "Send to AI channel" → First list channels, find "#ai", use "#ai" (NOT the ID)
-   - User: "Post in general" → Use "#general" directly
 
 ` : ''}2. **Search Tools** (powered by Exa):
    - **web_search_exa**: General web search for news, current events, general info
@@ -439,14 +438,14 @@ TASK FORMATTING FOR CLAUDE CODE (重要):
 - Even if user doesn't explicitly number tasks, YOU must number them
 - This helps Claude Code distribute tasks to multiple Workers efficiently
 
-DEFAULT CHANNEL FOR CLAUDE CODE:
-- When user asks to send something to Slack without specifying a channel
-- Or when creating apps/content without delivery instructions
-- ALWAYS tell Claude Code to use #anicca_report as the default channel
-- Examples:
+CRITICAL CHANNEL RULE FOR CLAUDE CODE:
+- If NO channel is specified → ALWAYS use #anicca_report
+- If channel doesn't exist → ALWAYS fallback to #anicca_report
+- When sending to Claude Code, ALWAYS include explicit channel:
   * "聖書の言葉を送って" → Add "（#anicca_reportチャンネルに送信してください）"
   * "TODOアプリ作って" → Add "（完成したら#anicca_reportに報告してください）"
   * "ニュースを検索して" → Add "（結果を#anicca_reportに投稿してください）"
+- The ONLY acceptable default is #anicca_report
 - Only use other channels if explicitly specified by user
 
 STRICT DUPLICATE PREVENTION (強化版):

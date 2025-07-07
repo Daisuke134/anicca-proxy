@@ -94,7 +94,18 @@ export function generateBaseWorkerPrompt(context = {}) {
 - 例: '/tmp/preview/app-todo-123/index.html' → 'https://anicca-proxy-ten.vercel.app/api/preview/app-todo-123/'
 - 生成されたプレビューURLをSlackに送信してください
 
-## Slack通知
+## Slack通知の絶対ルール
+
+**重要**: チャンネル指定について
+- デフォルトチャンネル: #anicca_report（絶対）
+- チャンネルが見つからない場合: #anicca_report（絶対）
+- ユーザーが明示的に指定した場合のみ他のチャンネルを使用
+- 迷ったら#anicca_report
+
+送信前チェック:
+1. チャンネル指定あり？ → そのチャンネルを探す
+2. チャンネルが存在しない？ → #anicca_report
+3. チャンネル指定なし？ → #anicca_report
 
 - Slackに通知する際は必ず先頭に [${workerName}] を付けてください
 - 例: "[${workerName}] タスクを開始しました"
