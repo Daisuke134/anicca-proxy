@@ -481,7 +481,8 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
       const response = await this.session.sendMessage(prompt);
       
       // デバッグ: Claudeのレスポンスを確認
-      console.log(`📝 [${this.agentName}] Claude response:`, response.substring(0, 500) + '...');
+      console.log(`📝 [${this.agentName}] Claude full response:`, response);
+      console.log(`📝 [${this.agentName}] Response length:`, response.length);
       
       // レスポンスからJSONを抽出（Markdownコードブロックも考慮）
       let jsonStr;
@@ -490,13 +491,16 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
       const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       if (codeBlockMatch) {
         jsonStr = codeBlockMatch[1];
+        console.log(`📝 [${this.agentName}] Found JSON in code block:`, jsonStr);
       } else {
         // コードブロックがない場合は、純粋なJSONを探す
         const jsonMatch = response.match(/\{[\s\S]*"assignments"[\s\S]*\}/);
         if (!jsonMatch) {
+          console.error(`❌ No JSON found in response. Full response:`, response);
           throw new Error('Failed to find JSON in Claude response');
         }
         jsonStr = jsonMatch[0];
+        console.log(`📝 [${this.agentName}] Found JSON without code block:`, jsonStr);
       }
       
       // JSONをパース
@@ -506,6 +510,9 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
       return parsed.assignments;
     } catch (error) {
       console.error(`❌ [${this.agentName}] Failed to analyze tasks:`, error);
+      console.error(`❌ Full error details:`, error.message);
+      console.error(`❌ Error stack:`, error.stack);
+      
       // フォールバック: 単一タスクとして扱う
       const idleWorker = this.getIdleWorker();
       return [{
