@@ -144,8 +144,27 @@ export class ParentAgent extends BaseWorker {
       // 5. 全タスクの完了を待つ
       const results = await Promise.all(taskPromises);
       
-      // 6. 全体の完了報告（最後のタスクの完了報告で代用）
-      // postProgressUpdateが各タスク完了時に自動的に呼ばれるので、追加の完了報告は不要
+      // 6. 全体の完了報告
+      if (assignments.length > 1) {
+        // 複数タスクの場合は全体の完了報告
+        let completedItems = '';
+        assignments.forEach((assignment, index) => {
+          completedItems += `✅ ${assignment.task} (${assignment.worker})\n`;
+        });
+        
+        const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:
+
+[ParentAgent] ✅ 全タスク完了！
+${completedItems}`;
+        
+        await this.executor.executeGeneralRequest({
+          type: 'general',
+          parameters: { query }
+        });
+      } else if (assignments.length === 1) {
+        // 単一タスクの場合は従来の完了報告
+        await this.postCompletionReport(task, assignments[0].worker, results[0]);
+      }
       
       // 7. タスク管理の学習を記録
       const duration = Date.now() - startTime;
