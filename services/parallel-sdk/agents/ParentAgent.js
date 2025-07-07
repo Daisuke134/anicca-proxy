@@ -479,13 +479,27 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
       // ParentAgentもClaudeSessionを持っているので、それを使う
       const response = await this.session.sendMessage(prompt);
       
-      // レスポンスからJSONを抽出
-      const jsonMatch = response.match(/\{[\s\S]*"assignments"[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('Failed to parse Claude response as JSON');
+      // デバッグ: Claudeのレスポンスを確認
+      console.log(`📝 [${this.agentName}] Claude response:`, response.substring(0, 500) + '...');
+      
+      // レスポンスからJSONを抽出（Markdownコードブロックも考慮）
+      let jsonStr;
+      
+      // まずMarkdownコードブロック内のJSONを探す
+      const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) {
+        jsonStr = codeBlockMatch[1];
+      } else {
+        // コードブロックがない場合は、純粋なJSONを探す
+        const jsonMatch = response.match(/\{[\s\S]*"assignments"[\s\S]*\}/);
+        if (!jsonMatch) {
+          throw new Error('Failed to find JSON in Claude response');
+        }
+        jsonStr = jsonMatch[0];
       }
       
-      const parsed = JSON.parse(jsonMatch[0]);
+      // JSONをパース
+      const parsed = JSON.parse(jsonStr);
       console.log(`🎯 [${this.agentName}] Task assignments:`, parsed.assignments);
       
       return parsed.assignments;
