@@ -497,11 +497,12 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
 
     try {
       // ParentAgentもClaudeSessionを持っているので、それを使う
-      const response = await this.session.sendMessage(prompt);
+      // rawオプションを使用して生のレスポンスを取得
+      const response = await this.session.sendMessage(prompt, { raw: true });
       
       // デバッグ: Claudeのレスポンスを確認
-      console.log(`📝 [${this.agentName}] Claude full response:`, response);
-      console.log(`📝 [${this.agentName}] Response length:`, response.length);
+      console.log(`📝 [${this.agentName}] Claude raw response length:`, response.length);
+      console.log(`📝 [${this.agentName}] First 200 chars:`, response.substring(0, 200));
       
       // レスポンスからJSONを抽出（Markdownコードブロックも考慮）
       let jsonStr;

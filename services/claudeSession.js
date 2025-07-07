@@ -189,8 +189,12 @@ export class ClaudeSession {
 
   /**
    * メッセージを送信して応答を取得
+   * @param {string} userMessage - ユーザーからのメッセージ
+   * @param {Object} options - オプション設定
+   * @param {boolean} options.raw - 生のレスポンスを返すかどうか
+   * @param {number} retryCount - リトライ回数（内部用）
    */
-  async sendMessage(userMessage, retryCount = 0) {
+  async sendMessage(userMessage, options = {}, retryCount = 0) {
     console.log(`\n👤 [${this.agentName}] User: "${userMessage}"`);
     
     // 会話履歴に追加
@@ -246,6 +250,14 @@ export class ClaudeSession {
           timestamp: Date.now()
         });
         
+        // rawオプションがtrueの場合は整形しない
+        if (options.raw) {
+          console.log(`🤖 [${this.agentName}] Claude (raw response): length=${result.result.length}`);
+          // セッション情報を保存
+          this.saveSession();
+          return result.result;
+        }
+        
         // 応答を整形
         const cleanResponse = this.formatResponse(result.result);
         console.log(`🤖 [${this.agentName}] Claude: "${cleanResponse}"`);
@@ -263,7 +275,7 @@ export class ClaudeSession {
         }
         console.log(`📋 Action was queued, waiting... (retry ${retryCount + 1}/${MAX_RETRIES})`);
         await new Promise(resolve => setTimeout(resolve, 2000));
-        return this.sendMessage(userMessage, retryCount + 1); // リトライ
+        return this.sendMessage(userMessage, options, retryCount + 1); // リトライ
       } else {
         throw new Error(result.error || 'No response');
       }
