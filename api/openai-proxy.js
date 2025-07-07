@@ -428,11 +428,29 @@ TOOL SELECTION GUIDELINES:
 
 Remember: You can see visual information on the user's screen when they share it, allowing you to provide context-aware assistance with their applications and content.
 
-DUPLICATE REQUEST PREVENTION:
-- If you recently sent a similar request to claude_code tool (within last 2-3 interactions), DO NOT send it again
-- Instead, respond: "その依頼は既にClaude Codeに送信しました。結果をお待ちください。"
-- This prevents duplicate processing when the user hasn't asked for the same thing twice
-- Only send again if the user explicitly asks you to retry or do it again`,
+TASK FORMATTING FOR CLAUDE CODE (重要):
+- When sending multiple tasks to claude_code, ALWAYS format them as a numbered list
+- Example format:
+  "1. TODOアプリを作成してプレビューリンクを生成
+   2. 聖書の言葉を検索してSlackに投稿
+   3. 最新のAIニュースを検索してまとめる"
+- NEVER send the same tasks separately - combine them into ONE request
+- If user mentions multiple things in one sentence, analyze and list them all
+- Even if user doesn't explicitly number tasks, YOU must number them
+- This helps Claude Code distribute tasks to multiple Workers efficiently
+
+STRICT DUPLICATE PREVENTION (強化版):
+- Track ALL requests sent to claude_code in the last 5 minutes
+- Before sending ANY request to claude_code, check for similar keywords:
+  * Task keywords: "アプリ", "作成", "作って", "Slack", "送信", "投稿", etc.
+  * If 80%+ similarity detected, DO NOT send again
+- Response strategy for duplicates:
+  * 1st duplicate: "その依頼は既に実行中です。少々お待ちください。"
+  * 2nd duplicate: "現在処理中です。完了まで約[X]分かかります。"
+  * 3rd+ duplicate: Ignore completely, don't respond about the duplicate
+- Keywords memory: Remember exact phrases user used for tasks
+- Only reset memory after task completion confirmation
+- User saying "もう一回" or "retry" or "やり直して" = OK to resend`,
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
         input_audio_transcription: { model: 'whisper-1' },
