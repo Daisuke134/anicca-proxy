@@ -94,11 +94,10 @@ export class ParentAgent extends BaseWorker {
   /**
    * タスクを受け取って処理（BaseWorkerのexecuteTaskをオーバーライド）
    */
-  async executeTask(task, options = {}) {
+  async executeTask(task) {
     console.log(`📋 [${this.agentName}] Received main task: ${task.originalRequest}`);
     
     const startTime = Date.now();
-    const onTaskComplete = options.onTaskComplete; // 各タスク完了時のコールバック
     
     try {
       // 1. Worker状況を取得
@@ -138,18 +137,8 @@ export class ParentAgent extends BaseWorker {
         // Workerに割り当て
         await this.assignSpecificTaskToWorker(assignment.worker, subTask);
         
-        // 完了を待つ（コールバック付き）
-        return await this.waitForTaskCompletion(subTaskId, (completedTask) => {
-          // 各タスク完了時にコールバックを呼ぶ
-          if (onTaskComplete) {
-            onTaskComplete({
-              taskId: subTaskId,
-              task: completedTask.task,
-              worker: assignment.worker,
-              result: completedTask.result
-            });
-          }
-        });
+        // 完了を待つ
+        return await this.waitForTaskCompletion(subTaskId);
       });
       
       // 5. 全タスクの完了を待つ
@@ -310,18 +299,12 @@ ${statusList}
   /**
    * タスク完了を待つ
    */
-  async waitForTaskCompletion(taskId, onComplete) {
+  async waitForTaskCompletion(taskId) {
     return new Promise((resolve) => {
       const checkInterval = setInterval(() => {
         const taskInfo = this.tasks.get(taskId);
         if (taskInfo && taskInfo.status === 'completed') {
           clearInterval(checkInterval);
-          
-          // 完了時のコールバックを呼ぶ
-          if (onComplete) {
-            onComplete(taskInfo);
-          }
-          
           resolve(taskInfo.result);
         }
       }, 1000);

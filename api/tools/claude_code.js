@@ -134,14 +134,7 @@ export default async function handler(req, res) {
       //   userId: userId || 'none'
       // });
       
-      // ストリーミングレスポンスを開始
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('Transfer-Encoding', 'chunked');
-      
-      // 完了したタスクを追跡
-      const completedTasks = [];
-      
-      // ParentAgentはBaseWorkerベースなので、executeTaskを使う（コールバック付き）
+      // ParentAgentはBaseWorkerベースなので、executeTaskを使う
       const result = await agent.executeTask({
         id: uuidv4(),
         type: 'general',
@@ -151,25 +144,6 @@ export default async function handler(req, res) {
           userId: userId || null,
           userName: userId || 'ユーザー'
         }
-      }, {
-        // 各タスク完了時のコールバック
-        onTaskComplete: (completedTask) => {
-          console.log(`🎯 Task completed by ${completedTask.worker}: ${completedTask.task.originalRequest}`);
-          
-          // 部分的な結果をストリーミングで送信
-          const partialResult = {
-            partial: true,
-            taskId: completedTask.taskId,
-            worker: completedTask.worker,
-            task: completedTask.task.originalRequest,
-            response: `${completedTask.worker}が「${completedTask.task.originalRequest}」を完了しました`,
-            result: completedTask.result
-          };
-          
-          // ストリーミングで送信（改行区切り）
-          res.write(JSON.stringify(partialResult) + '\n');
-          completedTasks.push(partialResult);
-        }
       });
       
       // console.log('📊 ParentAgent result:', {
@@ -178,21 +152,22 @@ export default async function handler(req, res) {
       //   executionTime: result.executionTime
       // });
       
-      console.log(`✅ All tasks completed: ${task}`);
+      console.log(`✅ Task completed: ${task}`);
       
-      // 最終的な結果をストリーミングで送信
-      const finalResult = {
-        partial: false,
-        success: true,
-        response: result.output || 'すべてのタスクが完了しました',
-        completedTasks: completedTasks,
-        totalTasks: result.metadata?.taskCount || completedTasks.length,
-        executionTime: result.metadata?.duration || 0
+      // 結果を統合（複数のWorkerの結果をまとめる）
+      const combinedResult = {
+        response: result.summary || 'タスクを完了しました',
+        toolsUsed: result.toolsUsed || [],
+        generatedFiles: result.generatedFiles || [],
+        parallelTasks: result.tasks || [],  // 並列実行されたタスクの詳細
+        executionTime: result.executionTime || 0
       };
       
-      // 最終結果を送信して終了
-      res.write(JSON.stringify(finalResult) + '\n');
-      res.end();
+      // VoiceServerと同じレスポンス形式
+      return res.json({
+        success: true,
+        result: combinedResult
+      });
       
     } catch (error) {
       console.error('Claude execution error:', error);
