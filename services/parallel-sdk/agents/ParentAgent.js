@@ -100,37 +100,68 @@ export class ParentAgent extends BaseWorker {
     const startTime = Date.now();
     
     try {
-      // 1. 空いているWorkerを取得
-      const worker = this.getIdleWorker();
-      if (!worker) {
-        throw new Error('No idle workers available');
+      // 1. Worker状況を取得
+      const workerStatus = this.getWorkerStatus();
+      
+      // 2. Claudeでタスクを分析して割り当てを決定
+      const assignments = await this.analyzeAndAssignTasks({
+        task: task.originalRequest,
+        workers: workerStatus
+      });
+      
+      // 3. 複数タスクの場合はTODOリストを投稿
+      if (assignments.length > 1) {
+        await this.postMultiTaskTodoList(assignments);
+      } else if (assignments.length === 1) {
+        // 単一タスクの場合は従来通り
+        await this.postTodoList(task, assignments[0].worker);
       }
       
-      // 2. TODOリストをSlackに投稿
-      await this.postTodoList(task, worker.name);
+      // 4. 各タスクを並列で実行
+      const taskPromises = assignments.map(async (assignment, index) => {
+        const subTaskId = `${task.id}-${index}`;
+        const subTask = {
+          ...task,
+          id: subTaskId,
+          originalRequest: assignment.task
+        };
+        
+        // タスクを記録
+        this.tasks.set(subTaskId, {
+          task: subTask,
+          assignedTo: assignment.worker,
+          status: 'assigned'
+        });
+        
+        // Workerに割り当て
+        await this.assignSpecificTaskToWorker(assignment.worker, subTask);
+        
+        // 完了を待つ
+        return await this.waitForTaskCompletion(subTaskId);
+      });
       
-      // 3. Workerにタスクを割り振る
-      await this.assignTaskToWorker(task);
+      // 5. 全タスクの完了を待つ
+      const results = await Promise.all(taskPromises);
       
-      // 4. タスク完了を待つ
-      const taskResult = await this.waitForTaskCompletion(task.id);
-      
-      // 5. 完了報告をSlackに投稿
-      await this.postCompletionReport(task, worker.name, taskResult);
-      
-      // 6. タスク管理の学習を記録
-      const taskType = this.analyzeTaskType(task.originalRequest);
-      if (taskType) {
-        await this.saveTeamLearning(`${worker.name}が${taskType}タスクを完了。所要時間: ${Date.now() - startTime}ms`);
+      // 6. 全体の完了報告
+      if (assignments.length > 1) {
+        await this.postMultiTaskCompletionReport(assignments, results);
+      } else if (assignments.length === 1) {
+        await this.postCompletionReport(task, assignments[0].worker, results[0]);
       }
+      
+      // 7. タスク管理の学習を記録
+      const duration = Date.now() - startTime;
+      await this.saveTeamLearning(`${assignments.length}個のタスクを並列処理。所要時間: ${duration}ms`);
       
       return {
         success: true,
-        output: taskResult?.output || 'Task completed',
+        output: results.map(r => r?.output || 'Task completed').join('\n\n'),
         metadata: {
           executedBy: this.agentName,
-          assignedTo: worker.name,
-          taskId: task.id
+          assignments: assignments,
+          taskCount: assignments.length,
+          duration: duration
         }
       };
       
@@ -387,6 +418,153 @@ ${statusList}
     }
     
     return '一般';
+  }
+  
+  /**
+   * Worker状況を取得
+   */
+  getWorkerStatus() {
+    const status = {};
+    for (const [workerId, worker] of this.workers) {
+      status[worker.name] = worker.status;
+    }
+    return status;
+  }
+  
+  /**
+   * Claudeでタスクを分析して割り当てを決定
+   */
+  async analyzeAndAssignTasks(taskInfo) {
+    const prompt = `
+以下のタスクを分析して、空いているWorkerに割り当ててください。
+
+【タスク】
+${taskInfo.task}
+
+【Worker状況】
+${JSON.stringify(taskInfo.workers, null, 2)}
+
+【ルール】
+- busyのWorkerは避けて、idleのWorkerだけに割り当ててください
+- タスクが複数ある場合（番号付きリスト、箇条書き、「〜して、〜して」など）は、別々のWorkerに並列で割り当ててください
+- タスクが1つの場合は、1人のWorkerに割り当ててください
+- できるだけ多くのWorkerを活用して並列処理してください
+
+【応答形式】
+必ず以下のJSON形式で返してください：
+{
+  "assignments": [
+    { "worker": "Worker名", "task": "具体的なタスク内容" },
+    ...
+  ]
+}
+
+例1（複数タスク）:
+{
+  "assignments": [
+    { "worker": "Worker1", "task": "聖書の言葉をSlackに投稿" },
+    { "worker": "Worker2", "task": "TODOアプリを作成" },
+    { "worker": "Worker4", "task": "ニュース記事を探してSlackに投稿" }
+  ]
+}
+
+例2（単一タスク）:
+{
+  "assignments": [
+    { "worker": "Worker1", "task": "ウェブサイトのデザインを改善する" }
+  ]
+}`;
+
+    try {
+      // ParentAgentもClaudeSessionを持っているので、それを使う
+      const response = await this.session.sendMessage(prompt);
+      
+      // レスポンスからJSONを抽出
+      const jsonMatch = response.match(/\{[\s\S]*"assignments"[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('Failed to parse Claude response as JSON');
+      }
+      
+      const parsed = JSON.parse(jsonMatch[0]);
+      console.log(`🎯 [${this.agentName}] Task assignments:`, parsed.assignments);
+      
+      return parsed.assignments;
+    } catch (error) {
+      console.error(`❌ [${this.agentName}] Failed to analyze tasks:`, error);
+      // フォールバック: 単一タスクとして扱う
+      const idleWorker = this.getIdleWorker();
+      return [{
+        worker: idleWorker ? idleWorker.name : 'Worker1',
+        task: taskInfo.task
+      }];
+    }
+  }
+  
+  /**
+   * 特定のWorkerに特定のタスクを割り当て
+   */
+  async assignSpecificTaskToWorker(workerName, task) {
+    const worker = Array.from(this.workers.values()).find(w => w.name === workerName);
+    if (!worker) {
+      throw new Error(`Worker ${workerName} not found`);
+    }
+    
+    if (worker.status === 'busy') {
+      console.warn(`⚠️ [${this.agentName}] Worker ${workerName} is busy, but assigning anyway`);
+    }
+    
+    // IPCでタスクを送信
+    worker.process.send({
+      type: 'TASK_ASSIGN',
+      payload: {
+        taskId: task.id,
+        task: task
+      },
+      timestamp: Date.now()
+    });
+    
+    worker.status = 'busy';
+    console.log(`🎯 [${this.agentName}] Assigned task to ${worker.name}: ${task.originalRequest.substring(0, 50)}...`);
+  }
+  
+  /**
+   * 複数タスクのTODOリストをSlackに投稿
+   */
+  async postMultiTaskTodoList(assignments) {
+    let todoItems = '';
+    assignments.forEach(assignment => {
+      todoItems += `☐ ${assignment.task} (${assignment.worker})\n`;
+    });
+    
+    const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:
+
+[ParentAgent] 📋 TODOリスト
+${todoItems}`;
+    
+    await this.executor.executeGeneralRequest({
+      type: 'general',
+      parameters: { query }
+    });
+  }
+  
+  /**
+   * 複数タスクの完了報告をSlackに投稿
+   */
+  async postMultiTaskCompletionReport(assignments, results) {
+    let completedItems = '';
+    assignments.forEach((assignment, index) => {
+      completedItems += `✅ ${assignment.task} (${assignment.worker})\n`;
+    });
+    
+    const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:
+
+[ParentAgent] ✅ 全タスク完了！
+${completedItems}`;
+    
+    await this.executor.executeGeneralRequest({
+      type: 'general',
+      parameters: { query }
+    });
   }
 }
 
