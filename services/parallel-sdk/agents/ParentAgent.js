@@ -109,12 +109,13 @@ export class ParentAgent extends BaseWorker {
         workers: workerStatus
       });
       
-      // 3. 複数タスクの場合はTODOリストを投稿
-      if (assignments.length > 1) {
-        await this.postMultiTaskTodoList(assignments);
-      } else if (assignments.length === 1) {
-        // 単一タスクの場合は従来通り
-        await this.postTodoList(task, assignments[0].worker);
+      // 3. 各タスクのTODOリストを投稿
+      for (const assignment of assignments) {
+        const subTask = {
+          ...task,
+          originalRequest: assignment.task
+        };
+        await this.postTodoList(subTask, assignment.worker);
       }
       
       // 4. 各タスクを並列で実行
@@ -143,12 +144,8 @@ export class ParentAgent extends BaseWorker {
       // 5. 全タスクの完了を待つ
       const results = await Promise.all(taskPromises);
       
-      // 6. 全体の完了報告
-      if (assignments.length > 1) {
-        await this.postMultiTaskCompletionReport(assignments, results);
-      } else if (assignments.length === 1) {
-        await this.postCompletionReport(task, assignments[0].worker, results[0]);
-      }
+      // 6. 全体の完了報告（最後のタスクの完了報告で代用）
+      // postProgressUpdateが各タスク完了時に自動的に呼ばれるので、追加の完了報告は不要
       
       // 7. タスク管理の学習を記録
       const duration = Date.now() - startTime;
@@ -446,9 +443,13 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
 
 【ルール】
 - busyのWorkerは避けて、idleのWorkerだけに割り当ててください
-- タスクが複数ある場合（番号付きリスト、箇条書き、「〜して、〜して」など）は、別々のWorkerに並列で割り当ててください
-- タスクが1つの場合は、1人のWorkerに割り当ててください
-- できるだけ多くのWorkerを活用して並列処理してください
+- **重要**: 2つ以上の異なるタスクがある場合は、必ず別々のWorkerに割り当ててください
+- タスクの難易度に関係なく、異なる種類のタスクは並列処理のために分割してください
+- ユーザーが「複数のWorkerに分けて」と明示的に指示した場合は、必ずその通りに実行してください
+- 同じ種類のタスクを無理に分割する必要はありません
+- 例：以下のようなタスクは必ず3人の別々のWorkerに割り当ててください
+  - 「TODOアプリ作成」「聖書の言葉を送信」「ニュース検索」
+  - 「アプリ作成して、メッセージ送って、調査して」
 
 【応答形式】
 必ず以下のJSON形式で返してください：
@@ -541,45 +542,6 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
     console.log(`🎯 [${this.agentName}] Assigned task to ${worker.name}: ${task.originalRequest.substring(0, 50)}...`);
   }
   
-  /**
-   * 複数タスクのTODOリストをSlackに投稿
-   */
-  async postMultiTaskTodoList(assignments) {
-    let todoItems = '';
-    assignments.forEach(assignment => {
-      todoItems += `☐ ${assignment.task} (${assignment.worker})\n`;
-    });
-    
-    const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:
-
-[ParentAgent] 📋 TODOリスト
-${todoItems}`;
-    
-    await this.executor.executeGeneralRequest({
-      type: 'general',
-      parameters: { query }
-    });
-  }
-  
-  /**
-   * 複数タスクの完了報告をSlackに投稿
-   */
-  async postMultiTaskCompletionReport(assignments, results) {
-    let completedItems = '';
-    assignments.forEach((assignment, index) => {
-      completedItems += `✅ ${assignment.task} (${assignment.worker})\n`;
-    });
-    
-    const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:
-
-[ParentAgent] ✅ 全タスク完了！
-${completedItems}`;
-    
-    await this.executor.executeGeneralRequest({
-      type: 'general',
-      parameters: { query }
-    });
-  }
 }
 
 // エントリーポイント（直接実行された場合）
