@@ -448,29 +448,36 @@ ${action.parameters.query}`;
       // process.env.DEBUG = 'true';
       // process.env.ANTHROPIC_LOG = 'debug';
       
-      // Electronの実行ファイルのディレクトリをPATHに追加
-      const electronDir = path.dirname(process.execPath);
-      process.env.PATH = `${electronDir}:${originalPath}`;
-      
-      // 一時的なnode実行ファイルを作成（実際にはElectronを呼び出すシェルスクリプト）
-      const tempNodePath = path.join(os.tmpdir(), 'anicca-node-wrapper');
-      try {
-        const nodeWrapper = `#!/bin/sh
+      // Railway環境ではnodeラッパーの作成をスキップ
+      if (process.env.RAILWAY_ENVIRONMENT || process.env.VERCEL || process.env.SKIP_NODE_WRAPPER) {
+        console.log('🚫 Skipping node wrapper creation in cloud environment');
+        // 通常のnode実行パスを使用
+        process.env.PATH = originalPath;
+      } else {
+        // ローカル環境（Electron）の場合のみnodeラッパーを作成
+        const electronDir = path.dirname(process.execPath);
+        process.env.PATH = `${electronDir}:${originalPath}`;
+        
+        // 一時的なnode実行ファイルを作成（実際にはElectronを呼び出すシェルスクリプト）
+        const tempNodePath = path.join(os.tmpdir(), 'anicca-node-wrapper');
+        try {
+          const nodeWrapper = `#!/bin/sh
 ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "$@"
 `;
-        fs.writeFileSync(tempNodePath, nodeWrapper, { mode: 0o755 });
-        
-        // このディレクトリもPATHに追加
-        process.env.PATH = `${os.tmpdir()}:${process.env.PATH}`;
-        
-        // node wrapperをnodeという名前にリネーム
-        const nodePath = path.join(os.tmpdir(), 'node');
-        if (fs.existsSync(nodePath)) {
-          fs.unlinkSync(nodePath);
+          fs.writeFileSync(tempNodePath, nodeWrapper, { mode: 0o755 });
+          
+          // このディレクトリもPATHに追加
+          process.env.PATH = `${os.tmpdir()}:${process.env.PATH}`;
+          
+          // node wrapperをnodeという名前にリネーム
+          const nodePath = path.join(os.tmpdir(), 'node');
+          if (fs.existsSync(nodePath)) {
+            fs.unlinkSync(nodePath);
+          }
+          fs.renameSync(tempNodePath, nodePath);
+        } catch (error) {
+          console.error('❌ Failed to create node wrapper:', error);
         }
-        fs.renameSync(tempNodePath, nodePath);
-      } catch (error) {
-        console.error('❌ Failed to create node wrapper:', error);
       }
       
         // デバッグ: 環境変数を確認
