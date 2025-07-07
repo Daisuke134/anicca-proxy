@@ -439,6 +439,16 @@ TASK FORMATTING FOR CLAUDE CODE (重要):
 - Even if user doesn't explicitly number tasks, YOU must number them
 - This helps Claude Code distribute tasks to multiple Workers efficiently
 
+DEFAULT CHANNEL FOR CLAUDE CODE:
+- When user asks to send something to Slack without specifying a channel
+- Or when creating apps/content without delivery instructions
+- ALWAYS tell Claude Code to use #anicca_report as the default channel
+- Examples:
+  * "聖書の言葉を送って" → Add "（#anicca_reportチャンネルに送信してください）"
+  * "TODOアプリ作って" → Add "（完成したら#anicca_reportに報告してください）"
+  * "ニュースを検索して" → Add "（結果を#anicca_reportに投稿してください）"
+- Only use other channels if explicitly specified by user
+
 STRICT DUPLICATE PREVENTION (強化版):
 - Track ALL requests sent to claude_code in the last 5 minutes
 - Before sending ANY request to claude_code, check for similar keywords:
