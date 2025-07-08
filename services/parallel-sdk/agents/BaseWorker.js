@@ -90,11 +90,11 @@ export class BaseWorker extends IPCHandler {
   }
   
   /**
-   * MCPサーバーを同期的に初期化
+   * MCPサーバーを初期化
    */
-  async initMCPServers() {
+  initMCPServers() {
     try {
-      await this.executor.initializeMCPServers();
+      this.executor.initializeMCPServers();
       this.log('info', '✅ MCP servers initialized successfully');
     } catch (error) {
       this.log('error', `❌ Failed to initialize MCP servers: ${error.message}`);
@@ -236,6 +236,33 @@ export class BaseWorker extends IPCHandler {
     this.send(createStatusUpdateMessage(task.id, TaskStatus.IN_PROGRESS, 25));
     
     try {
+      // タスク実行前にユーザーのSlackトークンを取得して設定
+      const userId = task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID;
+      if (userId && this.getSlackTokensForUser) {
+        this.log('info', `🔑 Getting Slack tokens for user: ${userId}`);
+        try {
+          const slackTokens = await this.getSlackTokensForUser(userId);
+          if (slackTokens && slackTokens.bot_token) {
+            this.log('info', '✅ Slack tokens found, configuring MCP...');
+            
+            // ExecutorServiceにトークンを設定
+            this.executor.setSlackTokens({
+              bot_token: slackTokens.bot_token,
+              user_token: slackTokens.user_token,
+              userId: userId
+            });
+            
+            // MCPサーバーを再初期化
+            this.executor.initializeMCPServers();
+            this.log('info', '✅ MCP servers re-initialized with Slack tokens');
+          } else {
+            this.log('warn', '⚠️ No Slack tokens found for user');
+          }
+        } catch (error) {
+          this.log('error', `❌ Failed to get Slack tokens: ${error.message}`);
+        }
+      }
+      
       // Worker専用の作業ディレクトリを使用（Worker.jsで設定済み）
       const workingDir = this.workspaceRoot || `/tmp/worker-${this.workerNumber}-workspace`;
       

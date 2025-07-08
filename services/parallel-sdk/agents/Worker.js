@@ -60,6 +60,14 @@ class Worker extends BaseWorker {
     // Worker専用のworkspaceRootを確認（既に初期化時に設定済みのはず）
     this.workspaceRoot = this.workspaceRoot || `/tmp/worker-${this.workerNumber}-workspace`;
     
+    // デバッグ: ユーザーID確認
+    console.log(`🔍 [${this.agentName}] Task userId sources:`, {
+      taskUserId: task.userId || 'not set',
+      CURRENT_USER_ID: process.env.CURRENT_USER_ID || 'not set',
+      SLACK_USER_ID: process.env.SLACK_USER_ID || 'not set',
+      globalCurrentUserId: global.currentUserId || 'not set'
+    });
+    
     // 特別な処理が必要な場合はここでオーバーライド
     // 例：アプリ作成後の追加処理など
     
