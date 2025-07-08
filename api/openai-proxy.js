@@ -1,9 +1,18 @@
+import { getSlackTokensForUser } from '../services/database.js';
+
 // 動的にツールを生成する関数
-async function generateDynamicTools() {
+async function generateDynamicTools(userId = null) {
   const tools = [];
   
   // 接続済みサービスを確認
-  const hasSlack = !!(global.slackBotToken || process.env.SLACK_BOT_TOKEN);
+  let hasSlack = false;
+  if (userId) {
+    const slackTokens = await getSlackTokensForUser(userId);
+    hasSlack = !!(slackTokens && slackTokens.bot_token);
+  } else {
+    // フォールバック（後方互換性のため）
+    hasSlack = !!(global.slackBotToken || process.env.SLACK_BOT_TOKEN);
+  }
   
   // Slackが接続されている場合
   if (hasSlack) {
@@ -322,12 +331,39 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'GET' && (req.url?.includes('/session') || req.url === '/api/openai-proxy/session')) {
+      // URLからuserIdを取得
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const userId = url.searchParams.get('userId');
+      
       // 接続済みサービスを確認
-      const hasSlack = !!(global.slackBotToken || process.env.SLACK_BOT_TOKEN);
+      let hasSlack = false;
+      if (userId) {
+        const slackTokens = await getSlackTokensForUser(userId);
+        hasSlack = !!(slackTokens && slackTokens.bot_token);
+        
+        // userIdベースのトークンをリクエストコンテキストに保存
+        if (slackTokens) {
+          req.userSlackTokens = slackTokens;
+        }
+      } else {
+        // フォールバック（後方互換性のため）
+        hasSlack = !!(global.slackBotToken || process.env.SLACK_BOT_TOKEN);
+      }
+      
+      // セッションIDを生成し、userIdと関連付ける
+      const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // セッションとuserIdの関連付けをグローバルに保存（メモリ内）
+      if (!global.sessionUserMap) {
+        global.sessionUserMap = {};
+      }
+      if (userId) {
+        global.sessionUserMap[sessionId] = { userId, slackTokens: req.userSlackTokens };
+      }
       
       // Return complete session configuration for OpenAI Realtime
       return res.json({
-        id: `sess_${Date.now()}`,
+        id: sessionId,
         object: 'realtime.session',
         expires_at: 0,
         client_secret: {
@@ -470,7 +506,7 @@ STRICT DUPLICATE PREVENTION (強化版):
           silence_duration_ms: 200,
           create_response: true
         },
-        tools: await generateDynamicTools(),
+        tools: await generateDynamicTools(userId),
         temperature: 0.8,
         max_response_output_tokens: 'inf',
         modalities: ['audio', 'text'],

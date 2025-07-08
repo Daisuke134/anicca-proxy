@@ -13,6 +13,12 @@ async function initializeServer() {
   // データベースを初期化
   const dbInitialized = await initDatabase();
   
+  // ユーザーベースのトークン管理に移行したため、
+  // グローバル変数へのトークン読み込みは無効化
+  console.log('✅ Database initialized. Using user-based token management.');
+  
+  // 以下の処理は無効化（後方互換性のためコメントで残す）
+  /*
   if (dbInitialized) {
     // データベースから最新のトークンを読み込む
     try {
@@ -39,6 +45,7 @@ async function initializeServer() {
       console.error('Failed to load tokens from file:', error);
     }
   }
+  */
 }
 
 initializeServer();
