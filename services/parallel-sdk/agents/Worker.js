@@ -34,6 +34,11 @@ class Worker extends BaseWorker {
       }
       console.log(`📁 Worker${this.workerNumber} workspace: ${this.workspaceRoot}`);
       
+      // ClaudeExecutorServiceにWorker専用のworkspaceRootを設定
+      if (this.executor && this.executor.setWorkspaceRoot) {
+        this.executor.setWorkspaceRoot(this.workspaceRoot);
+      }
+      
       // getSlackTokensForUserは必要な時に直接呼べるようにしておく
       this.getSlackTokensForUser = getSlackTokensForUser;
       

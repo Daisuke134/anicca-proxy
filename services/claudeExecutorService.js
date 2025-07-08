@@ -59,10 +59,11 @@ export class ClaudeExecutorService extends EventEmitter {
   MAX_EXECUTION_TIME = 300000; // 5分
   slackTokens = null; // ユーザーごとのSlackトークン
 
-  constructor(database, agentName = 'Agent') {
+  constructor(database, agentName = 'Agent', workerWorkspaceRoot = null) {
     super();
     this.database = database;
     this.agentName = agentName;
+    this.workerWorkspaceRoot = workerWorkspaceRoot;
     
     
     // プロキシモードかどうかを判定（デフォルトはtrue - ユーザーがAPIキー不要）
@@ -104,10 +105,16 @@ export class ClaudeExecutorService extends EventEmitter {
       }
     }
     
-    // 独立した作業環境を設定（サーバー環境の場合は/tmpを使用）
-    this.workspaceRoot = process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT
-      ? path.join('/tmp', 'anicca-agent-workspace')
-      : path.join(os.homedir(), 'Desktop', 'anicca-agent-workspace');
+    // 独立した作業環境を設定
+    // Workerから渡された場合はそれを使用、なければデフォルト値
+    if (this.workerWorkspaceRoot) {
+      this.workspaceRoot = this.workerWorkspaceRoot;
+    } else {
+      // デフォルト値（後方互換性のため）
+      this.workspaceRoot = process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT
+        ? path.join('/tmp', 'anicca-agent-workspace')
+        : path.join(os.homedir(), 'Desktop', 'anicca-agent-workspace');
+    }
     
     try {
       this.ensureWorkspaceExists();
@@ -157,6 +164,15 @@ export class ClaudeExecutorService extends EventEmitter {
       // フォールバックとして一時ディレクトリを返す
       return os.tmpdir();
     }
+  }
+
+  /**
+   * 作業ディレクトリを設定
+   */
+  setWorkspaceRoot(workspaceRoot) {
+    this.workspaceRoot = workspaceRoot;
+    this.ensureWorkspaceExists();
+    console.log(`📁 [${this.agentName}] Workspace root updated to: ${workspaceRoot}`);
   }
 
   /**
@@ -485,11 +501,6 @@ Slack投稿時は[${this.agentName}]を付けてください。
 【作業領域】
 あなたは専用ワークスペース内で作業します。
 新しいプロジェクトごとにサブディレクトリを作成してください。
-
-【学習と記憶】
-ユーザーについて学んだ重要な情報（名前、好み、パターンなど）は、
-${workingDir}/CLAUDE.md に保存してください。
-このファイルは次回のセッションで自動的に読み込まれます。
 
 【作業の目安】
 できるだけ10ターン以内で完了させてください。
