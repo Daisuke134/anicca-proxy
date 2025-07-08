@@ -70,8 +70,8 @@ export class PreviewManager {
         ? `${this.sanitizeProjectName(metadata.projectName)}-${Date.now()}`
         : `app-${Date.now()}-${uuidv4().slice(0, 8)}`;
       
-      // Supabase Storageのパス構造
-      const storagePath = `users/${userId}/workers/worker-${workerNumber}/projects/${projectId}`;
+      // Supabase Storageのパス構造（CLAUDE.mdと同じ階層に）
+      const storagePath = `${userId}/Worker${workerNumber}/projects/${projectId}`;
       
       // アップロードするファイルを収集
       const files = await this.collectFiles(sourcePath);
@@ -122,25 +122,23 @@ export class PreviewManager {
         throw metaError;
       }
       
-      // 署名付きURLを生成（10年間有効）
-      const indexPath = `${storagePath}/index.html`;
-      const { data: urlData, error: urlError } = await this.supabase.storage
-        .from(this.bucketName)
-        .createSignedUrl(indexPath, 315360000); // 10年
-        
-      if (urlError) {
-        console.error('❌ Failed to create signed URL:', urlError);
-        throw urlError;
-      }
+      // プロキシURLを生成（署名付きURLの代わりに）
+      const proxyBaseUrl = process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}`
+        : process.env.RAILWAY_PUBLIC_DOMAIN
+        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+        : 'https://anicca-proxy-ten.vercel.app';
+      
+      const previewUrl = `${proxyBaseUrl}/api/preview-app/${userId}/Worker${workerNumber}/projects/${projectId}/index.html`;
       
       console.log(`✅ App published to Supabase Storage: ${projectId}`);
-      console.log(`🌐 Preview URL: ${urlData.signedUrl}`);
+      console.log(`🌐 Preview URL: ${previewUrl}`);
       console.log(`📁 Storage path: ${storagePath}`);
       console.log(`👤 User ID: ${userId}`);
       
       return {
         projectId,
-        previewUrl: urlData.signedUrl,
+        previewUrl,
         storagePath,
         metadata: fullMetadata
       };
@@ -309,12 +307,6 @@ export class PreviewManager {
     }
   }
   
-  /**
-   * アプリのプレビューURLを生成（既存アプリから）
-   */
-  generatePreviewUrl(appId) {
-    return `${this.proxyBaseUrl}/api/preview/${appId}/`;
-  }
 }
 
 // シングルトンインスタンス
