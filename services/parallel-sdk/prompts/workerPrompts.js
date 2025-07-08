@@ -91,7 +91,11 @@ export function generateBaseWorkerPrompt(context = {}) {
 
 - 作成したアプリはWorkerの作業ディレクトリに配置
 - PreviewManagerがSupabase Storageに保存し、署名付きURLを生成
-- 生成されたプレビューURLをSlackに送信してください
+- **重要**: アプリ作成時のSlack報告について
+  - ローカルパス（/tmp/...）は報告しないでください
+  - 「場所: /tmp/worker-1-workspace/...」のような形式は使わない
+  - プレビューURLは自動的に別途投稿されます
+  - 完了報告では機能や特徴を中心に説明してください
 
 ## Slack通知の絶対ルール
 

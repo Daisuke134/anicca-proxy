@@ -288,6 +288,11 @@ ${task.originalRequest}
 
 3. 完了したら#anicca_reportチャンネルに報告:
    [${this.agentName}] ✅ タスク完了: ${task.originalRequest}
+   
+   【重要】アプリ作成タスクの場合:
+   - ローカルパス（/tmp/...）は投稿しないでください
+   - 「場所: /tmp/...」という形式は使わないでください
+   - プレビューURLは別途自動的に投稿されます
 
 4. 重要な学習事項があれば /tmp/anicca-agent-workspace/CLAUDE.md に記録:
    - ユーザーの好みや傾向（例：ダークモード好き）

@@ -176,7 +176,13 @@ export class ParentAgent extends BaseWorker {
         // 複数タスクの場合は全体の完了報告
         let completedItems = '';
         assignments.forEach((assignment, index) => {
-          completedItems += `✅ ${assignment.task} (${assignment.worker})\n`;
+          const result = results[index];
+          const previewUrl = result?.previewUrl || result?.metadata?.preview?.previewUrl || '';
+          completedItems += `✅ ${assignment.task} (${assignment.worker})`;
+          if (previewUrl) {
+            completedItems += `\n   🌐 アプリを見る: ${previewUrl}`;
+          }
+          completedItems += '\n';
         });
         
         const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:
@@ -241,7 +247,11 @@ ${completedItems}`;
       previewUrl: result?.metadata?.preview?.previewUrl
     });
     
-    const previewUrl = result?.metadata?.preview?.previewUrl || '';
+    // previewUrlをトップレベルとmetadataの両方から探す
+    const previewUrl = result?.previewUrl || result?.metadata?.preview?.previewUrl || '';
+    
+    console.log(`🔍 [${this.agentName}] Preview URL found: ${previewUrl ? 'Yes' : 'No'}`);
+    
     const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:
 
 [ParentAgent] ✅ 全タスク完了！

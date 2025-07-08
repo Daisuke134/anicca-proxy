@@ -122,6 +122,22 @@ class Worker extends BaseWorker {
               console.log(`📊 Result object preview URL: ${result.previewUrl}`);
               console.log(`📊 Result metadata preview: ${JSON.stringify(result.metadata.preview, null, 2)}`);
               
+              // プレビューURLをSlackに追加投稿
+              try {
+                const slackMessage = `[${this.agentName}] 🌐 アプリを見る: ${previewInfo.previewUrl}`;
+                
+                // ClaudeセッションでSlackに投稿
+                const slackPrompt = `mcp__http__slack_send_messageツールを使って#anicca_reportチャンネルに以下を投稿してください:
+${slackMessage}
+
+これはアプリのプレビューURLです。投稿後は「投稿しました」とだけ返答してください。`;
+                
+                await this.session.sendMessage(slackPrompt);
+                console.log(`📮 Preview URL posted to Slack`);
+              } catch (error) {
+                console.error(`Failed to post preview URL to Slack:`, error);
+              }
+              
               // 最初のWebプロジェクトのみ公開（複数ある場合）
               break;
             }
