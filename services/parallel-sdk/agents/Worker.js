@@ -27,11 +27,12 @@ class Worker extends BaseWorker {
       process.env.CLAUDE_AGENT_TYPE = 'worker';
       console.log('🏷️ Setting CLAUDE_AGENT_TYPE to "worker"');
       
-      // ワークスペースの設定
-      this.workspaceRoot = '/tmp/anicca-agent-workspace';
+      // Worker専用のワークスペースを設定
+      this.workspaceRoot = `/tmp/worker-${this.workerNumber}-workspace`;
       if (!fs.existsSync(this.workspaceRoot)) {
         fs.mkdirSync(this.workspaceRoot, { recursive: true });
       }
+      console.log(`📁 Worker${this.workerNumber} workspace: ${this.workspaceRoot}`);
       
       // getSlackTokensForUserは必要な時に直接呼べるようにしておく
       this.getSlackTokensForUser = getSlackTokensForUser;
@@ -51,8 +52,8 @@ class Worker extends BaseWorker {
    * カスタムタスク処理（必要に応じてオーバーライド）
    */
   async executeTask(task) {
-    // workspaceRootを設定
-    this.workspaceRoot = this.workspaceRoot || '/tmp/anicca-agent-workspace';
+    // Worker専用のworkspaceRootを確認（既に初期化時に設定済みのはず）
+    this.workspaceRoot = this.workspaceRoot || `/tmp/worker-${this.workerNumber}-workspace`;
     
     // 特別な処理が必要な場合はここでオーバーライド
     // 例：アプリ作成後の追加処理など
