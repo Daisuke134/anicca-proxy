@@ -93,6 +93,8 @@ import playwrightHandler from './api/tools/playwright.js';
 import connectedServicesHandler from './api/connected-services.js';
 // Debug endpoint (REMOVE IN PRODUCTION!)
 import debugDeleteTokensHandler from './api/debug-delete-tokens.js';
+// Preview app handler
+import previewAppHandler from './api/preview-app.js';
 
 // API Routes - 完全移植
 app.all('/api/gemini', geminiHandler);
@@ -133,6 +135,8 @@ app.all('/api/tools/playwright_screenshot', playwrightHandler);
 app.all('/api/connected-services', connectedServicesHandler);
 // Debug endpoint (REMOVE IN PRODUCTION!)
 app.all('/api/debug-delete-tokens', debugDeleteTokensHandler);
+// Preview app endpoint
+app.all('/api/preview-app/*', previewAppHandler);
 
 // Root endpoint
 app.get('/', (req, res) => {
