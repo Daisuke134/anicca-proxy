@@ -206,12 +206,20 @@ ${completedItems}`;
    * 完了報告をSlackに投稿
    */
   async postCompletionReport(task, workerName, result) {
+    // デバッグ: 受け取った結果を確認
+    console.log(`📊 [${this.agentName}] Received result from ${workerName}:`, {
+      hasResult: !!result,
+      hasMetadata: !!result?.metadata,
+      hasPreview: !!result?.metadata?.preview,
+      previewUrl: result?.metadata?.preview?.previewUrl
+    });
+    
     const previewUrl = result?.metadata?.preview?.previewUrl || '';
     const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:
 
 [ParentAgent] ✅ 全タスク完了！
 ✅ ${task.originalRequest} (${workerName})
-${previewUrl ? `成果物: ${previewUrl}` : ''}`;
+${previewUrl ? `\n🌐 アプリを見る: ${previewUrl}` : ''}`;
     
     await this.executor.executeGeneralRequest({
       type: 'general',

@@ -85,7 +85,10 @@ class Worker extends BaseWorker {
             preview: previewInfo
           };
           
+          // デバッグ: 結果オブジェクトを確認
           console.log(`🌐 App published to preview: ${previewInfo.previewUrl}`);
+          console.log(`📊 Result object preview URL: ${result.previewUrl}`);
+          console.log(`📊 Result metadata preview: ${JSON.stringify(result.metadata.preview, null, 2)}`);
         }
       } catch (error) {
         console.error('Failed to publish app to preview:', error);

@@ -135,6 +135,8 @@ export class PreviewManager {
       
       console.log(`✅ App published to Supabase Storage: ${projectId}`);
       console.log(`🌐 Preview URL: ${urlData.signedUrl}`);
+      console.log(`📁 Storage path: ${storagePath}`);
+      console.log(`👤 User ID: ${userId}`);
       
       return {
         projectId,
