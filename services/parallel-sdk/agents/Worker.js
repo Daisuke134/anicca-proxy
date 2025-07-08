@@ -59,16 +59,48 @@ class Worker extends BaseWorker {
     
     const result = await super.executeTask(task);
     
+    // デバッグ: タスクタイプとリクエスト内容を確認
+    console.log(`🔍 Task type check:`, {
+      taskType: task.type,
+      originalRequest: task.originalRequest,
+      includesApp: task.originalRequest?.includes('アプリ')
+    });
+    
     // アプリ作成タスクの場合、プレビューに公開
-    if (result.success && task.type === 'development') {
+    if (result.success && (task.type === 'development' || task.originalRequest?.includes('アプリ'))) {
       try {
         // プロジェクト名を推測
-        const projectName = this.extractProjectName(task.originalRequest) || 'app';
+        let projectName = this.extractProjectName(task.originalRequest) || 'app';
         const appDir = path.join(this.workspaceRoot, projectName);
         
-        if (fs.existsSync(appDir)) {
+        console.log(`📁 Checking app directory: ${appDir}`);
+        
+        // ワークスペース内のディレクトリを確認
+        let actualAppDir = appDir;
+        if (fs.existsSync(this.workspaceRoot)) {
+          const dirs = fs.readdirSync(this.workspaceRoot);
+          console.log(`📂 Workspace directories:`, dirs);
+          
+          // アプリっぽいディレクトリを探す
+          const appDirs = dirs.filter(dir => 
+            dir.includes('app') || 
+            dir.includes('todo') || 
+            dir.includes('game') || 
+            dir.includes('tool')
+          );
+          
+          if (appDirs.length > 0) {
+            // 最新のディレクトリを使用
+            const actualDirName = appDirs[appDirs.length - 1];
+            actualAppDir = path.join(this.workspaceRoot, actualDirName);
+            projectName = actualDirName; // プロジェクト名も更新
+            console.log(`🎯 Found app directory: ${actualAppDir}`);
+          }
+        }
+        
+        if (fs.existsSync(actualAppDir)) {
           // PreviewManagerで公開
-          const previewInfo = await previewManager.publishApp(appDir, {
+          const previewInfo = await previewManager.publishApp(actualAppDir, {
             projectName,
             taskId: task.id,
             description: task.description,
