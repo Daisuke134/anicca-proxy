@@ -3,28 +3,33 @@ import path from 'path';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { v4: uuidv4 } = require('uuid');
+import { createClient } from '@supabase/supabase-js';
 
 /**
  * PreviewManager - アプリケーションのプレビュー管理
  * 
  * 役割：
- * - 作成したアプリをプレビューディレクトリにコピー
- * - プレビューURLの生成
+ * - 作成したアプリをSupabase Storageに保存
+ * - 署名付きURLの生成
  * - アプリのメタデータ管理
  */
 export class PreviewManager {
   constructor() {
-    // プレビューディレクトリのベースパス
-    this.previewBasePath = process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT
+    // Supabaseクライアントの初期化
+    const supabaseUrl = process.env.SUPABASE_URL || 'https://mzkwtwourrkduqkrsxpc.supabase.co';
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseServiceKey) {
+      console.error('❌ SUPABASE_SERVICE_ROLE_KEY is not set');
+    }
+    
+    this.supabase = createClient(supabaseUrl, supabaseServiceKey);
+    this.bucketName = 'worker-memories';
+    
+    // 一時的な作業ディレクトリ（アップロード前の準備用）
+    this.tempBasePath = process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT
       ? '/tmp/preview'
       : path.join(process.cwd(), 'tmp', 'preview');
-    
-    // プロキシのベースURL
-    this.proxyBaseUrl = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}`
-      : process.env.RAILWAY_ENVIRONMENT
-        ? 'https://anicca-proxy-staging.up.railway.app'
-        : 'https://anicca-proxy-ten.vercel.app';
     
     // プレビューディレクトリを確保
     this.ensurePreviewDirectory();
@@ -35,12 +40,12 @@ export class PreviewManager {
    */
   ensurePreviewDirectory() {
     try {
-      if (!fs.existsSync(this.previewBasePath)) {
-        fs.mkdirSync(this.previewBasePath, { recursive: true });
-        console.log('📁 Created preview directory:', this.previewBasePath);
+      if (!fs.existsSync(this.tempBasePath)) {
+        fs.mkdirSync(this.tempBasePath, { recursive: true });
+        console.log('📁 Created temp directory:', this.tempBasePath);
       }
     } catch (error) {
-      console.error('❌ Failed to create preview directory:', error);
+      console.error('❌ Failed to create temp directory:', error);
     }
   }
   
@@ -52,35 +57,89 @@ export class PreviewManager {
    */
   async publishApp(sourcePath, metadata = {}) {
     try {
-      // アプリIDを生成（プロジェクト名があれば使用）
-      const appId = metadata.projectName 
-        ? `${this.sanitizeProjectName(metadata.projectName)}-${uuidv4().slice(0, 8)}`
-        : `app-${uuidv4().slice(0, 8)}`;
+      // 必須情報の確認
+      const userId = metadata.userId || process.env.CURRENT_USER_ID;
+      const workerNumber = metadata.workerNumber || '1';
       
-      const targetPath = path.join(this.previewBasePath, appId);
+      if (!userId) {
+        throw new Error('User ID is required for publishing apps');
+      }
       
-      // ディレクトリをコピー
-      await this.copyDirectory(sourcePath, targetPath);
+      // プロジェクトIDを生成（プロジェクト名があれば使用）
+      const projectId = metadata.projectName 
+        ? `${this.sanitizeProjectName(metadata.projectName)}-${Date.now()}`
+        : `app-${Date.now()}-${uuidv4().slice(0, 8)}`;
       
-      // メタデータファイルを作成
-      const metadataPath = path.join(targetPath, '.anicca-metadata.json');
+      // Supabase Storageのパス構造
+      const storagePath = `users/${userId}/workers/worker-${workerNumber}/projects/${projectId}`;
+      
+      // アップロードするファイルを収集
+      const files = await this.collectFiles(sourcePath);
+      const uploadedFiles = [];
+      
+      // 各ファイルをSupabase Storageにアップロード
+      for (const file of files) {
+        const fileContent = fs.readFileSync(file.absolutePath);
+        const filePath = `${storagePath}/${file.relativePath}`;
+        
+        const { data, error } = await this.supabase.storage
+          .from(this.bucketName)
+          .upload(filePath, fileContent, {
+            contentType: this.getMimeType(file.relativePath),
+            upsert: true
+          });
+          
+        if (error) {
+          console.error(`❌ Failed to upload ${file.relativePath}:`, error);
+          throw error;
+        }
+        
+        uploadedFiles.push(filePath);
+        console.log(`📤 Uploaded: ${file.relativePath}`);
+      }
+      
+      // メタデータをアップロード
       const fullMetadata = {
         ...metadata,
-        appId,
-        sourcePath,
+        projectId,
+        userId,
+        workerNumber,
+        uploadedFiles,
         createdAt: new Date().toISOString(),
-        previewUrl: `${this.proxyBaseUrl}/api/preview/${appId}/`
+        storagePath
       };
       
-      fs.writeFileSync(metadataPath, JSON.stringify(fullMetadata, null, 2));
+      const metadataPath = `${storagePath}/metadata.json`;
+      const { error: metaError } = await this.supabase.storage
+        .from(this.bucketName)
+        .upload(metadataPath, JSON.stringify(fullMetadata, null, 2), {
+          contentType: 'application/json',
+          upsert: true
+        });
+        
+      if (metaError) {
+        console.error('❌ Failed to upload metadata:', metaError);
+        throw metaError;
+      }
       
-      console.log(`✅ App published to preview: ${appId}`);
-      console.log(`🌐 Preview URL: ${fullMetadata.previewUrl}`);
+      // 署名付きURLを生成（10年間有効）
+      const indexPath = `${storagePath}/index.html`;
+      const { data: urlData, error: urlError } = await this.supabase.storage
+        .from(this.bucketName)
+        .createSignedUrl(indexPath, 315360000); // 10年
+        
+      if (urlError) {
+        console.error('❌ Failed to create signed URL:', urlError);
+        throw urlError;
+      }
+      
+      console.log(`✅ App published to Supabase Storage: ${projectId}`);
+      console.log(`🌐 Preview URL: ${urlData.signedUrl}`);
       
       return {
-        appId,
-        previewUrl: fullMetadata.previewUrl,
-        targetPath,
+        projectId,
+        previewUrl: urlData.signedUrl,
+        storagePath,
         metadata: fullMetadata
       };
       
@@ -99,6 +158,61 @@ export class PreviewManager {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')
       .substring(0, 30);
+  }
+  
+  /**
+   * ディレクトリ内のファイルを収集
+   * @param {string} dirPath - ディレクトリパス
+   * @returns {Array} ファイル情報の配列
+   */
+  async collectFiles(dirPath, basePath = dirPath, files = []) {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      
+      if (entry.isDirectory()) {
+        // 除外するディレクトリ
+        if (!['node_modules', '.git', 'dist', 'build'].includes(entry.name)) {
+          await this.collectFiles(fullPath, basePath, files);
+        }
+      } else {
+        // 相対パスを計算
+        const relativePath = path.relative(basePath, fullPath);
+        files.push({
+          relativePath,
+          absolutePath: fullPath
+        });
+      }
+    }
+    
+    return files;
+  }
+  
+  /**
+   * ファイルのMIMEタイプを取得
+   * @param {string} filePath - ファイルパス
+   * @returns {string} MIMEタイプ
+   */
+  getMimeType(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = {
+      '.html': 'text/html',
+      '.htm': 'text/html',
+      '.css': 'text/css',
+      '.js': 'application/javascript',
+      '.json': 'application/json',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.svg': 'image/svg+xml',
+      '.ico': 'image/x-icon',
+      '.txt': 'text/plain',
+      '.md': 'text/markdown'
+    };
+    
+    return mimeTypes[ext] || 'application/octet-stream';
   }
   
   /**

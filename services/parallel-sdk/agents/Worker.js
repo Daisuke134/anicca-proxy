@@ -72,7 +72,9 @@ class Worker extends BaseWorker {
             projectName,
             taskId: task.id,
             description: task.description,
-            workerName: this.agentName
+            workerName: this.agentName,
+            workerNumber: this.workerNumber,
+            userId: process.env.CURRENT_USER_ID || task.userId
           });
           
           // 結果にプレビュー情報を追加
