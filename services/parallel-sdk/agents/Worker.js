@@ -73,8 +73,15 @@ class Worker extends BaseWorker {
     
     const result = await super.executeTask(task);
     
+    // アプリ作成タスクの場合のみプレビューURL処理を実行
+    const isAppCreationTask = task.originalRequest && /アプリ|ゲーム|サイト|ページ|ツール|ダッシュボード|作成|作って|作る/.test(task.originalRequest);
+    
+    if (!isAppCreationTask && result.success) {
+      console.log(`📝 Skipping preview URL check (not an app creation task): ${task.originalRequest?.substring(0, 50)}...`);
+    }
+    
     // 成果物ベースでWebプロジェクトを検出してプレビュー公開
-    if (result.success) {
+    if (result.success && isAppCreationTask) {
       try {
         console.log(`🔍 Checking for web projects in workspace: ${this.workspaceRoot}`);
         
