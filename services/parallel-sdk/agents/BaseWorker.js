@@ -236,7 +236,8 @@ export class BaseWorker extends IPCHandler {
     this.send(createStatusUpdateMessage(task.id, TaskStatus.IN_PROGRESS, 25));
     
     try {
-      const workingDir = '/tmp/anicca-agent-workspace';
+      // Worker専用の作業ディレクトリを使用（Worker.jsで設定済み）
+      const workingDir = this.workspaceRoot || `/tmp/worker-${this.workerNumber}-workspace`;
       
       // Worker用プロンプトを構築
       const prompt = `
