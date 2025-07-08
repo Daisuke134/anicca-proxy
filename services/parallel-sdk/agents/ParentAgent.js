@@ -4,6 +4,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { v4: uuidv4 } = require('uuid');
 import { loadClaudeMd, saveClaudeMd, appendLearning } from '../../workerMemory.js';
+import { getSlackTokensForUser } from '../../database.js';
 
 /**
  * ParentAgent - BaseWorkerベースの司令塔エージェント
@@ -100,6 +101,32 @@ export class ParentAgent extends BaseWorker {
     const startTime = Date.now();
     
     try {
+      // タスク実行前にユーザーのSlackトークンを取得して設定
+      const userId = task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID;
+      if (userId) {
+        this.log('info', `🔑 Getting Slack tokens for user: ${userId}`);
+        try {
+          const slackTokens = await getSlackTokensForUser(userId);
+          if (slackTokens && slackTokens.bot_token) {
+            this.log('info', '✅ Slack tokens found, configuring MCP...');
+            
+            // ExecutorServiceにトークンを設定
+            this.executor.setSlackTokens({
+              bot_token: slackTokens.bot_token,
+              user_token: slackTokens.user_token,
+              userId: userId
+            });
+            
+            // MCPサーバーを再初期化
+            this.executor.initializeMCPServers();
+            this.log('info', '✅ MCP servers re-initialized with Slack tokens');
+          } else {
+            this.log('warn', '⚠️ No Slack tokens found for user');
+          }
+        } catch (error) {
+          this.log('error', `❌ Failed to get Slack tokens: ${error.message}`);
+        }
+      }
       // 1. Worker状況を取得
       const workerStatus = this.getWorkerStatus();
       
