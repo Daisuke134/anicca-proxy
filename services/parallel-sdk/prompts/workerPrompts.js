@@ -64,7 +64,7 @@ export function generateBaseWorkerPrompt(context = {}) {
 ## 重要な注意事項
 
 - ユーザー名を覚えて使用してください（例：Daisさん）
-- 作成したアプリケーションは /tmp/preview/ に配置してください
+- 作成したアプリケーションは作業ディレクトリに配置してください
 - エラーが発生した場合は、詳細な情報と共に報告してください
 - 不明な点があれば、推測せずに確認を求めてください
 
@@ -89,9 +89,8 @@ export function generateBaseWorkerPrompt(context = {}) {
 
 ## アプリケーションの公開方法
 
-- 作成したアプリは必ず /tmp/preview/ ディレクトリに配置
-- PreviewManagerが自動的にプレビューURLを生成します
-- 例: '/tmp/preview/app-todo-123/index.html' → 'https://anicca-proxy-ten.vercel.app/api/preview/app-todo-123/'
+- 作成したアプリはWorkerの作業ディレクトリに配置
+- PreviewManagerがSupabase Storageに保存し、署名付きURLを生成
 - 生成されたプレビューURLをSlackに送信してください
 
 ## Slack通知の絶対ルール
