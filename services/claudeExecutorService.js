@@ -1000,7 +1000,7 @@ ${action.parameters.query || ''}`;
    * 
    * サーバーの初期化
    */
-  async initializeMCPServers() {
+  initializeMCPServers() {
     this.mcpServers = {};
     
     // ElevenLabs MCPの設定（常に有効）
@@ -1031,6 +1031,7 @@ ${action.parameters.query || ''}`;
     
     // HTTP MCPサーバーを追加（Slack連携がある場合のみ）
     if (this.slackTokens && this.slackTokens.userId) {
+      console.log(`🔍 [${this.agentName}] Attempting to configure HTTP MCP for Slack...`);
       const httpMcpPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'mcp-servers', 'http-mcp-server.js');
       this.mcpServers.http = {
         command: 'node',
@@ -1041,15 +1042,27 @@ ${action.parameters.query || ''}`;
           SLACK_USER_ID: this.slackTokens.slack_user_id || ''
         }
       };
-      // console.log('✅ HTTP MCP server configured for Slack integration');
-      // console.log('   Path:', httpMcpPath);
-      // console.log('   User ID:', this.slackTokens.userId);
-      // console.log('   Slack User ID:', this.slackTokens.slack_user_id || 'not set');
+      console.log('✅ HTTP MCP server configured for Slack integration');
+      console.log('   Path:', httpMcpPath);
+      console.log('   User ID:', this.slackTokens.userId);
+      console.log('   Slack User ID:', this.slackTokens.slack_user_id || 'not set');
+      console.log('   Has bot token:', !!this.slackTokens.bot_token);
+      console.log('   Has user token:', !!this.slackTokens.user_token);
+    } else {
+      console.log(`⚠️ [${this.agentName}] HTTP MCP not configured - Slack tokens not available`);
+      if (!this.slackTokens) {
+        console.log('   Reason: slackTokens is null/undefined');
+      } else if (!this.slackTokens.userId) {
+        console.log('   Reason: userId is missing');
+      }
     }
     
     // ファイルベースのSlack設定は削除（HTTP MCPに統一）
     // HTTP MCPサーバーのみを使用するため、slack-config.jsonは不要
     // console.log('ℹ️ Using HTTP MCP for Slack integration (user-based)');
+    
+    // 設定されたMCPサーバーを確認
+    console.log(`📋 [${this.agentName}] MCP servers configured:`, Object.keys(this.mcpServers));
   }
 
   /**
