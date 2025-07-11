@@ -5,6 +5,7 @@ const require = createRequire(import.meta.url);
 const { v4: uuidv4 } = require('uuid');
 import { loadClaudeMd, saveClaudeMd, appendLearning } from '../../workerMemory.js';
 import { getSlackTokensForUser } from '../../database.js';
+import { createClient } from '@supabase/supabase-js';
 
 /**
  * ParentAgent - BaseWorkerベースの司令塔エージェント
@@ -32,6 +33,13 @@ export class ParentAgent extends BaseWorker {
     
     // Workerの設定
     this.workerScriptPath = new URL('./Worker.js', import.meta.url).pathname;
+    
+    // Supabase初期化
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+    if (supabaseUrl && supabaseServiceKey) {
+      this.supabase = createClient(supabaseUrl, supabaseServiceKey);
+    }
     
     console.log(`👑 ${this.agentName} is initializing as the team leader...`);
   }
@@ -127,6 +135,21 @@ export class ParentAgent extends BaseWorker {
           this.log('error', `❌ Failed to get Slack tokens: ${error.message}`);
         }
       }
+      // 定期タスクかチェック
+      const isScheduled = await this.checkAndRegisterScheduledTask(task);
+      
+      if (isScheduled) {
+        // 定期タスクとして登録済みなので、通常のタスク実行はスキップ
+        return {
+          success: true,
+          output: '定期タスクとして登録しました。指定された時刻に自動実行されます。',
+          metadata: {
+            executedBy: this.agentName,
+            taskType: 'scheduled_registration'
+          }
+        };
+      }
+      
       // 1. Worker状況を取得
       const workerStatus = this.getWorkerStatus();
       
@@ -490,6 +513,194 @@ ${statusList}
       status[worker.name] = worker.status;
     }
     return status;
+  }
+
+  /**
+   * 定期タスクかどうかを判定し、必要なら登録
+   */
+  async checkAndRegisterScheduledTask(task) {
+    if (!this.supabase) {
+      console.log('⚠️ Supabase not initialized, skipping scheduled task check');
+      return false;
+    }
+
+    const prompt = `
+以下のタスクが定期実行タスクかどうか判定してください。
+
+【タスク】
+${task.originalRequest}
+
+【定期実行の例】
+- 毎日9時にSlackチェック
+- 毎週月曜日に会議告知
+- 6時間ごとにメール確認
+- 毎月1日にレポート作成
+
+定期実行タスクの場合、以下のJSON形式で返してください：
+{
+  "isScheduled": true,
+  "instruction": "元の指示文そのまま",
+  "frequency": "daily/weekly/hourly/every_Xh/monthly",
+  "time": "HH:MM形式（該当する場合）",
+  "dayOfWeek": "曜日（weeklyの場合のみ）",
+  "intervalHours": 数値（every_Xhの場合のみ）,
+  "taskType": "slack_check/email_check/post_message等"
+}
+
+定期実行でない場合：
+{
+  "isScheduled": false
+}`;
+
+    try {
+      const response = await this.session.sendMessage(prompt, { raw: true });
+      
+      // JSONを抽出
+      const jsonMatch = response.match(/\{[\s\S]*?\}/);
+      if (!jsonMatch) {
+        console.log('Could not extract JSON from response');
+        return false;
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      
+      if (parsed.isScheduled) {
+        console.log(`📅 [${this.agentName}] Detected scheduled task:`, parsed);
+        
+        // 次回実行時刻を計算
+        const nextRun = this.calculateInitialNextRun(parsed);
+        
+        // Supabaseに登録
+        const { data, error } = await this.supabase
+          .from('scheduled_tasks')
+          .insert({
+            user_id: task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID,
+            instruction: task.originalRequest,
+            frequency: parsed.frequency,
+            time: parsed.time,
+            day_of_week: parsed.dayOfWeek,
+            interval_hours: parsed.intervalHours,
+            task_type: parsed.taskType,
+            config: parsed.config || {},
+            next_run: nextRun
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Failed to register scheduled task:', error);
+          return false;
+        }
+
+        console.log(`✅ [${this.agentName}] Scheduled task registered:`, data.id);
+        
+        // ユーザーに確認メッセージを送信
+        await this.notifyScheduledTaskRegistered(parsed, nextRun);
+        
+        return true; // 定期タスクとして登録済み
+      }
+      
+      return false; // 通常のタスク
+      
+    } catch (error) {
+      console.error('Error checking scheduled task:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 初回実行時刻を計算
+   */
+  calculateInitialNextRun(taskInfo) {
+    const now = new Date();
+    let next = new Date();
+
+    switch (taskInfo.frequency) {
+      case 'daily':
+        const [hours, minutes] = taskInfo.time.split(':').map(Number);
+        next.setHours(hours, minutes, 0, 0);
+        if (next <= now) {
+          next.setDate(next.getDate() + 1);
+        }
+        break;
+
+      case 'weekly':
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const targetDay = days.indexOf(taskInfo.dayOfWeek.toLowerCase());
+        const currentDay = now.getDay();
+        
+        let daysToAdd = targetDay - currentDay;
+        if (daysToAdd <= 0) daysToAdd += 7;
+        
+        next.setDate(next.getDate() + daysToAdd);
+        const [whours, wminutes] = taskInfo.time.split(':').map(Number);
+        next.setHours(whours, wminutes, 0, 0);
+        break;
+
+      case 'hourly':
+        next.setHours(next.getHours() + 1, 0, 0, 0);
+        break;
+
+      case 'every_Xh':
+        const hours = taskInfo.intervalHours || 6;
+        next.setHours(next.getHours() + hours);
+        break;
+
+      case 'monthly':
+        next.setMonth(next.getMonth() + 1, 1); // 翌月1日
+        if (taskInfo.time) {
+          const [mhours, mminutes] = taskInfo.time.split(':').map(Number);
+          next.setHours(mhours, mminutes, 0, 0);
+        }
+        break;
+    }
+
+    return next.toISOString();
+  }
+
+  /**
+   * 定期タスク登録完了を通知
+   */
+  async notifyScheduledTaskRegistered(taskInfo, nextRun) {
+    const nextRunDate = new Date(nextRun);
+    const formattedDate = nextRunDate.toLocaleString('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    let scheduleText = '';
+    switch (taskInfo.frequency) {
+      case 'daily':
+        scheduleText = `毎日 ${taskInfo.time}`;
+        break;
+      case 'weekly':
+        scheduleText = `毎週${taskInfo.dayOfWeek} ${taskInfo.time}`;
+        break;
+      case 'hourly':
+        scheduleText = '毎時';
+        break;
+      case 'every_Xh':
+        scheduleText = `${taskInfo.intervalHours}時間ごと`;
+        break;
+      case 'monthly':
+        scheduleText = `毎月1日 ${taskInfo.time || ''}`;
+        break;
+    }
+
+    const message = `mcp__http__slack_send_messageツールを使って#anicca_reportチャンネルに以下を投稿してください:
+
+[ParentAgent] 📅 定期タスクを登録しました
+- 内容: ${taskInfo.instruction}
+- スケジュール: ${scheduleText}
+- 次回実行: ${formattedDate}`;
+
+    await this.executor.executeGeneralRequest({
+      type: 'general',
+      parameters: { query: message }
+    });
   }
   
   /**

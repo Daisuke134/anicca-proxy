@@ -95,6 +95,10 @@ import connectedServicesHandler from './api/connected-services.js';
 import debugDeleteTokensHandler from './api/debug-delete-tokens.js';
 // Preview app handler
 import previewAppHandler from './api/preview-app.js';
+// Scheduled tasks handler
+import scheduledTasksCheckHandler from './api/scheduled-tasks/check.js';
+// Parallel SDK handler
+import parallelSdkExecuteHandler from './api/parallel-sdk-execute.js';
 
 // API Routes - 完全移植
 app.all('/api/gemini', geminiHandler);
@@ -137,6 +141,12 @@ app.all('/api/connected-services', connectedServicesHandler);
 app.all('/api/debug-delete-tokens', debugDeleteTokensHandler);
 // Preview app endpoint
 app.all('/api/preview-app/*', previewAppHandler);
+
+// Scheduled tasks endpoint
+app.post('/api/scheduled-tasks/check', scheduledTasksCheckHandler);
+
+// Parallel SDK endpoint
+app.post('/api/parallel-sdk/execute', parallelSdkExecuteHandler);
 
 // Root endpoint
 app.get('/', (req, res) => {

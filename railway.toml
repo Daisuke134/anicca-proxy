@@ -1,0 +1,11 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "npm start"
+
+# Cron job for checking scheduled tasks every 15 minutes
+[[cron]]
+name = "scheduled-tasks-checker"
+schedule = "*/15 * * * *"  # Every 15 minutes
+command = "node scripts/check-scheduled-tasks.js"
