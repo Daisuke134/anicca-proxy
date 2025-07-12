@@ -720,10 +720,17 @@ ${task.originalRequest}
     switch (taskInfo.frequency) {
       case 'daily':
         const [hours, minutes] = taskInfo.time.split(':').map(Number);
-        next.setHours(hours, minutes, 0, 0);
+        // 日本時間をUTCに変換（-9時間）
+        let utcHours = hours - 9;
+        if (utcHours < 0) {
+          utcHours += 24;
+          next.setDate(next.getDate() - 1); // 前日に設定
+        }
+        next.setHours(utcHours, minutes, 0, 0);
         if (next <= now) {
           next.setDate(next.getDate() + 1);
         }
+        console.log(`⏰ Daily task: JST ${hours}:${minutes} → UTC ${utcHours}:${minutes} → ${next.toISOString()}`);
         break;
 
       case 'weekly':
@@ -736,7 +743,13 @@ ${task.originalRequest}
         
         next.setDate(next.getDate() + daysToAdd);
         const [whours, wminutes] = taskInfo.time.split(':').map(Number);
-        next.setHours(whours, wminutes, 0, 0);
+        // 日本時間をUTCに変換
+        let weeklyUtcHours = whours - 9;
+        if (weeklyUtcHours < 0) {
+          weeklyUtcHours += 24;
+          next.setDate(next.getDate() - 1);
+        }
+        next.setHours(weeklyUtcHours, wminutes, 0, 0);
         break;
 
       case 'hourly':
