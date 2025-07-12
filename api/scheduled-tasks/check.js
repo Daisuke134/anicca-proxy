@@ -56,8 +56,15 @@ export default async function handler(req, res) {
 
         // Trigger task execution via parallel SDK
         // In Railway environment, use the public URL instead of localhost
-        const apiUrl = process.env.RAILWAY_STATIC_URL || process.env.RAILWAY_URL || 'http://localhost:3838';
+        let apiUrl = process.env.RAILWAY_STATIC_URL || process.env.RAILWAY_URL || 'http://localhost:3838';
+        
+        // Ensure URL has protocol
+        if (!apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
+          apiUrl = 'https://' + apiUrl;
+        }
+        
         console.log(`🔗 Calling parallel SDK at: ${apiUrl}/api/parallel-sdk/execute`);
+        console.log(`📍 Environment: RAILWAY_URL=${process.env.RAILWAY_URL}, RAILWAY_STATIC_URL=${process.env.RAILWAY_STATIC_URL}`);
         
         const response = await fetch(`${apiUrl}/api/parallel-sdk/execute`, {
           method: 'POST',
