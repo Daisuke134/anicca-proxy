@@ -41,6 +41,11 @@ export class ParentAgent extends BaseWorker {
       this.supabase = createClient(supabaseUrl, supabaseServiceKey);
     }
     
+    // 重複送信防止用
+    this.lastTask = null;
+    this.lastTaskTime = 0;
+    this.DUPLICATE_WINDOW = 30000; // 30秒以内の同じタスクは重複とみなす
+    
     console.log(`👑 ${this.agentName} is initializing as the team leader...`);
   }
   
@@ -109,6 +114,27 @@ export class ParentAgent extends BaseWorker {
     const startTime = Date.now();
     
     try {
+      // 重複タスクチェック
+      if (this.lastTask && (Date.now() - this.lastTaskTime) < this.DUPLICATE_WINDOW) {
+        const isDuplicate = await this.checkTaskDuplicate(this.lastTask.originalRequest, task.originalRequest);
+        if (isDuplicate) {
+          console.log(`🚫 [${this.agentName}] Duplicate task detected, skipping...`);
+          return {
+            success: true,
+            output: '同じタスクが既に処理中です。重複実行を防ぎました。',
+            metadata: {
+              executedBy: this.agentName,
+              skipped: true,
+              reason: 'duplicate'
+            }
+          };
+        }
+      }
+      
+      // タスクを記録
+      this.lastTask = task;
+      this.lastTaskTime = Date.now();
+      
       // タスク実行前にユーザーのSlackトークンを取得して設定
       const userId = task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID;
       if (userId) {
@@ -795,6 +821,33 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
         worker: idleWorker ? idleWorker.name : 'Worker1',
         task: taskInfo.task
       }];
+    }
+  }
+  
+  /**
+   * タスクが重複しているかをチェック
+   */
+  async checkTaskDuplicate(previousTask, currentTask) {
+    const prompt = `
+以下の2つのタスクが同じ内容かどうか判定してください。
+表現が違っても、実質的に同じ作業を指示している場合は「同じ」と判定してください。
+
+前のタスク: ${previousTask}
+今のタスク: ${currentTask}
+
+判定結果を「同じ」または「違う」の一言で答えてください。
+`;
+
+    try {
+      const response = await this.session.sendMessage(prompt, { raw: true });
+      const result = response.toLowerCase();
+      
+      // 「同じ」という言葉が含まれていれば重複とみなす
+      return result.includes('同じ');
+    } catch (error) {
+      console.error(`❌ [${this.agentName}] Failed to check duplicate:`, error);
+      // エラーの場合は安全のため重複ではないとみなす
+      return false;
     }
   }
   
