@@ -161,41 +161,55 @@ export class ParentAgent extends BaseWorker {
           this.log('error', `❌ Failed to get Slack tokens: ${error.message}`);
         }
       }
-      // 定期タスクかチェック
-      const isScheduled = await this.checkAndRegisterScheduledTask(task);
-      
-      if (isScheduled) {
-        // 定期タスクとして登録済みなので、通常のタスク実行はスキップ
-        return {
-          success: true,
-          output: '定期タスクとして登録しました。指定された時刻に自動実行されます。',
-          metadata: {
-            executedBy: this.agentName,
-            taskType: 'scheduled_registration'
-          }
-        };
-      }
-      
       // 1. Worker状況を取得
       const workerStatus = this.getWorkerStatus();
       
-      // 2. Claudeでタスクを分析して割り当てを決定
+      // 2. Claudeでタスクを分析して割り当てを決定（定期タスクも含む）
       const assignments = await this.analyzeAndAssignTasks({
         task: task.originalRequest,
         workers: workerStatus
       });
       
-      // 3. 各タスクのTODOリストを投稿
+      // 3. タスクを定期と通常に分類
+      const scheduledTasks = [];
+      const normalTasks = [];
+      
       for (const assignment of assignments) {
         const subTask = {
           ...task,
           originalRequest: assignment.task
         };
-        await this.postTodoList(subTask, assignment.worker);
+        
+        // 各タスクが定期タスクかチェック
+        const isScheduled = await this.checkAndRegisterScheduledTask(subTask);
+        if (isScheduled) {
+          scheduledTasks.push({
+            ...assignment,
+            registered: true
+          });
+        } else {
+          normalTasks.push(assignment);
+        }
       }
       
-      // 4. 各タスクを並列で実行
-      const taskPromises = assignments.map(async (assignment, index) => {
+      // 4. 統合TODOリストを投稿
+      await this.postCombinedTodoList(scheduledTasks, normalTasks);
+      
+      // 定期タスクのみの場合は登録メッセージを返す
+      if (normalTasks.length === 0 && scheduledTasks.length > 0) {
+        return {
+          success: true,
+          output: `${scheduledTasks.length}個の定期タスクを登録しました。`,
+          metadata: {
+            executedBy: this.agentName,
+            taskType: 'scheduled_registration',
+            scheduledCount: scheduledTasks.length
+          }
+        };
+      }
+      
+      // 5. 通常タスクのみを並列で実行
+      const taskPromises = normalTasks.map(async (assignment, index) => {
         const subTaskId = `${task.id}-${index}`;
         const subTask = {
           ...task,
@@ -221,44 +235,33 @@ export class ParentAgent extends BaseWorker {
       const results = await Promise.all(taskPromises);
       
       // 6. 全体の完了報告
-      if (assignments.length > 1) {
-        // 複数タスクの場合は全体の完了報告
-        let completedItems = '';
-        assignments.forEach((assignment, index) => {
-          const result = results[index];
-          const previewUrl = result?.previewUrl || result?.metadata?.preview?.previewUrl || '';
-          completedItems += `✅ ${assignment.task} (${assignment.worker})`;
-          if (previewUrl) {
-            completedItems += `\n   🌐 アプリを見る: ${previewUrl}`;
-          }
-          completedItems += '\n';
-        });
-        
-        const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:
-
-[ParentAgent] ✅ 全タスク完了！
-${completedItems}`;
-        
-        await this.executor.executeGeneralRequest({
-          type: 'general',
-          parameters: { query }
-        });
-      } else if (assignments.length === 1) {
-        // 単一タスクの場合は従来の完了報告
-        await this.postCompletionReport(task, assignments[0].worker, results[0]);
+      if (normalTasks.length > 0) {
+        await this.postCompletionUpdate(normalTasks, scheduledTasks, results);
       }
       
       // 7. タスク管理の学習を記録
       const duration = Date.now() - startTime;
-      await this.saveTeamLearning(`${assignments.length}個のタスクを並列処理。所要時間: ${duration}ms`);
+      const totalTasks = normalTasks.length + scheduledTasks.length;
+      await this.saveTeamLearning(`${totalTasks}個のタスク（通常:${normalTasks.length}、定期:${scheduledTasks.length}）を処理。所要時間: ${duration}ms`);
+      
+      // 応答メッセージを構築
+      let outputMessage = '';
+      if (normalTasks.length > 0) {
+        outputMessage += `${normalTasks.length}個のタスクを完了しました`;
+      }
+      if (scheduledTasks.length > 0) {
+        if (outputMessage) outputMessage += '、';
+        outputMessage += `${scheduledTasks.length}個の定期タスクを登録しました`;
+      }
       
       return {
         success: true,
-        output: results.map(r => r?.output || 'Task completed').join('\n\n'),
+        output: outputMessage || 'タスクを処理しました',
         metadata: {
           executedBy: this.agentName,
-          assignments: assignments,
-          taskCount: assignments.length,
+          normalTasks: normalTasks,
+          scheduledTasks: scheduledTasks,
+          taskCount: totalTasks,
           duration: duration
         }
       };
@@ -270,13 +273,28 @@ ${completedItems}`;
   }
   
   /**
-   * TODOリストをSlackに投稿
+   * 統合TODOリストをSlackに投稿
    */
-  async postTodoList(task, workerName) {
-    const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:
-
-[ParentAgent] 📋 TODOリスト
-☐ ${task.originalRequest} (${workerName})`;
+  async postCombinedTodoList(scheduledTasks, normalTasks) {
+    let todoContent = '[ParentAgent] 📋 TODOリスト\n';
+    
+    // 定期タスクセクション
+    if (scheduledTasks.length > 0) {
+      todoContent += '\n【定期タスク】\n';
+      for (const task of scheduledTasks) {
+        todoContent += `☐ ${task.task} (登録中...)\n`;
+      }
+    }
+    
+    // 通常タスクセクション
+    if (normalTasks.length > 0) {
+      todoContent += '\n【通常タスク】\n';
+      for (const task of normalTasks) {
+        todoContent += `☐ ${task.task} (${task.worker})\n`;
+      }
+    }
+    
+    const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:\n\n${todoContent}`;
     
     await this.executor.executeGeneralRequest({
       type: 'general',
@@ -285,7 +303,46 @@ ${completedItems}`;
   }
   
   /**
-   * 完了報告をSlackに投稿
+   * 完了更新をSlackに投稿
+   */
+  async postCompletionUpdate(normalTasks, scheduledTasks, results) {
+    let updateContent = '[ParentAgent] 🔄 TODOリスト更新\n';
+    
+    // 定期タスクセクション
+    if (scheduledTasks.length > 0) {
+      updateContent += '\n【定期タスク】\n';
+      for (const task of scheduledTasks) {
+        updateContent += `✅ ${task.task} (登録完了)\n`;
+      }
+    }
+    
+    // 通常タスクセクション
+    if (normalTasks.length > 0) {
+      updateContent += '\n【通常タスク】\n';
+      normalTasks.forEach((task, index) => {
+        const result = results[index];
+        const previewUrl = result?.previewUrl || result?.metadata?.preview?.previewUrl || '';
+        updateContent += `✅ ${task.task} (${task.worker})`;
+        if (previewUrl) {
+          updateContent += `\n   🌐 アプリを見る: ${previewUrl}`;
+        }
+        updateContent += '\n';
+      });
+    }
+    
+    const totalCount = normalTasks.length + scheduledTasks.length;
+    updateContent += `\n進捗: ${totalCount}/${totalCount}完了`;
+    
+    const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:\n\n${updateContent}`;
+    
+    await this.executor.executeGeneralRequest({
+      type: 'general',
+      parameters: { query }
+    });
+  }
+  
+  /**
+   * 完了報告をSlackに投稿（旧メソッド、後方互換性のため残す）
    */
   async postCompletionReport(task, workerName, result) {
     // デバッグ: 受け取った結果を確認

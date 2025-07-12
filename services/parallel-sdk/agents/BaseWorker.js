@@ -313,13 +313,14 @@ ${task.originalRequest}
       this.send(createStatusUpdateMessage(task.id, TaskStatus.IN_PROGRESS, 90));
       
       // 結果を整形
+      const taskStartTime = this.currentTask?.startTime || Date.now();
       const formattedResult = {
         success: true,
         output: result,
         metadata: {
           executedBy: this.agentName,
           taskType: task.type,
-          duration: Date.now() - this.currentTask.startTime
+          duration: Date.now() - taskStartTime
         }
       };
       
@@ -395,14 +396,20 @@ ${task.originalRequest}
    * @private
    */
   reportStatus() {
+    let currentTaskInfo = null;
+    if (this.currentTask) {
+      const startTime = this.currentTask.startTime || Date.now();
+      currentTaskInfo = {
+        taskId: this.currentTask.taskId,
+        description: this.currentTask.task.description,
+        duration: Date.now() - startTime
+      };
+    }
+    
     const status = {
       agentId: this.agentId,
       agentName: this.agentName,
-      currentTask: this.currentTask ? {
-        taskId: this.currentTask.taskId,
-        description: this.currentTask.task.description,
-        duration: Date.now() - this.currentTask.startTime
-      } : null,
+      currentTask: currentTaskInfo,
       stats: this.stats,
       uptime: process.uptime() * 1000
     };

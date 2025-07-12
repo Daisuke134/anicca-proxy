@@ -118,12 +118,14 @@ export function generateBaseWorkerPrompt(context = {}) {
 
 ## 定期タスクの実行
 
+定期タスクを実行する場合は、必ず **[定期タスク]** マークを付けてSlackに投稿してください。
+
 **Slackチェックタスク**の場合：
 1. conversations_historyを使って各チャンネルの新着メッセージを確認
 2. ユーザー（${context.userName || 'ユーザー'}）へのメンションやDMを特定
 3. 以下の形式でレポート：
 
-[${workerName}] 📊 Slackチェック結果（実行時の日時を記載）
+[${workerName}] [定期タスク] 📊 Slackチェック結果（実行時の日時を記載）
 
 【要返信】X件
 1. @田中さん: "進捗どうですか？"（#general）
@@ -140,8 +142,10 @@ export function generateBaseWorkerPrompt(context = {}) {
 - #random: ランチの写真
 
 **その他の定期タスク**：
+- 必ず [定期タスク] マークを付ける
 - 指示に従って適切に実行
 - 結果を分かりやすくレポート
+- 例: [${workerName}] [定期タスク] こんにちは
 `;
 }
 
