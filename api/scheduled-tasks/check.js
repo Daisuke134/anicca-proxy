@@ -55,7 +55,11 @@ export default async function handler(req, res) {
           .single();
 
         // Trigger task execution via parallel SDK
-        const response = await fetch(`${process.env.RAILWAY_URL || 'http://localhost:3838'}/api/parallel-sdk/execute`, {
+        // In Railway environment, use the public URL instead of localhost
+        const apiUrl = process.env.RAILWAY_STATIC_URL || process.env.RAILWAY_URL || 'http://localhost:3838';
+        console.log(`🔗 Calling parallel SDK at: ${apiUrl}/api/parallel-sdk/execute`);
+        
+        const response = await fetch(`${apiUrl}/api/parallel-sdk/execute`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -85,15 +89,22 @@ export default async function handler(req, res) {
 
         // Calculate next run time
         const nextRun = calculateNextRun(task);
+        console.log(`📅 Next run calculated for task ${task.id}: ${nextRun}`);
         
         // Update task with next run time and last run
-        await supabase
+        const { data: updateData, error: updateError } = await supabase
           .from('scheduled_tasks')
           .update({
             next_run: nextRun,
             last_run: now.toISOString()
           })
           .eq('id', task.id);
+        
+        if (updateError) {
+          console.error(`❌ Failed to update task ${task.id}:`, updateError);
+        } else {
+          console.log(`✅ Updated task ${task.id} - last_run: ${now.toISOString()}, next_run: ${nextRun}`);
+        }
 
         executedTasks.push({
           taskId: task.id,

@@ -998,15 +998,20 @@ ${task.originalRequest}
       }
 
       // タスクを削除（実際には無効化）
-      const { error: updateError } = await this.supabase
+      console.log(`🗑️ Attempting to delete task ${targetTask.id}: "${targetTask.instruction}"`);
+      
+      const { data: updateData, error: updateError } = await this.supabase
         .from('scheduled_tasks')
         .update({ status: 'inactive' })
-        .eq('id', targetTask.id);
+        .eq('id', targetTask.id)
+        .select();
 
       if (updateError) {
         console.error('Failed to delete scheduled task:', updateError);
         return { deleted: false, message: '定期タスクの削除に失敗しました。' };
       }
+      
+      console.log(`✅ Successfully deleted task:`, updateData);
 
       // Slackに削除通知
       const deleteMessage = `mcp__http__slack_send_messageツールを使って#anicca_reportチャンネルに以下を投稿してください:
