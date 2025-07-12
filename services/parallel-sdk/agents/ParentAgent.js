@@ -936,8 +936,10 @@ ${task.originalRequest}
       if (parsed.isDeleteRequest) {
         console.log(`🗑️ [${this.agentName}] Scheduled task deletion requested: ${parsed.targetDescription}`);
         
-        // 削除処理
-        const deleteResult = await this.deleteScheduledTask(task.userId, parsed.targetDescription);
+        // 削除処理（userIdを確実に取得）
+        const userId = task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID || 'system';
+        console.log(`🔑 Using userId for deletion: ${userId}`);
+        const deleteResult = await this.deleteScheduledTask(userId, parsed.targetDescription);
         
         return {
           success: true,
@@ -984,9 +986,16 @@ ${task.originalRequest}
         return { deleted: false, message: '定期タスクの取得に失敗しました。' };
       }
 
+      console.log(`📊 Found ${tasks ? tasks.length : 0} active tasks for user ${userId}`);
+      
       if (!tasks || tasks.length === 0) {
         return { deleted: false, message: '登録されている定期タスクがありません。' };
       }
+
+      // デバッグ: 見つかったタスクを表示
+      tasks.forEach((task, index) => {
+        console.log(`  ${index + 1}. ${task.instruction} (id: ${task.id}, status: ${task.status})`);
+      });
 
       // 削除対象を特定
       let targetTask = null;
