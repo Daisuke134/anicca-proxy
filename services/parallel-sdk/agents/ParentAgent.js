@@ -647,13 +647,16 @@ ${task.originalRequest}
     try {
       const response = await this.session.sendMessage(prompt, { raw: true });
       
-      // JSONを抽出
-      const jsonMatch = response.match(/\{[\s\S]*?\}/);
+      // JSONを抽出（改良版：複数行対応）
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         console.log('Could not extract JSON from response');
         return false;
       }
 
+      // デバッグ用
+      console.log('📝 Extracted JSON:', jsonMatch[0]);
+      
       const parsed = JSON.parse(jsonMatch[0]);
       
       if (parsed.isScheduled) {
@@ -921,11 +924,13 @@ ${task.originalRequest}
 
     try {
       const response = await this.session.sendMessage(prompt, { raw: true });
-      const jsonMatch = response.match(/\{[\s\S]*?\}/);
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
+        console.log('❌ Could not extract JSON from deletion check response');
         return null;
       }
 
+      console.log('📝 Delete check JSON:', jsonMatch[0]);
       const parsed = JSON.parse(jsonMatch[0]);
       
       if (parsed.isDeleteRequest) {
@@ -957,12 +962,16 @@ ${task.originalRequest}
    * 定期タスクを削除
    */
   async deleteScheduledTask(userId, targetDescription) {
+    console.log(`🔥 deleteScheduledTask called with userId: ${userId}, target: ${targetDescription}`);
+    
     if (!this.supabase) {
+      console.log('❌ Supabase not initialized');
       return { deleted: false, message: '定期タスク管理システムが利用できません。' };
     }
 
     try {
       // ユーザーの定期タスクを取得
+      console.log('📋 Fetching active tasks for user:', userId);
       const { data: tasks, error: fetchError } = await this.supabase
         .from('scheduled_tasks')
         .select('*')
