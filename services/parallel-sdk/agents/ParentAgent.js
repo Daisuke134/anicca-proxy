@@ -187,12 +187,19 @@ export class ParentAgent extends BaseWorker {
         };
         
         // 各タスクが定期タスクかチェック
-        const isScheduled = await this.checkAndRegisterScheduledTask(subTask);
-        if (isScheduled) {
+        const scheduledInfo = await this.checkAndRegisterScheduledTask(subTask);
+        if (scheduledInfo) {
           scheduledTasks.push({
             ...assignment,
-            registered: true
+            registered: true,
+            scheduledInfo: scheduledInfo
           });
+          
+          // 間隔指定タスクは初回即実行
+          if (scheduledInfo.frequency === 'every_Xh' || scheduledInfo.frequency === 'hourly') {
+            console.log(`⚡ [${this.agentName}] 間隔指定タスクのため初回即実行: ${assignment.task}`);
+            normalTasks.push(assignment);
+          }
         } else {
           normalTasks.push(assignment);
         }
@@ -651,7 +658,7 @@ ${task.originalRequest}
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         console.log('Could not extract JSON from response');
-        return false;
+        return null;
       }
 
       // デバッグ用
@@ -692,14 +699,14 @@ ${task.originalRequest}
         // ユーザーに確認メッセージを送信
         await this.notifyScheduledTaskRegistered(parsed, nextRun);
         
-        return true; // 定期タスクとして登録済み
+        return parsed; // 定期タスク情報を返す
       }
       
-      return false; // 通常のタスク
+      return null; // 通常のタスク
       
     } catch (error) {
       console.error('Error checking scheduled task:', error);
-      return false;
+      return null;
     }
   }
 
