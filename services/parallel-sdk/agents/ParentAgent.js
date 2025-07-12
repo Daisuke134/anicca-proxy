@@ -642,8 +642,8 @@ ${task.originalRequest}
         break;
 
       case 'every_Xh':
-        const hours = taskInfo.intervalHours || 6;
-        next.setHours(next.getHours() + hours);
+        const intervalHours = taskInfo.intervalHours || 6;
+        next.setHours(next.getHours() + intervalHours);
         break;
 
       case 'monthly':
