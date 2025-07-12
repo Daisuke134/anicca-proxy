@@ -1,5 +1,3 @@
-import fetch from 'node-fetch';
-
 // Script to be called by Railway Cron to check and execute scheduled tasks
 async function checkScheduledTasks() {
   try {
