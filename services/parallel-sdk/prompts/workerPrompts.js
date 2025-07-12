@@ -120,10 +120,10 @@ export function generateBaseWorkerPrompt(context = {}) {
 
 **Slackチェックタスク**の場合：
 1. conversations_historyを使って各チャンネルの新着メッセージを確認
-2. ユーザー（${userName || 'ユーザー'}）へのメンションやDMを特定
+2. ユーザー（${context.userName || 'ユーザー'}）へのメンションやDMを特定
 3. 以下の形式でレポート：
 
-[${workerName}] 📊 Slackチェック結果（${new Date().toLocaleString('ja-JP')}）
+[${workerName}] 📊 Slackチェック結果（実行時の日時を記載）
 
 【要返信】X件
 1. @田中さん: "進捗どうですか？"（#general）
