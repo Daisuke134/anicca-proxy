@@ -135,6 +135,12 @@ export class ParentAgent extends BaseWorker {
       this.lastTask = task;
       this.lastTaskTime = Date.now();
       
+      // 定期タスク削除のチェック
+      const isDeleteRequest = await this.checkScheduledTaskDeletion(task);
+      if (isDeleteRequest) {
+        return isDeleteRequest; // 削除結果を返す
+      }
+      
       // タスク実行前にユーザーのSlackトークンを取得して設定
       const userId = task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID;
       if (userId) {
@@ -282,7 +288,7 @@ export class ParentAgent extends BaseWorker {
     if (scheduledTasks.length > 0) {
       todoContent += '\n【定期タスク】\n';
       for (const task of scheduledTasks) {
-        todoContent += `☐ ${task.task} (登録中...)\n`;
+        todoContent += `☐ ${task.task}\n`;
       }
     }
     
@@ -294,12 +300,15 @@ export class ParentAgent extends BaseWorker {
       }
     }
     
-    const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:\n\n${todoContent}`;
-    
-    await this.executor.executeGeneralRequest({
-      type: 'general',
-      parameters: { query }
-    });
+    // TODOリストがある場合のみ投稿
+    if (scheduledTasks.length > 0 || normalTasks.length > 0) {
+      const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:\n\n${todoContent}`;
+      
+      await this.executor.executeGeneralRequest({
+        type: 'general',
+        parameters: { query }
+      });
+    }
   }
   
   /**
@@ -747,6 +756,7 @@ ${task.originalRequest}
   async notifyScheduledTaskRegistered(taskInfo, nextRun) {
     const nextRunDate = new Date(nextRun);
     const formattedDate = nextRunDate.toLocaleString('ja-JP', {
+      timeZone: 'Asia/Tokyo',
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -881,6 +891,188 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
     }
   }
   
+  /**
+   * 定期タスク削除リクエストかチェックして削除
+   */
+  async checkScheduledTaskDeletion(task) {
+    const prompt = `
+以下のリクエストが定期タスクの削除を要求しているか判定してください。
+
+【リクエスト】
+${task.originalRequest}
+
+【削除リクエストの例】
+- 定期タスク削除して
+- さっきの定期タスクやめて
+- こんにちはの定期タスクを削除
+- 毎分のタスクを取り消して
+- Slackチェックの定期タスクやめて
+
+削除リクエストの場合、以下のJSON形式で返してください：
+{
+  "isDeleteRequest": true,
+  "targetDescription": "削除対象の説明（例：こんにちは、Slackチェック、さっきの）"
+}
+
+削除リクエストでない場合：
+{
+  "isDeleteRequest": false
+}`;
+
+    try {
+      const response = await this.session.sendMessage(prompt, { raw: true });
+      const jsonMatch = response.match(/\{[\s\S]*?\}/);
+      if (!jsonMatch) {
+        return null;
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      
+      if (parsed.isDeleteRequest) {
+        console.log(`🗑️ [${this.agentName}] Scheduled task deletion requested: ${parsed.targetDescription}`);
+        
+        // 削除処理
+        const deleteResult = await this.deleteScheduledTask(task.userId, parsed.targetDescription);
+        
+        return {
+          success: true,
+          output: deleteResult.message,
+          metadata: {
+            executedBy: this.agentName,
+            taskType: 'scheduled_deletion',
+            deleted: deleteResult.deleted
+          }
+        };
+      }
+      
+      return null;
+      
+    } catch (error) {
+      console.error('Error checking scheduled task deletion:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 定期タスクを削除
+   */
+  async deleteScheduledTask(userId, targetDescription) {
+    if (!this.supabase) {
+      return { deleted: false, message: '定期タスク管理システムが利用できません。' };
+    }
+
+    try {
+      // ユーザーの定期タスクを取得
+      const { data: tasks, error: fetchError } = await this.supabase
+        .from('scheduled_tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      if (fetchError) {
+        console.error('Failed to fetch scheduled tasks:', fetchError);
+        return { deleted: false, message: '定期タスクの取得に失敗しました。' };
+      }
+
+      if (!tasks || tasks.length === 0) {
+        return { deleted: false, message: '登録されている定期タスクがありません。' };
+      }
+
+      // 削除対象を特定
+      let targetTask = null;
+      
+      if (targetDescription.includes('さっき') || targetDescription.includes('最新') || targetDescription.includes('最後')) {
+        // 最新のタスクを削除
+        targetTask = tasks[0];
+      } else {
+        // 説明に一致するタスクを検索
+        targetTask = tasks.find(task => 
+          task.instruction.includes(targetDescription) ||
+          task.task_type.includes(targetDescription)
+        );
+      }
+
+      if (!targetTask) {
+        return { deleted: false, message: `「${targetDescription}」に該当する定期タスクが見つかりません。` };
+      }
+
+      // タスクを削除（実際には無効化）
+      const { error: updateError } = await this.supabase
+        .from('scheduled_tasks')
+        .update({ status: 'inactive' })
+        .eq('id', targetTask.id);
+
+      if (updateError) {
+        console.error('Failed to delete scheduled task:', updateError);
+        return { deleted: false, message: '定期タスクの削除に失敗しました。' };
+      }
+
+      // Slackに削除通知
+      const deleteMessage = `mcp__http__slack_send_messageツールを使って#anicca_reportチャンネルに以下を投稿してください:
+
+[ParentAgent] 🗑️ 定期タスクを削除しました
+- 削除内容: ${targetTask.instruction}`;
+
+      await this.executor.executeGeneralRequest({
+        type: 'general',
+        parameters: { query: deleteMessage }
+      });
+
+      // 更新されたTODOリストを投稿
+      await this.postUpdatedTodoList(userId);
+
+      return { 
+        deleted: true, 
+        message: `定期タスク「${targetTask.instruction}」を削除しました。` 
+      };
+
+    } catch (error) {
+      console.error('Error deleting scheduled task:', error);
+      return { deleted: false, message: 'エラーが発生しました。' };
+    }
+  }
+
+  /**
+   * 更新されたTODOリストを投稿
+   */
+  async postUpdatedTodoList(userId) {
+    let todoContent = '[ParentAgent] 📋 TODOリスト（更新）\n';
+    
+    // 定期タスクを取得
+    if (this.supabase) {
+      const { data: scheduledTasks } = await this.supabase
+        .from('scheduled_tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: true });
+      
+      if (scheduledTasks && scheduledTasks.length > 0) {
+        todoContent += '\n【定期タスク】\n';
+        for (const task of scheduledTasks) {
+          todoContent += `☐ ${task.instruction}\n`;
+        }
+      }
+    }
+    
+    // 現在実行中の通常タスク
+    const activeTasks = Array.from(this.tasks.values()).filter(t => t.status !== 'completed');
+    if (activeTasks.length > 0) {
+      todoContent += '\n【通常タスク】\n';
+      for (const taskInfo of activeTasks) {
+        todoContent += `☐ ${taskInfo.task.originalRequest} (${taskInfo.assignedTo})\n`;
+      }
+    }
+    
+    const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:\n\n${todoContent}`;
+    
+    await this.executor.executeGeneralRequest({
+      type: 'general',
+      parameters: { query }
+    });
+  }
+
   /**
    * タスクが重複しているかをチェック
    */
