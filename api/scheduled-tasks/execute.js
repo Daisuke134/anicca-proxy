@@ -67,7 +67,13 @@ export default async function handler(req, res) {
           .single();
 
         // SDKにタスクを委譲（全タスクを自然言語で処理）
-        const sdkUrl = process.env.RAILWAY_STATIC_URL || process.env.RAILWAY_URL || 'https://anicca-proxy-staging.up.railway.app';
+        let sdkUrl = process.env.RAILWAY_STATIC_URL || process.env.RAILWAY_URL || 'https://anicca-proxy-staging.up.railway.app';
+        
+        // URLにプロトコルがない場合は追加
+        if (!sdkUrl.startsWith('http://') && !sdkUrl.startsWith('https://')) {
+          sdkUrl = 'https://' + sdkUrl;
+        }
+        
         console.log(`🔗 Delegating to SDK at: ${sdkUrl}/api/parallel-sdk/execute`);
         
         const response = await fetch(`${sdkUrl}/api/parallel-sdk/execute`, {
