@@ -95,10 +95,12 @@ import connectedServicesHandler from './api/connected-services.js';
 import debugDeleteTokensHandler from './api/debug-delete-tokens.js';
 // Preview app handler
 import previewAppHandler from './api/preview-app.js';
-// Scheduled tasks handler
-import scheduledTasksCheckHandler from './api/scheduled-tasks/check.js';
+// Scheduled tasks handler - disabled (using GitHub Actions now)
+// import scheduledTasksCheckHandler from './api/scheduled-tasks/check.js';
 // Parallel SDK handler
 import parallelSdkExecuteHandler from './api/parallel-sdk-execute.js';
+// Scheduled tasks execute handler (for GitHub Actions)
+import scheduledTasksExecuteHandler from './api/scheduled-tasks/execute.js';
 
 // API Routes - 完全移植
 app.all('/api/gemini', geminiHandler);
@@ -142,11 +144,14 @@ app.all('/api/debug-delete-tokens', debugDeleteTokensHandler);
 // Preview app endpoint
 app.all('/api/preview-app/*', previewAppHandler);
 
-// Scheduled tasks endpoint
-app.post('/api/scheduled-tasks/check', scheduledTasksCheckHandler);
+// Scheduled tasks endpoint - disabled (using GitHub Actions now)
+// app.post('/api/scheduled-tasks/check', scheduledTasksCheckHandler);
 
 // Parallel SDK endpoint
 app.post('/api/parallel-sdk/execute', parallelSdkExecuteHandler);
+
+// Scheduled tasks execute endpoint (for GitHub Actions)
+app.post('/api/scheduled-tasks/execute', scheduledTasksExecuteHandler);
 
 // Root endpoint
 app.get('/', (req, res) => {
