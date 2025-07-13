@@ -1,0 +1,42 @@
+name: Execute Scheduled Tasks
+
+on:
+  schedule:
+    # 毎分実行 (UTC)
+    - cron: '* * * * *'
+  workflow_dispatch:
+    # 手動実行も可能
+
+jobs:
+  execute-scheduled-tasks:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Execute Scheduled Tasks
+      run: |
+        # APIエンドポイントを呼び出して定期タスクを実行
+        response=$(curl -X POST https://anicca-proxy-staging.up.railway.app/api/scheduled-tasks/execute \
+          -H "Content-Type: application/json" \
+          -H "x-secret-key: ${{ secrets.SCHEDULED_TASKS_SECRET }}" \
+          -d '{}' \
+          -w "\n%{http_code}" \
+          -s)
+        
+        # レスポンスボディとHTTPステータスコードを分離
+        body=$(echo "$response" | head -n -1)
+        status_code=$(echo "$response" | tail -n 1)
+        
+        echo "Response body: $body"
+        echo "Status code: $status_code"
+        
+        # ステータスコードが2xxでない場合はエラー
+        if [[ ! "$status_code" =~ ^2[0-9]{2}$ ]]; then
+          echo "Error: API returned status code $status_code"
+          exit 1
+        fi
+    
+    - name: Log Execution Time
+      if: always()
+      run: |
+        echo "Scheduled tasks checked at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+        echo "Japan time: $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M:%S JST')"
