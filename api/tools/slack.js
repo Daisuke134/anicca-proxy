@@ -8,7 +8,7 @@ function decrypt(text) {
   const textParts = text.split(':');
   const iv = Buffer.from(textParts.shift(), 'hex');
   const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-  const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+  const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
   let decrypted = decipher.update(encryptedText);
   decrypted = Buffer.concat([decrypted, decipher.final()]);
   return decrypted.toString();
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
     });
     
     // userIdがある場合はデータベースからトークンを取得
-    let botToken, userToken;
+    let botToken, userToken, slackUserId;
     
     if (userId) {
       console.log('🔍 Looking up tokens for userId:', userId);
@@ -49,11 +49,13 @@ export default async function handler(req, res) {
       console.log('🔍 Token lookup result:', {
         found: !!userTokens,
         hasBotToken: !!userTokens?.bot_token,
-        hasUserToken: !!userTokens?.user_token
+        hasUserToken: !!userTokens?.user_token,
+        hasSlackUserId: !!userTokens?.slack_user_id
       });
       if (userTokens) {
         botToken = userTokens.bot_token;
         userToken = userTokens.user_token;
+        slackUserId = userTokens.slack_user_id; // Store slack_user_id here
         console.log('🔐 Retrieved tokens for user:', userId);
       } else {
         console.log('⚠️ No tokens found for user:', userId);
@@ -104,7 +106,7 @@ export default async function handler(req, res) {
       }
       
       // ユーザーID（Uで始まる、または@付きのユーザーID）の場合、DMチャンネルIDを取得
-      if (channelNameOrId.match(/^U[A-Z0-9]+$/) || channelNameOrId.match(/^@?[a-f0-9-]+$/)) {
+      if (channelNameOrId.match(/^@?U[A-Z0-9]+$/)) {
         try {
           // @を削除
           const userId = channelNameOrId.replace(/^@/, '');
@@ -243,6 +245,73 @@ export default async function handler(req, res) {
           filename: args.filename,
           title: args.title
         });
+        break;
+        
+      case 'create_channel':
+        try {
+          result = await slack.conversations.create({
+            name: args.name || 'anicca_report',
+            is_private: args.is_private || false
+          });
+          console.log('✅ Channel created successfully:', result.channel?.name);
+        } catch (createError) {
+          // チャンネルが既に存在する場合はそのまま使う
+          if (createError.data?.error === 'name_taken') {
+            console.log('⚠️ Channel already exists, fetching existing channel...');
+            const listResult = await slack.conversations.list({
+              types: 'public_channel,private_channel',
+              limit: 1000
+            });
+            const existingChannel = listResult.channels?.find(ch => ch.name === (args.name || 'anicca_report'));
+            if (existingChannel) {
+              result = { ok: true, channel: existingChannel };
+            } else {
+              throw createError;
+            }
+          } else {
+            throw createError;
+          }
+        }
+        break;
+        
+      case 'send_dm_to_user':
+        // ユーザーのSlack IDを使用（上部で既に取得済み）
+        let userSlackIdForDM = slackUserId; // 上部で保存した値を使用
+        
+        // slackUserIdが無い場合のフォールバック
+        if (!userSlackIdForDM) {
+          userSlackIdForDM = process.env.SLACK_USER_ID;
+          if (!userSlackIdForDM) {
+            throw new Error('Slack user ID not found. Please reconnect your Slack account or set SLACK_USER_ID environment variable.');
+          }
+        }
+        
+        console.log('📤 Sending DM to user:', userSlackIdForDM);
+        
+        try {
+          // DMチャンネルを開く/取得
+          const dmResult = await slack.conversations.open({
+            users: userSlackIdForDM
+          });
+          
+          if (!dmResult.ok || !dmResult.channel) {
+            throw new Error('Failed to open DM channel');
+          }
+          
+          const dmChannelId = dmResult.channel.id;
+          console.log('✅ DM channel opened:', dmChannelId);
+          
+          // メッセージ送信
+          result = await slack.chat.postMessage({
+            channel: dmChannelId,
+            text: args.message || args.text
+          });
+          
+          console.log('✅ DM sent successfully');
+        } catch (dmError) {
+          console.error('❌ DM error:', dmError);
+          throw new Error(`Failed to send DM: ${dmError.message}`);
+        }
         break;
         
       default:

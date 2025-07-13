@@ -1,9 +1,18 @@
+import { getSlackTokensForUser } from '../services/database.js';
+
 // 動的にツールを生成する関数
-async function generateDynamicTools() {
+async function generateDynamicTools(userId = null) {
   const tools = [];
   
   // 接続済みサービスを確認
-  const hasSlack = !!(global.slackBotToken || process.env.SLACK_BOT_TOKEN);
+  let hasSlack = false;
+  if (userId) {
+    const slackTokens = await getSlackTokensForUser(userId);
+    hasSlack = !!(slackTokens && slackTokens.bot_token);
+  } else {
+    // フォールバック（後方互換性のため）
+    hasSlack = !!(global.slackBotToken || process.env.SLACK_BOT_TOKEN);
+  }
   
   // Slackが接続されている場合
   if (hasSlack) {
@@ -231,6 +240,75 @@ async function generateDynamicTools() {
     }
   });
   
+  // Playwrightツールを追加
+  tools.push({
+    type: 'function',
+    name: 'playwright_navigate',
+    description: 'Navigate to a URL in the browser',
+    parameters: {
+      type: 'object',
+      properties: {
+        url: {
+          type: 'string',
+          description: 'The URL to navigate to'
+        }
+      },
+      required: ['url']
+    }
+  });
+  
+  tools.push({
+    type: 'function',
+    name: 'playwright_click',
+    description: 'Click on an element in the browser',
+    parameters: {
+      type: 'object',
+      properties: {
+        selector: {
+          type: 'string',
+          description: 'CSS selector or text content to click'
+        }
+      },
+      required: ['selector']
+    }
+  });
+  
+  tools.push({
+    type: 'function',
+    name: 'playwright_type',
+    description: 'Type text into an input field',
+    parameters: {
+      type: 'object',
+      properties: {
+        selector: {
+          type: 'string',
+          description: 'CSS selector of the input field'
+        },
+        text: {
+          type: 'string',
+          description: 'Text to type'
+        }
+      },
+      required: ['selector', 'text']
+    }
+  });
+  
+  tools.push({
+    type: 'function',
+    name: 'playwright_screenshot',
+    description: 'Take a screenshot of the current page',
+    parameters: {
+      type: 'object',
+      properties: {
+        fullPage: {
+          type: 'boolean',
+          description: 'Whether to capture the full page',
+          optional: true
+        }
+      }
+    }
+  });
+  
   
   return tools;
 }
@@ -253,12 +331,39 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'GET' && (req.url?.includes('/session') || req.url === '/api/openai-proxy/session')) {
+      // URLからuserIdを取得
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const userId = url.searchParams.get('userId');
+      
       // 接続済みサービスを確認
-      const hasSlack = !!(global.slackBotToken || process.env.SLACK_BOT_TOKEN);
+      let hasSlack = false;
+      if (userId) {
+        const slackTokens = await getSlackTokensForUser(userId);
+        hasSlack = !!(slackTokens && slackTokens.bot_token);
+        
+        // userIdベースのトークンをリクエストコンテキストに保存
+        if (slackTokens) {
+          req.userSlackTokens = slackTokens;
+        }
+      } else {
+        // フォールバック（後方互換性のため）
+        hasSlack = !!(global.slackBotToken || process.env.SLACK_BOT_TOKEN);
+      }
+      
+      // セッションIDを生成し、userIdと関連付ける
+      const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // セッションとuserIdの関連付けをグローバルに保存（メモリ内）
+      if (!global.sessionUserMap) {
+        global.sessionUserMap = {};
+      }
+      if (userId) {
+        global.sessionUserMap[sessionId] = { userId, slackTokens: req.userSlackTokens };
+      }
       
       // Return complete session configuration for OpenAI Realtime
       return res.json({
-        id: `sess_${Date.now()}`,
+        id: sessionId,
         object: 'realtime.session',
         expires_at: 0,
         client_secret: {
@@ -281,7 +386,15 @@ ${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
    - slack_get_channel_history: Get recent messages from a channel
    
    IMPORTANT SLACK GUIDELINES:
+   - You can handle simple Slack tasks yourself using these tools
+   - ONLY delegate to Claude SDK if the user explicitly says:
+     * "Claude でこれを送って" (Send this with Claude)
+     * "SDK でスラックして" (Use SDK for Slack)
+     * "Claude に頼んで" (Ask Claude to do it)
+     * Similar explicit requests mentioning Claude or SDK
+   
    - Always use channel names (e.g., "#general", "#ai") NOT channel IDs
+   - Default channel for reports: #anicca_report (create if it doesn't exist)
    - When sending messages, if a channel name is not found, ALWAYS:
      1. First use slack_list_channels to get all available channels
      2. Find channels with similar names (e.g., "ai-channel" → "ai", "general-chat" → "general")
@@ -290,8 +403,9 @@ ${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
    - The tool results contain valuable information - analyze them carefully to help the user
    
    Examples:
+   - User: "Slackに送って" → YOU handle it directly with slack_send_message
+   - User: "クロードでSlackに送って" → Delegate to claude_code
    - User: "Send to AI channel" → First list channels, find "#ai", use "#ai" (NOT the ID)
-   - User: "Post in general" → Use "#general" directly
 
 ` : ''}2. **Search Tools** (powered by Exa):
    - **web_search_exa**: General web search for news, current events, general info
@@ -314,18 +428,74 @@ ${hasSlack ? `1. **Slack Tools** (Your Slack workspace is connected!):
    - For tech industry news, programming, startups
    - NOT for general news (use web_search_exa instead)
 
-4. **think_with_claude**: Use Claude for complex reasoning, code analysis, and file operations
+4. **Browser Tools** (You can control browsers directly!):
+   - playwright_navigate: Navigate to any URL
+   - playwright_click: Click on elements
+   - playwright_type: Type text into fields
+   - playwright_screenshot: Take screenshots
+   
+   BROWSER OPERATION GUIDELINES:
+   - Handle simple browser tasks yourself using these tools
+   - Examples of what YOU should do:
+     * "Open YouTube" → Use playwright_navigate
+     * "Search for music" → Use playwright_type
+     * "Play a video" → Use playwright_click
+   - ONLY delegate to Claude SDK when:
+     * User explicitly says "Claude でブラウザ操作して" or "Use SDK for browsing"
+     * Task involves 30+ minutes of complex automation
+     * Multiple complex sites with intricate workflows
+
+5. **claude_code**: Use Claude Code for complex tasks, code analysis, file operations
    - Best for: Complex tasks, code generation, detailed analysis
-   - Has access to additional MCP tools for files and browser automation
+   - Use when user explicitly requests "Claude" or "SDK" to handle something
+   - Use for tasks requiring file system access or code execution
 
 TOOL SELECTION GUIDELINES:
-- For connected services (${hasSlack ? 'like Slack' : 'when available'}), use their specific tools
+- For connected services (${hasSlack ? 'like Slack' : 'when available'}), use their specific tools DIRECTLY
+- For browser operations, use playwright tools DIRECTLY (unless explicitly asked for Claude)
+- Only delegate to claude_code when:
+  * User explicitly mentions "Claude" or "SDK" 
+  * Task requires file system access or code execution
+  * Task is too complex for direct tool usage
 - For searches, choose the appropriate search tool based on content type
 - For tech news specifically, use get_hacker_news_stories  
-- For complex reasoning or code tasks, use think_with_claude
 - ALWAYS analyze tool results before proceeding to the next action
 
-Remember: You can see visual information on the user's screen when they share it, allowing you to provide context-aware assistance with their applications and content.`,
+Remember: You can see visual information on the user's screen when they share it, allowing you to provide context-aware assistance with their applications and content.
+
+TASK FORMATTING FOR CLAUDE CODE (重要):
+- When sending multiple tasks to claude_code, ALWAYS format them as a numbered list
+- Example format:
+  "1. TODOアプリを作成してプレビューリンクを生成
+   2. 聖書の言葉を検索してSlackに投稿
+   3. 最新のAIニュースを検索してまとめる"
+- NEVER send the same tasks separately - combine them into ONE request
+- If user mentions multiple things in one sentence, analyze and list them all
+- Even if user doesn't explicitly number tasks, YOU must number them
+- This helps Claude Code distribute tasks to multiple Workers efficiently
+
+CRITICAL CHANNEL RULE FOR CLAUDE CODE:
+- If NO channel is specified → ALWAYS use #anicca_report
+- If channel doesn't exist → ALWAYS fallback to #anicca_report
+- When sending to Claude Code, ALWAYS include explicit channel:
+  * "聖書の言葉を送って" → Add "（#anicca_reportチャンネルに送信してください）"
+  * "TODOアプリ作って" → Add "（完成したら#anicca_reportに報告してください）"
+  * "ニュースを検索して" → Add "（結果を#anicca_reportに投稿してください）"
+- The ONLY acceptable default is #anicca_report
+- Only use other channels if explicitly specified by user
+
+STRICT DUPLICATE PREVENTION (強化版):
+- Track ALL requests sent to claude_code in the last 5 minutes
+- Before sending ANY request to claude_code, check for similar keywords:
+  * Task keywords: "アプリ", "作成", "作って", "Slack", "送信", "投稿", etc.
+  * If 80%+ similarity detected, DO NOT send again
+- Response strategy for duplicates:
+  * 1st duplicate: "その依頼は既に実行中です。少々お待ちください。"
+  * 2nd duplicate: "現在処理中です。完了まで約[X]分かかります。"
+  * 3rd+ duplicate: Ignore completely, don't respond about the duplicate
+- Keywords memory: Remember exact phrases user used for tasks
+- Only reset memory after task completion confirmation
+- User saying "もう一回" or "retry" or "やり直して" = OK to resend`,
         input_audio_format: 'pcm16',
         output_audio_format: 'pcm16',
         input_audio_transcription: { model: 'whisper-1' },
@@ -336,7 +506,7 @@ Remember: You can see visual information on the user's screen when they share it
           silence_duration_ms: 200,
           create_response: true
         },
-        tools: await generateDynamicTools(),
+        tools: await generateDynamicTools(userId),
         temperature: 0.8,
         max_response_output_tokens: 'inf',
         modalities: ['audio', 'text'],

@@ -13,6 +13,12 @@ async function initializeServer() {
   // データベースを初期化
   const dbInitialized = await initDatabase();
   
+  // ユーザーベースのトークン管理に移行したため、
+  // グローバル変数へのトークン読み込みは無効化
+  console.log('✅ Database initialized. Using user-based token management.');
+  
+  // 以下の処理は無効化（後方互換性のためコメントで残す）
+  /*
   if (dbInitialized) {
     // データベースから最新のトークンを読み込む
     try {
@@ -39,6 +45,7 @@ async function initializeServer() {
       console.error('Failed to load tokens from file:', error);
     }
   }
+  */
 }
 
 initializeServer();
@@ -81,10 +88,19 @@ import slackCheckConnectionHandler from './api/slack/check-connection.js';
 import migrateConnectionHandler from './api/migrate-connection.js';
 // Tool handlers
 import slackToolHandler from './api/tools/slack.js';
+import playwrightHandler from './api/tools/playwright.js';
 // Connected services
 import connectedServicesHandler from './api/connected-services.js';
 // Debug endpoint (REMOVE IN PRODUCTION!)
 import debugDeleteTokensHandler from './api/debug-delete-tokens.js';
+// Preview app handler
+import previewAppHandler from './api/preview-app.js';
+// Scheduled tasks handler - disabled (using GitHub Actions now)
+// import scheduledTasksCheckHandler from './api/scheduled-tasks/check.js';
+// Parallel SDK handler
+import parallelSdkExecuteHandler from './api/parallel-sdk-execute.js';
+// Scheduled tasks execute handler (for GitHub Actions)
+import scheduledTasksExecuteHandler from './api/scheduled-tasks/execute.js';
 
 // API Routes - 完全移植
 app.all('/api/gemini', geminiHandler);
@@ -115,10 +131,27 @@ app.all('/api/slack/check-connection', slackCheckConnectionHandler);
 app.all('/api/migrate-connection', migrateConnectionHandler);
 // Slack tool endpoints
 app.all('/api/tools/slack', slackToolHandler);
+// Playwright tool endpoints - すべてのplaywright_*を同じハンドラーにルーティング
+app.all('/api/tools/playwright', playwrightHandler);
+app.all('/api/tools/playwright_navigate', playwrightHandler);
+app.all('/api/tools/playwright_click', playwrightHandler);
+app.all('/api/tools/playwright_type', playwrightHandler);
+app.all('/api/tools/playwright_screenshot', playwrightHandler);
 // Connected services
 app.all('/api/connected-services', connectedServicesHandler);
 // Debug endpoint (REMOVE IN PRODUCTION!)
 app.all('/api/debug-delete-tokens', debugDeleteTokensHandler);
+// Preview app endpoint
+app.all('/api/preview-app/*', previewAppHandler);
+
+// Scheduled tasks endpoint - disabled (using GitHub Actions now)
+// app.post('/api/scheduled-tasks/check', scheduledTasksCheckHandler);
+
+// Parallel SDK endpoint
+app.post('/api/parallel-sdk/execute', parallelSdkExecuteHandler);
+
+// Scheduled tasks execute endpoint (for GitHub Actions)
+app.post('/api/scheduled-tasks/execute', scheduledTasksExecuteHandler);
 
 // Root endpoint
 app.get('/', (req, res) => {

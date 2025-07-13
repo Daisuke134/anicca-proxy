@@ -6,15 +6,15 @@ import * as os from 'os';
 import { SimpleEncryption } from './simpleEncryption.js';
 
 // Claude SDKのインポートを確認
-// console.log('🔍 Claude SDK import check:');
-// console.log('  query function type:', typeof query);
-// console.log('  query function exists:', query !== undefined);
+console.log('🔍 Claude SDK import check:');
+console.log('  query function type:', typeof query);
+console.log('  query function exists:', query !== undefined);
 
 // モジュール解決を確認（非同期で実行）
 (async () => {
   try {
     const claudeCodePath = await import.meta.resolve('@anthropic-ai/claude-code');
-    // console.log('  Module resolved at:', claudeCodePath);
+    console.log('  Module resolved at:', claudeCodePath);
   } catch (resolveError) {
     console.error('  Module resolution error:', resolveError.message);
   }
@@ -59,11 +59,10 @@ export class ClaudeExecutorService extends EventEmitter {
   MAX_EXECUTION_TIME = 300000; // 5分
   slackTokens = null; // ユーザーごとのSlackトークン
 
-  constructor(database, agentName = 'Agent', workerWorkspaceRoot = null) {
+  constructor(database, agentName = 'Agent') {
     super();
     this.database = database;
     this.agentName = agentName;
-    this.workerWorkspaceRoot = workerWorkspaceRoot;
     
     
     // プロキシモードかどうかを判定（デフォルトはtrue - ユーザーがAPIキー不要）
@@ -93,9 +92,9 @@ export class ClaudeExecutorService extends EventEmitter {
       
       console.log(`✅ Claude Code SDK configured to use proxy server as ${agentType}`);
       console.log('  Proxy URL:', proxyUrl);
-      // console.log('  ANTHROPIC_BASE_URL env:', process.env.ANTHROPIC_BASE_URL);
-      // console.log('  Railway environment?', process.env.RAILWAY_ENVIRONMENT ? 'Yes' : 'No');
-      // console.log('  NODE_ENV:', process.env.NODE_ENV);
+      console.log('  ANTHROPIC_BASE_URL env:', process.env.ANTHROPIC_BASE_URL);
+      console.log('  Railway environment?', process.env.RAILWAY_ENVIRONMENT ? 'Yes' : 'No');
+      console.log('  NODE_ENV:', process.env.NODE_ENV);
     } else {
       // ローカル開発用（直接APIキーを使用）
       this.apiKey = process.env.ANTHROPIC_API_KEY || '';
@@ -105,16 +104,10 @@ export class ClaudeExecutorService extends EventEmitter {
       }
     }
     
-    // 独立した作業環境を設定
-    // Workerから渡された場合はそれを使用、なければデフォルト値
-    if (this.workerWorkspaceRoot) {
-      this.workspaceRoot = this.workerWorkspaceRoot;
-    } else {
-      // デフォルト値（後方互換性のため）
-      this.workspaceRoot = process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT
-        ? path.join('/tmp', 'anicca-agent-workspace')
-        : path.join(os.homedir(), 'Desktop', 'anicca-agent-workspace');
-    }
+    // 独立した作業環境を設定（サーバー環境の場合は/tmpを使用）
+    this.workspaceRoot = process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT
+      ? path.join('/tmp', 'anicca-agent-workspace')
+      : path.join(os.homedir(), 'Desktop', 'anicca-agent-workspace');
     
     try {
       this.ensureWorkspaceExists();
@@ -122,8 +115,8 @@ export class ClaudeExecutorService extends EventEmitter {
       console.error('❌ Error creating workspace:', error);
     }
     
-    // console.log('🤖 Claude Executor Service initialized');
-    // console.log('📁 Workspace root:', this.workspaceRoot);
+    console.log('🤖 Claude Executor Service initialized');
+    console.log('📁 Workspace root:', this.workspaceRoot);
     
     // MCPサーバーの初期化
     this.initializeMCPServers();
@@ -141,7 +134,7 @@ export class ClaudeExecutorService extends EventEmitter {
     try {
       if (!fs.existsSync(this.workspaceRoot)) {
         fs.mkdirSync(this.workspaceRoot, { recursive: true });
-        // console.log('📁 Created workspace directory:', this.workspaceRoot);
+        console.log('📁 Created workspace directory:', this.workspaceRoot);
       }
     } catch (error) {
       console.error('❌ Failed to create workspace directory:', error);
@@ -157,7 +150,7 @@ export class ClaudeExecutorService extends EventEmitter {
     
     try {
       fs.mkdirSync(sessionDir, { recursive: true });
-      // console.log('📁 Created session workspace:', sessionDir);
+      console.log('📁 Created session workspace:', sessionDir);
       return sessionDir;
     } catch (error) {
       console.error('❌ Failed to create session workspace:', error);
@@ -167,24 +160,15 @@ export class ClaudeExecutorService extends EventEmitter {
   }
 
   /**
-   * 作業ディレクトリを設定
-   */
-  setWorkspaceRoot(workspaceRoot) {
-    this.workspaceRoot = workspaceRoot;
-    this.ensureWorkspaceExists();
-    console.log(`📁 [${this.agentName}] Workspace root updated to: ${workspaceRoot}`);
-  }
-
-  /**
    * Slackトークンを設定
    */
   setSlackTokens(tokens) {
     this.slackTokens = tokens;
-    // console.log('🔐 Slack tokens set for user:', {
-    //   userId: tokens?.userId,
-    //   hasBot: !!tokens?.bot_token,
-    //   hasUser: !!tokens?.user_token
-    // });
+    console.log('🔐 Slack tokens set for user:', {
+      userId: tokens?.userId,
+      hasBot: !!tokens?.bot_token,
+      hasUser: !!tokens?.user_token
+    });
     // MCPサーバーを再初期化してHTTP MCPを追加
     this.initializeMCPServers();
   }
@@ -194,7 +178,7 @@ export class ClaudeExecutorService extends EventEmitter {
    */
   setMcpServers(servers) {
     this.mcpServers = servers;
-    // console.log('🔧 MCP servers configured:', Object.keys(servers));
+    console.log('🔧 MCP servers configured:', Object.keys(servers));
   }
   
   
@@ -244,7 +228,7 @@ export class ClaudeExecutorService extends EventEmitter {
       case 'system':
         if (msg.subtype === 'init') {
           logContent = `Claude SDK initialized\nWorking directory: ${msg.cwd}`;
-          // console.log('🚀 Claude SDK initialized');
+          console.log('🚀 Claude SDK initialized');
         }
         break;
         
@@ -274,11 +258,11 @@ export class ClaudeExecutorService extends EventEmitter {
         
       case 'result':
         if (msg.subtype === 'success') {
-          console.log(`✅ [${this.agentName}] Task completed successfully`);
+          console.log('✅ Task completed successfully');
         } else if (msg.subtype === 'error') {
           logContent = `Error: ${msg.error || 'Unknown error'}`;
           logType = 'error';
-          console.log(`❌ [${this.agentName}] Execution error:`, msg.error);
+          console.log('❌ Execution error:', msg.error);
         }
         break;
         
@@ -300,12 +284,12 @@ export class ClaudeExecutorService extends EventEmitter {
    * アクションを実行
    */
   async executeAction(action) {
-    // console.log(`🎯 Executing action: ${action.type}`, action);
+    console.log(`🎯 Executing action: ${action.type}`, action);
     
     // 実行中の場合はキューに追加
     if (this.isExecuting) {
       this.actionQueue.push(action);
-      // console.log('📋 Action queued, current queue size:', this.actionQueue.length);
+      console.log('📋 Action queued, current queue size:', this.actionQueue.length);
       return {
         success: false,
         error: 'Another action is being executed',
@@ -318,7 +302,7 @@ export class ClaudeExecutorService extends EventEmitter {
 
     // 実行タイムアウトを設定
     this.executionTimeout = setTimeout(() => {
-      // console.log('⏰ Execution timeout reached, forcing reset');
+      console.log('⏰ Execution timeout reached, forcing reset');
       this.resetExecutionState();
     }, this.MAX_EXECUTION_TIME);
 
@@ -403,7 +387,7 @@ export class ClaudeExecutorService extends EventEmitter {
       // キューに次のアクションがあれば実行
       if (this.actionQueue.length > 0) {
         const nextAction = this.actionQueue.shift();
-        // console.log('📋 Processing next action from queue');
+        console.log('📋 Processing next action from queue');
         this.executeAction(nextAction);
       }
     }
@@ -464,21 +448,42 @@ ${action.parameters.query}`;
       // process.env.DEBUG = 'true';
       // process.env.ANTHROPIC_LOG = 'debug';
       
-      // nodeラッパーの作成は完全にスキップ（Railway/Vercel環境では不要）
-      console.log('🚫 Skipping node wrapper creation (not needed for web app)');
-      process.env.PATH = originalPath;
+      // Electronの実行ファイルのディレクトリをPATHに追加
+      const electronDir = path.dirname(process.execPath);
+      process.env.PATH = `${electronDir}:${originalPath}`;
+      
+      // 一時的なnode実行ファイルを作成（実際にはElectronを呼び出すシェルスクリプト）
+      const tempNodePath = path.join(os.tmpdir(), 'anicca-node-wrapper');
+      try {
+        const nodeWrapper = `#!/bin/sh
+ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "$@"
+`;
+        fs.writeFileSync(tempNodePath, nodeWrapper, { mode: 0o755 });
+        
+        // このディレクトリもPATHに追加
+        process.env.PATH = `${os.tmpdir()}:${process.env.PATH}`;
+        
+        // node wrapperをnodeという名前にリネーム
+        const nodePath = path.join(os.tmpdir(), 'node');
+        if (fs.existsSync(nodePath)) {
+          fs.unlinkSync(nodePath);
+        }
+        fs.renameSync(tempNodePath, nodePath);
+      } catch (error) {
+        console.error('❌ Failed to create node wrapper:', error);
+      }
       
         // デバッグ: 環境変数を確認
-        // console.log('🔍 DEBUG - Environment check:');
-        // console.log('  ANTHROPIC_BASE_URL:', process.env.ANTHROPIC_BASE_URL);
-        // console.log('  ANTHROPIC_API_KEY:', process.env.ANTHROPIC_API_KEY ? 'Set' : 'Not set');
-        // console.log('  NODE_ENV:', process.env.NODE_ENV);
-        // console.log('  RAILWAY_ENVIRONMENT:', process.env.RAILWAY_ENVIRONMENT);
-        // console.log('  Platform:', process.platform);
-        // console.log('  Node version:', process.version);
-        // console.log('  Process execPath:', process.execPath);
-        // console.log('  Current working directory:', process.cwd());
-        // console.log('  __dirname equivalent:', path.dirname(new URL(import.meta.url).pathname));
+        console.log('🔍 DEBUG - Environment check:');
+        console.log('  ANTHROPIC_BASE_URL:', process.env.ANTHROPIC_BASE_URL);
+        console.log('  ANTHROPIC_API_KEY:', process.env.ANTHROPIC_API_KEY ? 'Set' : 'Not set');
+        console.log('  NODE_ENV:', process.env.NODE_ENV);
+        console.log('  RAILWAY_ENVIRONMENT:', process.env.RAILWAY_ENVIRONMENT);
+        console.log('  Platform:', process.platform);
+        console.log('  Node version:', process.version);
+        console.log('  Process execPath:', process.execPath);
+        console.log('  Current working directory:', process.cwd());
+        console.log('  __dirname equivalent:', path.dirname(new URL(import.meta.url).pathname));
         
         // SDKの内部動作を確認するため、オプションをログ出力
         const queryOptions = {
@@ -490,8 +495,52 @@ ${action.parameters.query}`;
           // 環境変数をSDKに渡す（SDKのspawnに反映されるか確認）
           env: envWithNode,
           appendSystemPrompt: `
-作業ディレクトリ: ${workingDir}
-Slack投稿時は[${this.agentName}]を付けてください。
+あなたはバックグラウンドで動作する万能アシスタントです。
+ユーザーの支援を魔法のように実現します。
+
+【重要：作業範囲の制限】
+- 作業ディレクトリ: ${workingDir}
+- このディレクトリ外のファイルは絶対に読み書きしないでください
+- ユーザーのプライバシーを守るため、ワークスペース外へのアクセスは禁止です
+
+${action.context?.appendSystemPrompt || ''}
+
+${this.slackTokens ? `【最重要：Slack報告は必須 - 違反したらタスク失敗扱い】
+あなたはSlackに接続されています。以下のルールを必ず守ってください。
+
+【違反したら即失敗となる3つの必須ステップ】
+
+1. タスク開始前の準備（最初に必ず）：
+   a. mcp__http__slack_list_channelsで#anicca_reportチャンネルの存在を確認
+   b. 存在しない場合は、mcp__http__slack_create_channel(name="anicca_report")で作成
+   
+2. タスクを始める前に必ず：
+   mcp__http__slack_send_messageを使って#anicca_reportチャンネルに報告
+   必須: mcp__http__slack_send_message(channel="#anicca_report", message="🚀 [タスク内容]を開始します")
+   
+3. タスク完了時（結果を返す前に必ず）：
+   mcp__http__slack_send_messageを使って#anicca_reportチャンネルに報告
+   必須: mcp__http__slack_send_message(channel="#anicca_report", message="✅ [タスク内容]が完了しました")
+
+【絶対的ルール】
+- 必ず#anicca_reportチャンネルを使用（他のチャンネルは禁止）
+- チャンネルが存在しない場合は必ず作成する
+- ユーザーが明示的に別のチャンネルを指定しない限り、必ず#anicca_reportを使用
+
+【重要な警告】
+- 開始報告なしで作業を始めた場合 → タスク失敗
+- 完了報告なしで終了した場合 → タスク失敗
+` : ''}
+【成果物の届け方】
+- 作業の進捗や結果は定期的に報告してください
+- 重要な成果物（作成したアプリなど）がある場合は、その旨を明確に伝えてください
+- 「TODOアプリを作成しました。index.htmlに保存しました」など具体的に
+
+【作業報告の例】
+- "TODOアプリの作成を開始します"
+- "HTMLファイルを作成中..."
+- "TODOアプリが完成しました。todo-app/index.htmlに保存しました"
+- "エラーを3件修正しました：型定義、インポート文、変数名"
 
 【重要な注意事項】
 - macOS専用のコマンド（osascript、pbcopy、pbpaste、openなど）は使用しないでください
@@ -502,6 +551,11 @@ Slack投稿時は[${this.agentName}]を付けてください。
 あなたは専用ワークスペース内で作業します。
 新しいプロジェクトごとにサブディレクトリを作成してください。
 
+【学習と記憶】
+ユーザーについて学んだ重要な情報（名前、好み、パターンなど）は、
+${workingDir}/CLAUDE.md に保存してください。
+このファイルは次回のセッションで自動的に読み込まれます。
+
 【作業の目安】
 できるだけ10ターン以内で完了させてください。
 長くなりそうな場合は、段階的に結果を報告してください。
@@ -509,44 +563,44 @@ Slack投稿時は[${this.agentName}]を付けてください。
         };
         
         
-        // console.log('🚀 Starting Claude SDK query...');
-        // console.log('📁 Working directory:', workingDir);
-        // console.log('📝 Full prompt being sent:');
-        // console.log(prompt);
-        // console.log('⚙️ Query options:', JSON.stringify({
-        //   ...queryOptions,
-        //   env: '(env object present)', // 環境変数は表示しない
-        //   mcpServers: Object.keys(queryOptions.mcpServers || {})
-        // }, null, 2));
+        console.log('🚀 Starting Claude SDK query...');
+        console.log('📁 Working directory:', workingDir);
+        console.log('📝 Full prompt being sent:');
+        console.log(prompt);
+        console.log('⚙️ Query options:', JSON.stringify({
+          ...queryOptions,
+          env: '(env object present)', // 環境変数は表示しない
+          mcpServers: Object.keys(queryOptions.mcpServers || {})
+        }, null, 2));
         
         // queryの戻り値を確認
         let queryIterable;
         try {
-          // console.log('🔄 Calling query function...');
+          console.log('🔄 Calling query function...');
           
           queryIterable = query({
             prompt,
             options: queryOptions
           });
-          // console.log('✅ Query function returned:', typeof queryIterable);
-          // console.log('   Is iterable?', queryIterable && typeof queryIterable[Symbol.asyncIterator] === 'function');
+          console.log('✅ Query function returned:', typeof queryIterable);
+          console.log('   Is iterable?', queryIterable && typeof queryIterable[Symbol.asyncIterator] === 'function');
         } catch (queryInitError) {
           console.error('❌ Error initializing query:', queryInitError);
           throw queryInitError;
         }
         
         try {
-          // console.log('🔄 Starting to iterate over messages...');
+          console.log('🔄 Starting to iterate over messages...');
           let messageCount = 0;
           for await (const message of queryIterable) {
             messageCount++;
-            // console.log(`📨 Received message #${messageCount}, type: ${message?.type}`);
+            console.log(`📨 Received message #${messageCount}, type: ${message?.type}`);
             messages.push(message);
             
             // リアルタイムで進捗を表示
             this.logSDKMessage(message);
           }
-          // console.log(`✅ Query completed successfully with ${messageCount} messages`);
+          console.log(`✅ Query completed successfully with ${messageCount} messages`);
         } catch (queryError) {
         console.error('❌ Claude SDK query error - Full details:');
         console.error('  Error message:', queryError.message);
@@ -593,15 +647,15 @@ Slack投稿時は[${this.agentName}]を付けてください。
         }
       }
 
-      // console.log('📄 Execution Results from Claude Code SDK:');
-      // console.log('----------------------------------------');
-      // console.log(textResult || 'Task completed');
-      // console.log('----------------------------------------');
+      console.log('📄 Execution Results from Claude Code SDK:');
+      console.log('----------------------------------------');
+      console.log(textResult || 'Task completed');
+      console.log('----------------------------------------');
       
       // 生成されたファイルを検出
       const generatedFiles = this.findGeneratedFiles(workingDir);
       if (generatedFiles.length > 0) {
-        // console.log('📁 Generated files:');
+        console.log('📁 Generated files:');
         generatedFiles.forEach(file => console.log(`   - ${file}`));
       }
       
@@ -660,8 +714,8 @@ ${action.parameters.query || ''}`;
       // AbortControllerを作成
       this.abortController = new AbortController();
       
-      // console.log('🔍 Executing search with Claude Code SDK...');
-      // console.log('📁 Working directory:', sessionDir);
+      console.log('🔍 Executing search with Claude Code SDK...');
+      console.log('📁 Working directory:', sessionDir);
       
       // SDK APIを使用して検索を実行
       for await (const message of query({
@@ -696,15 +750,15 @@ ${action.parameters.query || ''}`;
         }
       }
 
-      // console.log('📄 Search Results from Claude Code SDK:');
-      // console.log('----------------------------------------');
-      // console.log(textResult || 'No results found');
-      // console.log('----------------------------------------');
+      console.log('📄 Search Results from Claude Code SDK:');
+      console.log('----------------------------------------');
+      console.log(textResult || 'No results found');
+      console.log('----------------------------------------');
       
       // 生成されたファイルを検出
       const generatedFiles = this.findGeneratedFiles(sessionDir);
       if (generatedFiles.length > 0) {
-        // console.log('📁 Generated files:');
+        console.log('📁 Generated files:');
         generatedFiles.forEach(file => console.log(`   - ${file}`));
       }
       
@@ -764,10 +818,10 @@ ${action.parameters.query || ''}`;
         result = resultMessage.result;
       }
 
-      // console.log('💻 Code Generation Results from Claude Code SDK:');
-      // console.log('----------------------------------------');
-      // console.log(result || 'Code generation completed');
-      // console.log('----------------------------------------');
+      console.log('💻 Code Generation Results from Claude Code SDK:');
+      console.log('----------------------------------------');
+      console.log(result || 'Code generation completed');
+      console.log('----------------------------------------');
       
       return {
         success: true,
@@ -814,10 +868,10 @@ ${action.parameters.query || ''}`;
         result = resultMessage.result;
       }
 
-      // console.log('📁 File Operation Results from Claude Code SDK:');
-      // console.log('----------------------------------------');
-      // console.log(result || 'File operation completed');
-      // console.log('----------------------------------------');
+      console.log('📁 File Operation Results from Claude Code SDK:');
+      console.log('----------------------------------------');
+      console.log(result || 'File operation completed');
+      console.log('----------------------------------------');
       
       return {
         success: true,
@@ -870,10 +924,10 @@ ${action.parameters.query || ''}`;
         result = resultMessage.result;
       }
 
-      // console.log('🖥️ Command Execution Results from Claude Code SDK:');
-      // console.log('----------------------------------------');
-      // console.log(result || 'Command executed');
-      // console.log('----------------------------------------');
+      console.log('🖥️ Command Execution Results from Claude Code SDK:');
+      console.log('----------------------------------------');
+      console.log(result || 'Command executed');
+      console.log('----------------------------------------');
       
       return {
         success: true,
@@ -947,7 +1001,7 @@ ${action.parameters.query || ''}`;
   async saveExecutionResult(action, result) {
     try {
       // TODO: データベーススキーマに応じて実装
-      // console.log('💾 Saving execution result to database');
+      console.log('💾 Saving execution result to database');
     } catch (error) {
       console.error('❌ Error saving execution result:', error);
     }
@@ -959,7 +1013,7 @@ ${action.parameters.query || ''}`;
   async addMCPServer(name, config) {
     try {
       this.mcpServers[name] = config;
-      // console.log(`🔌 MCP server '${name}' added:`, config);
+      console.log(`🔌 MCP server '${name}' added:`, config);
       return true;
     } catch (error) {
       console.error(`❌ Error adding MCP server '${name}':`, error);
@@ -976,10 +1030,10 @@ ${action.parameters.query || ''}`;
       // EXA APIキーを取得（既に無効化済み）
       // const encryptionService = (await import('./encryptionService')).EncryptionService;
       // EXA MCPサーバーは削除（遅いため）
-      // console.log('ℹ️ EXA MCP server disabled for performance')
+      console.log('ℹ️ EXA MCP server disabled for performance')
       
-      // console.log('✅ MCP servers configuration completed');
-      // console.log('📋 Available MCP servers:', Object.keys(this.mcpServers));
+      console.log('✅ MCP servers configuration completed');
+      console.log('📋 Available MCP servers:', Object.keys(this.mcpServers));
     } catch (error) {
       console.error('❌ Error setting up MCP servers:', error);
     }
@@ -1000,7 +1054,7 @@ ${action.parameters.query || ''}`;
    * 
    * サーバーの初期化
    */
-  initializeMCPServers() {
+  async initializeMCPServers() {
     this.mcpServers = {};
     
     // ElevenLabs MCPの設定（常に有効）
@@ -1013,7 +1067,7 @@ ${action.parameters.query || ''}`;
           ELEVENLABS_API_KEY: elevenLabsApiKey
         }
       };
-      // console.log('✅ ElevenLabs MCP server configured');
+      console.log('✅ ElevenLabs MCP server configured');
     }
     
     // Browser Base MCPの設定（常に有効）
@@ -1026,12 +1080,11 @@ ${action.parameters.query || ''}`;
           BROWSERBASE_PROJECT_ID: process.env.BROWSERBASE_PROJECT_ID
         }
       };
-      // console.log('✅ Browser Base MCP server configured');
+      console.log('✅ Browser Base MCP server configured');
     }
     
     // HTTP MCPサーバーを追加（Slack連携がある場合のみ）
     if (this.slackTokens && this.slackTokens.userId) {
-      console.log(`🔍 [${this.agentName}] Attempting to configure HTTP MCP for Slack...`);
       const httpMcpPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'mcp-servers', 'http-mcp-server.js');
       this.mcpServers.http = {
         command: 'node',
@@ -1046,23 +1099,11 @@ ${action.parameters.query || ''}`;
       console.log('   Path:', httpMcpPath);
       console.log('   User ID:', this.slackTokens.userId);
       console.log('   Slack User ID:', this.slackTokens.slack_user_id || 'not set');
-      console.log('   Has bot token:', !!this.slackTokens.bot_token);
-      console.log('   Has user token:', !!this.slackTokens.user_token);
-    } else {
-      console.log(`⚠️ [${this.agentName}] HTTP MCP not configured - Slack tokens not available`);
-      if (!this.slackTokens) {
-        console.log('   Reason: slackTokens is null/undefined');
-      } else if (!this.slackTokens.userId) {
-        console.log('   Reason: userId is missing');
-      }
     }
     
     // ファイルベースのSlack設定は削除（HTTP MCPに統一）
     // HTTP MCPサーバーのみを使用するため、slack-config.jsonは不要
-    // console.log('ℹ️ Using HTTP MCP for Slack integration (user-based)');
-    
-    // 設定されたMCPサーバーを確認
-    console.log(`📋 [${this.agentName}] MCP servers configured:`, Object.keys(this.mcpServers));
+    console.log('ℹ️ Using HTTP MCP for Slack integration (user-based)');
   }
 
   /**
@@ -1070,7 +1111,7 @@ ${action.parameters.query || ''}`;
    */
   async updateMCPServers() {
     await this.initializeMCPServers();
-    // console.log('🔄 MCP servers updated');
+    console.log('🔄 MCP servers updated');
   }
 
   /**
@@ -1094,7 +1135,7 @@ ${action.parameters.query || ''}`;
    * 実行状態をリセット（緊急用）
    */
   resetExecutionState() {
-    // console.log('🔄 Resetting execution state');
+    console.log('🔄 Resetting execution state');
     this.isExecuting = false;
     
     // 実行中のプロセスを中断

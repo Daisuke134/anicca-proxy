@@ -1,28 +1,40 @@
 // Claude SDK版のthink_with_claude
-// デスクトップ版と同じClaudeExecutorServiceを使用
+// 並列実行版 - ParentAgentを使用
 
-import { ClaudeExecutorService } from '../../services/claudeExecutorService.js';
+import { ParentAgent } from '../../services/parallel-sdk/agents/ParentAgent.js';
 import { MockDatabase } from '../../services/mockDatabase.js';
 import { getSlackTokensForUser } from '../../services/database.js';
+import { v4 as uuidv4 } from 'uuid';
 
-// タスク実行状態
-let taskState = {
-  isExecuting: false,
-  currentTask: null,
-  startedAt: null
-};
+// ParentAgentのインスタンス（再利用）
+let parentAgent = null;
 
-// ClaudeExecutorServiceのインスタンス（再利用）
-let claudeService = null;
-
-async function initializeService() {
-  if (!claudeService) {
-    const database = new MockDatabase();
-    await database.init();
-    claudeService = new ClaudeExecutorService(database);
-    console.log('✅ Claude Executor Service initialized for Vercel');
+async function initializeParentAgent(userId = null) {
+  console.log('🔄 Checking ParentAgent status...');
+  if (!parentAgent) {
+    console.log('📦 Creating new ParentAgent instance...');
+    
+    // userIdを環境変数に設定
+    if (userId) {
+      process.env.SLACK_USER_ID = userId;
+      process.env.CURRENT_USER_ID = userId;
+      console.log(`🔑 Setting userId in environment: ${userId}`);
+    }
+    
+    // ParentAgentはBaseWorkerを継承しているので、引数なしで初期化
+    parentAgent = new ParentAgent();
+    
+    console.log('🚀 Initializing ParentAgent...');
+    // ParentAgentの初期化（Workerの起動を含む）
+    await parentAgent.initialize();
+    
+    console.log('✅ Parent Agent initialized with persistent session');
+    console.log(`📂 Session: ${parentAgent.session.getSessionInfo().sessionId}`);
+  } else {
+    console.log('♻️ Reusing existing ParentAgent instance');
+    console.log(`📂 Session: ${parentAgent.session.getSessionInfo().sessionId}`);
   }
-  return claudeService;
+  return parentAgent;
 }
 
 export default async function handler(req, res) {
@@ -86,82 +98,78 @@ export default async function handler(req, res) {
     if (userId) {
       try {
         slackTokens = await getSlackTokensForUser(userId);
-        console.log('🔐 Slack token lookup:', {
-          userId: userId,
-          tokensFound: !!slackTokens,
-          hasBotToken: !!slackTokens?.bot_token,
-          hasUserToken: !!slackTokens?.user_token
-        });
+        // console.log('🔐 Slack token lookup:', {
+        //   userId: userId,
+        //   tokensFound: !!slackTokens,
+        //   hasBotToken: !!slackTokens?.bot_token,
+        //   hasUserToken: !!slackTokens?.user_token
+        // });
       } catch (error) {
         console.error('Failed to get Slack tokens:', error);
       }
     }
     
-    // ClaudeExecutorServiceを初期化
-    const service = await initializeService();
+    // ParentAgentを初期化（userIdを渡す）
+    const agent = await initializeParentAgent(userId);
     
-    // Slackトークンがある場合は設定
+    // Slackトークンがある場合はグローバルに設定（Workerが使用）
     if (slackTokens) {
-      console.log('🔗 Setting Slack tokens in ClaudeExecutorService');
-      service.setSlackTokens(slackTokens);
+      console.log('🔗 Setting Slack tokens globally for Workers');
+      global.slackTokens = slackTokens;
+      global.slackBotToken = slackTokens.bot_token;
+      global.slackUserToken = slackTokens.user_token;
+      global.currentUserId = userId;  // 実際のuserIdを設定
     } else {
       console.log('⚠️ No Slack tokens to set for userId:', userId || 'none');
+      global.currentUserId = userId || null;  // userIdがない場合もnullで設定
     }
-    
-    // 実行状態をチェック（VoiceServerと同じ）
-    if (taskState.isExecuting) {
-      const elapsed = Date.now() - (taskState.startedAt || 0);
-      const elapsedSeconds = Math.floor(elapsed / 1000);
-      return res.json({
-        success: false,
-        error: 'busy',
-        message: `現在「${taskState.currentTask}」を実行中です（${elapsedSeconds}秒経過）`,
-        currentTask: taskState.currentTask,
-        elapsedTime: elapsedSeconds
-      });
-    }
-    
-    // タスク実行開始
-    taskState.isExecuting = true;
-    taskState.currentTask = task;
-    taskState.startedAt = Date.now();
     
     console.log(`🚀 Starting task: ${task}`);
     
     try {
-      // VoiceServerと同じ形式でexecuteAction呼び出し
-      const result = await service.executeAction({
+      // ParentAgentでタスクを処理（並列実行対応）
+      // console.log('🎯 Calling ParentAgent.processUserRequest with:', {
+      //   task: task.substring(0, 100) + '...',
+      //   hasContext: !!context,
+      //   userId: userId || 'none'
+      // });
+      
+      // ParentAgentはBaseWorkerベースなので、executeTaskを使う
+      const result = await agent.executeTask({
+        id: uuidv4(),
         type: 'general',
-        reasoning: task,
-        parameters: {
-          query: task  // ClaudeExecutorServiceが期待するフォーマット
-        },
-        context: context || ''
+        originalRequest: task,
+        context: {
+          context: context || '',
+          userId: userId || null,
+          userName: userId || 'ユーザー'
+        }
       });
       
-      // タスク完了
-      taskState.isExecuting = false;
-      taskState.currentTask = null;
-      taskState.startedAt = null;
+      // console.log('📊 ParentAgent result:', {
+      //   success: result.success,
+      //   tasksCount: result.tasks?.length || 0,
+      //   executionTime: result.executionTime
+      // });
       
       console.log(`✅ Task completed: ${task}`);
+      
+      // 結果を統合（複数のWorkerの結果をまとめる）
+      const combinedResult = {
+        response: result.summary || 'タスクを完了しました',
+        toolsUsed: result.toolsUsed || [],
+        generatedFiles: result.generatedFiles || [],
+        parallelTasks: result.tasks || [],  // 並列実行されたタスクの詳細
+        executionTime: result.executionTime || 0
+      };
       
       // VoiceServerと同じレスポンス形式
       return res.json({
         success: true,
-        result: {
-          response: result.result || 'タスクを完了しました',
-          toolsUsed: result.toolsUsed || [],
-          generatedFiles: result.generatedFiles || []
-        }
+        result: combinedResult
       });
       
     } catch (error) {
-      // エラー時も状態をリセット
-      taskState.isExecuting = false;
-      taskState.currentTask = null;
-      taskState.startedAt = null;
-      
       console.error('Claude execution error:', error);
       return res.status(500).json({
         error: error instanceof Error ? error.message : 'Claude execution failed'

@@ -43,6 +43,7 @@ export async function getSlackTokensForUser(userId) {
       return {
         bot_token: data.bot_token,
         user_token: data.user_token || null,
+        slack_user_id: data.slack_user_id || null,
         userId: userId
       };
     }
@@ -80,6 +81,7 @@ export async function saveSlackTokensForUser(userId, tokens) {
         session_id: sessionId,
         bot_token: tokens.bot_token,
         user_token: tokens.user_token || null,
+        slack_user_id: tokens.slack_user_id || null,
         updated_at: new Date().toISOString()
       });
     

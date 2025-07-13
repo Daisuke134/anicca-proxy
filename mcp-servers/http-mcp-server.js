@@ -98,6 +98,39 @@ const httpTools = [
       required: ['channel'],
     },
   },
+  {
+    name: 'slack_create_channel',
+    description: 'Create a new Slack channel',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Name of the channel to create (default: anicca_report)',
+          default: 'anicca_report',
+        },
+        is_private: {
+          type: 'boolean',
+          description: 'Whether the channel should be private (default: false)',
+          default: false,
+        },
+      },
+    },
+  },
+  {
+    name: 'slack_send_dm_to_user',
+    description: 'Send a direct message to the user',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          description: 'The message to send as a DM',
+        },
+      },
+      required: ['message'],
+    },
+  },
 ];
 
 // Handle tool listing
@@ -339,6 +372,126 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           {
             type: 'text',
             text: `Recent messages from ${channel}:\n\n${formattedMessages}`,
+          },
+        ],
+      };
+    }
+    
+    if (name === 'slack_create_channel') {
+      const { name: channelName = 'anicca_report', is_private = false } = args;
+      const slackApiUrl = process.env.SLACK_API_URL || 'https://anicca-proxy-staging.up.railway.app/api/tools/slack';
+      const userId = process.env.USER_ID;
+      
+      console.error(`[HTTP MCP] Creating Slack channel ${channelName} for user ${userId}`);
+      console.error(`[HTTP MCP] Request details:`, {
+        url: slackApiUrl,
+        channelName: channelName,
+        isPrivate: is_private,
+        userId: userId || 'undefined',
+        hasUserId: !!userId,
+        envUserId: process.env.USER_ID || 'not set'
+      });
+      
+      const response = await fetch(slackApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'create_channel',
+          arguments: { name: channelName, is_private },
+          userId: userId || process.env.USER_ID,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      console.error(`[HTTP MCP] Slack API response:`, {
+        success: response.ok,
+        status: response.status,
+        hasResult: !!result,
+        hasError: !!result.error,
+        userId: userId
+      });
+      
+      if (!response.ok) {
+        console.error(`[HTTP MCP] Slack API error:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: result.error,
+          message: result.message,
+          userId: userId,
+          url: slackApiUrl
+        });
+        throw new Error(result.message || `Slack API error: ${response.status}`);
+      }
+      
+      const channelInfo = result.result?.channel;
+      return {
+        content: [
+          {
+            type: 'text',
+            text: channelInfo 
+              ? `Channel #${channelInfo.name} created successfully (ID: ${channelInfo.id})`
+              : `Channel #${channelName} is ready for use`,
+          },
+        ],
+      };
+    }
+    
+    if (name === 'slack_send_dm_to_user') {
+      const { message } = args;
+      const slackApiUrl = process.env.SLACK_API_URL || 'https://anicca-proxy-staging.up.railway.app/api/tools/slack';
+      const userId = process.env.USER_ID;
+      
+      console.error(`[HTTP MCP] Sending DM to user ${userId}`);
+      console.error(`[HTTP MCP] Request details:`, {
+        url: slackApiUrl,
+        message: message?.substring(0, 100) + '...',
+        userId: userId || 'undefined',
+        hasUserId: !!userId,
+        envUserId: process.env.USER_ID || 'not set'
+      });
+      
+      const response = await fetch(slackApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'send_dm_to_user',
+          arguments: { message },
+          userId: userId || process.env.USER_ID,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      console.error(`[HTTP MCP] Slack API response:`, {
+        success: response.ok,
+        status: response.status,
+        hasResult: !!result,
+        hasError: !!result.error,
+        userId: userId
+      });
+      
+      if (!response.ok) {
+        console.error(`[HTTP MCP] Slack API error:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: result.error,
+          message: result.message,
+          userId: userId,
+          url: slackApiUrl
+        });
+        throw new Error(result.message || `Slack API error: ${response.status}`);
+      }
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `DM sent successfully to user`,
           },
         ],
       };

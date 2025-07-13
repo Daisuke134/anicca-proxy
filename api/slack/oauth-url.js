@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     // Slack OAuth URLを直接構築
     const clientId = process.env.SLACK_CLIENT_ID;
     // 動的にリダイレクトURIを生成（環境に応じて自動判定）
-    const host = req.headers.host || 'anicca-proxy-production.up.railway.app';
+    const host = req.headers.host || 'anicca-proxy-staging.up.railway.app';
     const protocol = req.headers['x-forwarded-proto'] || 'https';
     const redirectUri = `${protocol}://${host}/api/slack/oauth-callback`;
     
