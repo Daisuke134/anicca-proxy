@@ -78,12 +78,8 @@ export class ClaudeExecutorService extends EventEmitter {
       
       // ANTHROPIC_BASE_URLを設定してプロキシ経由にする
       // エージェントタイプをURLパスに含める
-      // 環境に応じてプロキシURLを選択
-      const baseProxyUrl = process.env.VERCEL_URL 
-        ? 'https://anicca-proxy-ten.vercel.app'
-        : process.env.RAILWAY_ENVIRONMENT 
-          ? 'https://anicca-proxy-staging.up.railway.app'
-          : 'https://anicca-proxy-ten.vercel.app'; // デフォルトはVercel
+      // RailwayのプロキシURLを使用
+      const baseProxyUrl = 'https://anicca-proxy-staging.up.railway.app';
       
       const proxyUrl = `${baseProxyUrl}/api/claude/${agentType}`;
       process.env.ANTHROPIC_BASE_URL = proxyUrl;

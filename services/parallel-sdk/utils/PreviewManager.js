@@ -123,11 +123,9 @@ export class PreviewManager {
       }
       
       // プロキシURLを生成（署名付きURLの代わりに）
-      const proxyBaseUrl = process.env.VERCEL_URL 
-        ? `https://${process.env.VERCEL_URL}`
-        : process.env.RAILWAY_PUBLIC_DOMAIN
+      const proxyBaseUrl = process.env.RAILWAY_PUBLIC_DOMAIN
         ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-        : 'https://anicca-proxy-ten.vercel.app';
+        : 'https://anicca-proxy-staging.up.railway.app';
       
       const previewUrl = `${proxyBaseUrl}/api/preview-app/${userId}/Worker${workerNumber}/projects/${projectId}/index.html`;
       
