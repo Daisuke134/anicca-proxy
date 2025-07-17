@@ -107,9 +107,11 @@ export class ClaudeExecutorService extends EventEmitter {
       this.workspaceRoot = this.workerWorkspaceRoot;
     } else {
       // デフォルト値（後方互換性のため）
-      this.workspaceRoot = process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT
-        ? path.join('/tmp', 'anicca-agent-workspace')
-        : path.join(os.homedir(), 'Desktop', 'anicca-agent-workspace');
+      this.workspaceRoot = process.env.DESKTOP_MODE
+        ? path.join(os.homedir(), 'Desktop', 'anicca-agent-workspace')
+        : (process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT
+          ? path.join('/tmp', 'anicca-agent-workspace')
+          : path.join(os.homedir(), 'Desktop', 'anicca-agent-workspace'));
     }
     
     try {

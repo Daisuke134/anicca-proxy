@@ -27,12 +27,17 @@ class Worker extends BaseWorker {
       process.env.CLAUDE_AGENT_TYPE = 'worker';
       console.log('🏷️ Setting CLAUDE_AGENT_TYPE to "worker"');
       
-      // Worker専用のワークスペースを設定
-      this.workspaceRoot = `/tmp/worker-${this.workerNumber}-workspace`;
+      // Worker専用のワークスペースを設定（Desktop版の判定）
+      const isDesktop = process.env.DESKTOP_MODE === 'true';
+      this.workspaceRoot = isDesktop 
+        ? path.join(os.homedir(), 'Desktop', 'anicca-agent-workspace', `worker-${this.workerNumber}`)
+        : `/tmp/worker-${this.workerNumber}-workspace`;
+      
       if (!fs.existsSync(this.workspaceRoot)) {
         fs.mkdirSync(this.workspaceRoot, { recursive: true });
       }
       console.log(`📁 Worker${this.workerNumber} workspace: ${this.workspaceRoot}`);
+      console.log(`🖥️ Running in ${isDesktop ? 'Desktop' : 'Web'} mode`);
       
       // ClaudeExecutorServiceにWorker専用のworkspaceRootを設定
       if (this.executor && this.executor.setWorkspaceRoot) {
@@ -58,7 +63,10 @@ class Worker extends BaseWorker {
    */
   async executeTask(task) {
     // Worker専用のworkspaceRootを確認（既に初期化時に設定済みのはず）
-    this.workspaceRoot = this.workspaceRoot || `/tmp/worker-${this.workerNumber}-workspace`;
+    const isDesktop = process.env.DESKTOP_MODE === 'true';
+    this.workspaceRoot = this.workspaceRoot || (isDesktop 
+      ? path.join(os.homedir(), 'Desktop', 'anicca-agent-workspace', `worker-${this.workerNumber}`)
+      : `/tmp/worker-${this.workerNumber}-workspace`);
     
     // デバッグ: ユーザーID確認
     console.log(`🔍 [${this.agentName}] Task userId sources:`, {
@@ -106,43 +114,51 @@ class Worker extends BaseWorker {
               console.log(`🌐 Found web project with index.html: ${fullPath}`);
               const projectName = dir;
               
-              // PreviewManagerで公開
-              const previewInfo = await previewManager.publishApp(fullPath, {
-                projectName,
-                taskId: task.id,
-                description: task.description,
-                workerName: this.agentName,
-                workerNumber: this.workerNumber,
-                userId: process.env.CURRENT_USER_ID || task.userId
-              });
-              
-              // 結果にプレビュー情報を追加
-              result.previewUrl = previewInfo.previewUrl;
-              result.appId = previewInfo.appId;
-              result.metadata = {
-                ...result.metadata,
-                preview: previewInfo
-              };
-              
-              // デバッグ: 結果オブジェクトを確認
-              console.log(`🌐 App published to preview: ${previewInfo.previewUrl}`);
-              console.log(`📊 Result object preview URL: ${result.previewUrl}`);
-              console.log(`📊 Result metadata preview: ${JSON.stringify(result.metadata.preview, null, 2)}`);
-              
-              // プレビューURLをSlackに追加投稿
-              try {
-                const slackMessage = `[${this.agentName}] 🌐 アプリを見る: ${previewInfo.previewUrl}`;
+              // Desktop版チェック
+              const isDesktop = process.env.DESKTOP_MODE === 'true';
+              if (!isDesktop) {
+                // Web版のみPreviewManagerで公開
+                const previewInfo = await previewManager.publishApp(fullPath, {
+                  projectName,
+                  taskId: task.id,
+                  description: task.description,
+                  workerName: this.agentName,
+                  workerNumber: this.workerNumber,
+                  userId: process.env.CURRENT_USER_ID || task.userId
+                });
                 
-                // ClaudeセッションでSlackに投稿
-                const slackPrompt = `mcp__http__slack_send_messageツールを使って#anicca_reportチャンネルに以下を投稿してください:
+                // 結果にプレビュー情報を追加
+                result.previewUrl = previewInfo.previewUrl;
+                result.appId = previewInfo.appId;
+                result.metadata = {
+                  ...result.metadata,
+                  preview: previewInfo
+                };
+              } else {
+                console.log(`🖥️ Desktop版: プレビューURL生成をスキップ`);
+              }
+              
+              // デバッグ: 結果オブジェクトを確認（Web版のみ）
+              if (!isDesktop) {
+                console.log(`🌐 App published to preview: ${result.previewUrl}`);
+                console.log(`📊 Result object preview URL: ${result.previewUrl}`);
+                console.log(`📊 Result metadata preview: ${JSON.stringify(result.metadata.preview, null, 2)}`);
+                
+                // プレビューURLをSlackに追加投稿
+                try {
+                  const slackMessage = `[${this.agentName}] 🌐 アプリを見る: ${result.previewUrl}`;
+                  
+                  // ClaudeセッションでSlackに投稿
+                  const slackPrompt = `mcp__http__slack_send_messageツールを使って#anicca_reportチャンネルに以下を投稿してください:
 ${slackMessage}
 
 これはアプリのプレビューURLです。投稿後は「投稿しました」とだけ返答してください。`;
-                
-                await this.session.sendMessage(slackPrompt);
-                console.log(`📮 Preview URL posted to Slack`);
-              } catch (error) {
-                console.error(`Failed to post preview URL to Slack:`, error);
+                  
+                  await this.session.sendMessage(slackPrompt);
+                  console.log(`📮 Preview URL posted to Slack`);
+                } catch (error) {
+                  console.error(`Failed to post preview URL to Slack:`, error);
+                }
               }
               
               // 最初のWebプロジェクトのみ公開（複数ある場合）

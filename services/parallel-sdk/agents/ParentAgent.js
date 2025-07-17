@@ -6,6 +6,9 @@ const { v4: uuidv4 } = require('uuid');
 import { loadClaudeMd, saveClaudeMd, appendLearning } from '../../workerMemory.js';
 import { getSlackTokensForUser } from '../../database.js';
 import { createClient } from '@supabase/supabase-js';
+import * as path from 'path';
+import * as os from 'os';
+import fsSync from 'fs';
 
 /**
  * ParentAgent - BaseWorkerベースの司令塔エージェント
@@ -33,6 +36,19 @@ export class ParentAgent extends BaseWorker {
     
     // Workerの設定
     this.workerScriptPath = new URL('./Worker.js', import.meta.url).pathname;
+    
+    // ParentAgent専用のワークスペースを設定
+    const isDesktop = process.env.DESKTOP_MODE === 'true';
+    this.workspaceRoot = isDesktop 
+      ? path.join(os.homedir(), 'Desktop', 'anicca-agent-workspace', 'parentagent')
+      : '/tmp/parent-workspace';
+    
+    // ワークスペースディレクトリを作成
+    if (!fsSync.existsSync(this.workspaceRoot)) {
+      fsSync.mkdirSync(this.workspaceRoot, { recursive: true });
+    }
+    console.log(`📁 ParentAgent workspace: ${this.workspaceRoot}`);
+    console.log(`🖥️ Running in ${isDesktop ? 'Desktop' : 'Web'} mode`);
     
     // Supabase初期化
     const supabaseUrl = process.env.SUPABASE_URL;
@@ -69,6 +85,32 @@ export class ParentAgent extends BaseWorker {
       
       // ParentAgentのCLAUDE.mdを読み込む
       await this.loadTeamMemory();
+      
+      // Desktop版専用プロンプトを設定
+      const isDesktop = process.env.DESKTOP_MODE === 'true';
+      if (isDesktop) {
+        this.desktopPrompt = `
+【作業環境】
+- Desktop版として動作中
+- ワークスペース: ~/Desktop/anicca-agent-workspace/parentagent/
+- CLAUDE.mdパス: ~/Desktop/anicca-agent-workspace/parentagent/CLAUDE.md
+
+【タスク管理】
+- 複数の異なるタスクは必ず別々のWorkerに割り当て
+- 各Workerは独立したワークスペースで作業: ~/Desktop/anicca-agent-workspace/worker-X/
+- 例: 「TODOアプリ作って、カレンダー作って」→ Worker1とWorker2に分散
+
+【進捗管理】
+- 長時間タスクの場合、進捗を定期的に報告
+- 完了時はosascriptで統合通知: osascript -e 'display notification "全タスク完了！" with title "ParentAgent"'
+
+【記憶管理】
+- チーム全体の重要情報は ~/Desktop/anicca-agent-workspace/parentagent/CLAUDE.md に記録
+- 各Workerの専門性や得意分野を記憶
+- ユーザーの傾向や好みを蓄積
+`;
+        console.log('🖥️ Desktop mode prompt configured for ParentAgent');
+      }
       
     } catch (error) {
       console.error(`❌ ${this.agentName} initialization failed:`, error);
@@ -493,6 +535,8 @@ ${statusList}
         AGENT_ID: `worker-${workerName.toLowerCase()}`,
         AGENT_NAME: workerName,
         WORKER_NUMBER: workerName.replace('Worker', ''),
+        // Desktop版判定を確実に渡す
+        DESKTOP_MODE: process.env.DESKTOP_MODE,
         // Slackトークンを環境変数で渡す
         SLACK_BOT_TOKEN: global.slackBotToken || '',
         SLACK_USER_TOKEN: global.slackUserToken || '',

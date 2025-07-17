@@ -266,6 +266,9 @@ export class BaseWorker extends IPCHandler {
       // Worker専用の作業ディレクトリを使用（Worker.jsで設定済み）
       const workingDir = this.workspaceRoot || `/tmp/worker-${this.workerNumber}-workspace`;
       
+      // Desktop版チェック
+      const isDesktop = process.env.DESKTOP_MODE === 'true';
+      
       // Worker用プロンプトを構築
       const prompt = `
 ${buildWorkerPrompt({
@@ -280,6 +283,16 @@ ${this.memoryContext || ''}
 【受け取ったタスク】
 ${task.originalRequest}
 
+${isDesktop ? `
+【実行手順】
+1. タスクを実行
+
+2. 重要な学習事項があれば ${workingDir}/CLAUDE.md に記録:
+   - ユーザーの好みや傾向（例：ダークモード好き）
+   - 新しく学んだ技術やパターン
+   - 今後に活かせる知見
+   - 「覚えて」と言われた内容は必ず記録
+` : `
 【実行手順】
 1. まず#anicca_reportチャンネルに開始報告:
    [${this.agentName}] 🚀 タスク開始: ${task.originalRequest}
@@ -294,16 +307,17 @@ ${task.originalRequest}
    - 「場所: /tmp/...」という形式は使わないでください
    - プレビューURLは別途自動的に投稿されます
 
-4. 重要な学習事項があれば /tmp/anicca-agent-workspace/CLAUDE.md に記録:
+4. 重要な学習事項があれば ${workingDir}/CLAUDE.md に記録:
    - ユーザーの好みや傾向（例：ダークモード好き）
    - 新しく学んだ技術やパターン
    - 今後に活かせる知見
    - 「覚えて」と言われた内容は必ず記録
 
+必ずmcp__http__slack_send_messageツールを使用してSlackに投稿してください。
+`}
+
 作業ディレクトリ: ${workingDir}
 プロジェクトごとにサブディレクトリを作成してください。
-
-必ずmcp__http__slack_send_messageツールを使用してSlackに投稿してください。
 `;
       
       // セッションを使用して実行
@@ -476,6 +490,13 @@ ${task.originalRequest}
    */
   async syncClaudeMdToSupabase(workingDir) {
     try {
+      // Desktop版チェック
+      const isDesktop = process.env.DESKTOP_MODE === 'true';
+      if (isDesktop) {
+        this.log('info', '🖥️ Desktop版: Supabase同期をスキップ');
+        return;
+      }
+      
       const claudeMdPath = path.join(workingDir, 'CLAUDE.md');
       
       // ファイルが存在するか確認
