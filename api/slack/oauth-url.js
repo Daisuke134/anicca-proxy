@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { sessionId, userId } = req.query;
+    const { sessionId, userId, platform } = req.query;
     
     // Slack OAuth URLを直接構築
     const clientId = process.env.SLACK_CLIENT_ID;
@@ -35,6 +35,7 @@ export default async function handler(req, res) {
       const stateData = { 
         sessionId, 
         userId,
+        platform: platform || 'web',
         redirectUrl: req.headers.referer || req.query.redirectUrl || undefined
       };
       console.log('  - stateData to be sent:', stateData);

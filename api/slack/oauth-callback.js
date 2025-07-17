@@ -102,16 +102,18 @@ export default async function handler(req, res) {
     }
     
     // stateからsessionIdとuserIdを取得
-    let sessionId, userId;
+    let sessionId, userId, platform;
     try {
       // stateがJSON形式の場合（新しい形式）
       const stateData = JSON.parse(state);
       sessionId = stateData.sessionId;
       userId = stateData.userId;
+      platform = stateData.platform || 'web';
     } catch (e) {
       // stateが単純な文字列の場合（後方互換性）
       sessionId = state || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       userId = null;
+      platform = 'web';
     }
     
     // トークンを永続化（ファイルとDBに保存）
@@ -146,32 +148,118 @@ export default async function handler(req, res) {
     global.currentSessionId = sessionId; // 現在のセッションIDを保存
     console.log('✅ Slack installation stored for team:', teamId);
     
-    // フロントエンドにリダイレクト
-    // デバッグログを追加
-    console.log('🔍 OAuth callback redirect debug:');
-    console.log('  - NODE_ENV:', process.env.NODE_ENV);
-    console.log('  - ANICCA_WEB_URL:', process.env.ANICCA_WEB_URL);
-    console.log('  - userId:', userId);
-    console.log('  - state:', state);
-    
-    let redirectUrl = process.env.ANICCA_WEB_URL || 'http://localhost:3000';
-    
-    // stateにredirectUrlが含まれている場合は優先的に使用
-    try {
-      const stateData = JSON.parse(state);
-      console.log('  - stateData:', stateData);
-      if (stateData.redirectUrl) {
-        redirectUrl = stateData.redirectUrl;
-        console.log('  - Using redirectUrl from state:', redirectUrl);
-      }
-    } catch (e) {
-      // stateがJSON形式でない場合
-      console.log('  - State is not JSON format');
+    // platformに基づいてレスポンスを分岐
+    if (platform === 'desktop') {
+      // Desktop版用の成功ページを表示
+      const successHtml = `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slack認証完了 - Anicca</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background: #1a1a1a;
+      color: white;
     }
-    
-    console.log('  - Final redirectUrl:', redirectUrl);
-    
-    res.redirect(`${redirectUrl}?success=true&service=slack&sessionId=${sessionId}`);
+    .container {
+      text-align: center;
+      padding: 2rem;
+    }
+    .checkmark {
+      font-size: 64px;
+      color: #4CAF50;
+      margin-bottom: 1rem;
+      animation: scaleIn 0.5s ease-out;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin: 1rem 0;
+    }
+    p {
+      color: #888;
+      margin: 0.5rem 0;
+    }
+    .team-info {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: #2a2a2a;
+      border-radius: 8px;
+    }
+    @keyframes scaleIn {
+      from {
+        transform: scale(0);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="checkmark">✅</div>
+    <h1>Slack認証が完了しました！</h1>
+    <p>Aniccaとの連携が正常に完了しました</p>
+    ${data.team?.name ? `
+    <div class="team-info">
+      <p>接続先: <strong>${data.team.name}</strong></p>
+    </div>
+    ` : ''}
+    <p style="margin-top: 2rem; font-size: 14px;">このタブは自動的に閉じます...</p>
+  </div>
+  <script>
+    // 3秒後に自動的にタブを閉じる
+    setTimeout(() => {
+      window.close();
+      // window.close()が効かない場合のフォールバック
+      document.body.innerHTML = '<div style="text-align: center; padding: 2rem;"><h2>認証が完了しました</h2><p>このタブを閉じてAniccaに戻ってください</p></div>';
+    }, 3000);
+  </script>
+</body>
+</html>
+      `;
+      
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.status(200).send(successHtml);
+    } else {
+      // Web版用の従来のリダイレクト処理
+      // デバッグログを追加
+      console.log('🔍 OAuth callback redirect debug:');
+      console.log('  - NODE_ENV:', process.env.NODE_ENV);
+      console.log('  - ANICCA_WEB_URL:', process.env.ANICCA_WEB_URL);
+      console.log('  - userId:', userId);
+      console.log('  - state:', state);
+      
+      let redirectUrl = process.env.ANICCA_WEB_URL || 'http://localhost:3000';
+      
+      // stateにredirectUrlが含まれている場合は優先的に使用
+      try {
+        const stateData = JSON.parse(state);
+        console.log('  - stateData:', stateData);
+        if (stateData.redirectUrl) {
+          redirectUrl = stateData.redirectUrl;
+          console.log('  - Using redirectUrl from state:', redirectUrl);
+        }
+      } catch (e) {
+        // stateがJSON形式でない場合
+        console.log('  - State is not JSON format');
+      }
+      
+      console.log('  - Final redirectUrl:', redirectUrl);
+      
+      res.redirect(`${redirectUrl}?success=true&service=slack&sessionId=${sessionId}`);
+    }
     
   } catch (error) {
     console.error('OAuth callback error:', error);
