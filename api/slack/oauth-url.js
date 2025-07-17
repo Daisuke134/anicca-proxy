@@ -29,12 +29,12 @@ export default async function handler(req, res) {
     
     // stateを生成（sessionIdとuserIdを含める）
     let state;
-    if (userId) {
-      // userIdがある場合は、JSON形式でstateを作成
+    if (userId || platform === 'desktop') {
+      // userIdがある場合、またはDesktop版の場合は、JSON形式でstateを作成
       // リダイレクトURLも含める（開発環境対応）
       const stateData = { 
-        sessionId, 
-        userId,
+        sessionId: sessionId || Math.random().toString(36).substring(2, 15), 
+        userId: userId || (platform === 'desktop' ? 'desktop-user' : null),
         platform: platform || 'web',
         redirectUrl: req.headers.referer || req.query.redirectUrl || undefined
       };

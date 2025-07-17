@@ -623,6 +623,18 @@ ${statusList}
           worker.status = 'idle';
           console.log(`✅ [${this.agentName}] Task completed by ${worker.name}`);
           
+          // Desktop版の場合はリアルタイム報告
+          const isDesktop = process.env.DESKTOP_MODE === 'true';
+          if (isDesktop && this.onTaskComplete) {
+            // コールバック経由で完了を通知
+            this.onTaskComplete({
+              workerName: worker.name,
+              task: taskInfo.task.originalRequest || taskInfo.task.task || taskInfo.task.description,
+              taskId: taskId,
+              completedAt: new Date().toISOString()
+            });
+          }
+          
           // 進捗更新をSlackに投稿
           this.postProgressUpdate(taskInfo.task, worker.name).catch(error => {
             console.error(`Failed to post progress update: ${error.message}`);
