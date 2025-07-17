@@ -324,6 +324,13 @@ export class ParentAgent extends BaseWorker {
    * 統合TODOリストをSlackに投稿
    */
   async postCombinedTodoList(scheduledTasks, normalTasks) {
+    // Desktop版チェック
+    const isDesktop = process.env.DESKTOP_MODE === 'true';
+    if (isDesktop) {
+      console.log('🖥️ Desktop版: TODOリスト投稿をスキップ');
+      return;
+    }
+    
     let todoContent = '[ParentAgent] 📋 TODOリスト\n';
     
     // 定期タスクセクション
@@ -357,6 +364,13 @@ export class ParentAgent extends BaseWorker {
    * 完了更新をSlackに投稿
    */
   async postCompletionUpdate(normalTasks, scheduledTasks, results) {
+    // Desktop版チェック
+    const isDesktop = process.env.DESKTOP_MODE === 'true';
+    if (isDesktop) {
+      console.log('🖥️ Desktop版: 完了更新投稿をスキップ');
+      return;
+    }
+    
     let updateContent = '[ParentAgent] 🔄 TODOリスト更新\n';
     
     // 定期タスクセクション
@@ -425,6 +439,13 @@ ${previewUrl ? `\n🌐 アプリを見る: ${previewUrl}` : ''}`;
    * 進捗更新をSlackに投稿（複数タスクの場合に使用）
    */
   async postProgressUpdate(task, completedWorkerName) {
+    // Desktop版チェック
+    const isDesktop = process.env.DESKTOP_MODE === 'true';
+    if (isDesktop) {
+      console.log(`🖥️ Desktop版: ${completedWorkerName}のタスク完了（進捗更新スキップ）`);
+      return;
+    }
+    
     // 現在のタスク状況を集計
     const totalTasks = this.tasks.size;
     const completedTasks = Array.from(this.tasks.values()).filter(t => t.status === 'completed').length;

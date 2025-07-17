@@ -196,7 +196,7 @@ export class BaseWorker extends IPCHandler {
   async handleTaskAssignment(payload) {
     const { taskId, task } = payload;
     
-    this.log('info', `Received task ${taskId}: ${task.description}`);
+    this.log('info', `Received task ${taskId}: ${task.originalRequest || task.task || task.description || 'No description'}`);
     this.currentTask = { taskId, task, startTime: Date.now() };
     
     // ステータスを更新

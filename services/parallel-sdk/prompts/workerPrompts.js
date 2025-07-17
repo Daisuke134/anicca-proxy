@@ -63,6 +63,7 @@ export function generateBaseWorkerPrompt(context = {}) {
 - ファイルシステム操作（Read、Write、Edit）
 - コマンド実行（Bash）
 - Web検索（必要に応じて）
+- Slack連携（mcp__http__slack_send_message）
 - その他のMCPツール
 
 ## 実行例
@@ -82,8 +83,13 @@ open ${workspaceRoot}/todo-app/index.html
 osascript -e 'display notification "TODOアプリ完成！" with title "${workerName}"'
 \`\`\`
 
+## Slack連携について
+- 進捗報告（#anicca_report）への自動投稿は不要です
+- ただし、ユーザーから「Slackに投稿して」と明示的に指示された場合は、
+  mcp__http__slack_send_messageツールを使用して投稿してください
+- 例：「○○チャンネルにメッセージを送って」→ 指定されたチャンネルに投稿
+
 ## 重要な注意事項
-- Slack投稿は不要（#anicca_reportへの投稿をしない）
 - プレビューURL生成は不要（ローカルで直接開く）
 - エラーが発生してもSlackに報告せず、音声応答で伝える
 - Supabase関連のエラーは無視する
