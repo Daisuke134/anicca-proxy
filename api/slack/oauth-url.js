@@ -76,7 +76,7 @@ export default async function handler(req, res) {
       `scope=${scopes}&` +
       `user_scope=${userScopes}&` +  // User scopeを追加
       `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-      `state=${state}`;
+      `state=${encodeURIComponent(state)}`;
     
     console.log('🔗 Generated Slack OAuth URL (Simple)');
     
