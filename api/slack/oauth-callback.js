@@ -232,6 +232,7 @@ export default async function handler(req, res) {
       
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.status(200).send(successHtml);
+      return; // Desktop版はここで処理を終了
     } else {
       // Web版用の従来のリダイレクト処理
       // デバッグログを追加
