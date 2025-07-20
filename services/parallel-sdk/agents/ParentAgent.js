@@ -205,38 +205,53 @@ export class ParentAgent extends BaseWorker {
       // タスク実行前にユーザーのSlackトークンを取得して設定
       const userId = task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID;
       if (userId) {
-        this.log('info', `🔑 Getting Slack tokens for user: ${userId}`);
-        try {
-          const slackTokens = await getSlackTokensForUser(userId);
-          if (slackTokens && slackTokens.bot_token) {
-            this.log('info', '✅ Slack tokens found, configuring MCP...');
-            
-            // ExecutorServiceにトークンを設定
-            this.executor.setSlackTokens({
+        const isDesktop = process.env.DESKTOP_MODE === 'true';
+        
+        let slackTokens = null;
+        
+        if (isDesktop && process.env.SLACK_BOT_TOKEN) {
+          // Desktop版：環境変数から取得
+          this.log('info', '🔑 Using Slack tokens from environment variables (Desktop mode)');
+          slackTokens = {
+            bot_token: process.env.SLACK_BOT_TOKEN,
+            user_token: process.env.SLACK_USER_TOKEN || '',
+            userId: userId
+          };
+        } else if (!isDesktop) {
+          // Web版：Supabaseから取得
+          this.log('info', `🔑 Getting Slack tokens for user: ${userId}`);
+          try {
+            slackTokens = await getSlackTokensForUser(userId);
+          } catch (error) {
+            this.log('error', `❌ Failed to get Slack tokens: ${error.message}`);
+          }
+        }
+        
+        if (slackTokens && slackTokens.bot_token) {
+          this.log('info', '✅ Slack tokens found, configuring MCP...');
+          
+          // ExecutorServiceにトークンを設定
+          this.executor.setSlackTokens({
+            bot_token: slackTokens.bot_token,
+            user_token: slackTokens.user_token,
+            userId: userId
+          });
+          
+          // Desktop版の場合、トークンを保存しておく
+          if (isDesktop) {
+            this.slackTokens = {
               bot_token: slackTokens.bot_token,
               user_token: slackTokens.user_token,
               userId: userId
-            });
-            
-            // Desktop版の場合、トークンを保存しておく
-            const isDesktop = process.env.DESKTOP_MODE === 'true';
-            if (isDesktop) {
-              this.slackTokens = {
-                bot_token: slackTokens.bot_token,
-                user_token: slackTokens.user_token,
-                userId: userId
-              };
-              this.log('info', '💾 Stored Slack tokens for Desktop mode');
-            }
-            
-            // MCPサーバーを再初期化
-            this.executor.initializeMCPServers();
-            this.log('info', '✅ MCP servers re-initialized with Slack tokens');
-          } else {
-            this.log('warn', '⚠️ No Slack tokens found for user');
+            };
+            this.log('info', '💾 Stored Slack tokens for Desktop mode');
           }
-        } catch (error) {
-          this.log('error', `❌ Failed to get Slack tokens: ${error.message}`);
+          
+          // MCPサーバーを再初期化
+          this.executor.initializeMCPServers();
+          this.log('info', '✅ MCP servers re-initialized with Slack tokens');
+        } else {
+          this.log('warn', '⚠️ No Slack tokens found for user');
         }
       }
       // 1. Worker状況を取得
