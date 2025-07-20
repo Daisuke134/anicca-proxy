@@ -194,10 +194,19 @@ export class BaseWorker extends IPCHandler {
    * @private
    */
   async handleTaskAssignment(payload) {
-    const { taskId, task } = payload;
+    const { taskId, task, slackTokens } = payload;
     
     this.log('info', `Received task ${taskId}: ${task.originalRequest || task.task || task.description || 'No description'}`);
     this.currentTask = { taskId, task, startTime: Date.now() };
+    
+    // Desktop版でSlackトークンが渡された場合
+    if (slackTokens) {
+      this.log('info', '🔑 Received Slack tokens from ParentAgent (Desktop mode)');
+      this.executor.setSlackTokens(slackTokens);
+      // MCPサーバーを再初期化
+      this.executor.initializeMCPServers();
+      this.log('info', '✅ MCP servers re-initialized with received tokens');
+    }
     
     // ステータスを更新
     this.send(createStatusUpdateMessage(taskId, TaskStatus.IN_PROGRESS, 0));

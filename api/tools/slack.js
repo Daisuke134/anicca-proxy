@@ -40,6 +40,7 @@ export default async function handler(req, res) {
       requestBody: req.body 
     });
     
+    
     // userIdがある場合はデータベースからトークンを取得
     let botToken, userToken, slackUserId;
     
@@ -156,6 +157,35 @@ export default async function handler(req, res) {
     
     // アクションに応じて処理
     switch (action) {
+      case 'getTokens':
+        console.log('🔑 Processing getTokens request for userId:', userId);
+        if (!userId) {
+          throw new Error('User ID required for getTokens action');
+        }
+        
+        const tokens = await getSlackTokensForUser(userId);
+        if (tokens) {
+          // 暗号化を解除して返す
+          let decryptedBotToken = tokens.bot_token;
+          let decryptedUserToken = tokens.user_token;
+          
+          if (tokens.bot_token && tokens.bot_token.includes(':')) {
+            decryptedBotToken = decrypt(tokens.bot_token);
+          }
+          if (tokens.user_token && tokens.user_token.includes(':')) {
+            decryptedUserToken = decrypt(tokens.user_token);
+          }
+          
+          console.log('✅ Tokens found and decrypted');
+          return res.json({
+            bot_token: decryptedBotToken,
+            user_token: decryptedUserToken,
+            team_name: tokens.team_name || null
+          });
+        }
+        console.log('❌ No tokens found for getTokens request');
+        return res.status(404).json({ error: 'No tokens found' });
+        
       case 'send_message':
         // チャンネル名をIDに変換
         const sendChannelId = await resolveChannelId(args.channel);

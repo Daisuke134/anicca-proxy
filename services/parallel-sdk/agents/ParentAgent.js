@@ -199,6 +199,17 @@ export class ParentAgent extends BaseWorker {
               userId: userId
             });
             
+            // Desktop版の場合、トークンを保存しておく
+            const isDesktop = process.env.DESKTOP_MODE === 'true';
+            if (isDesktop) {
+              this.slackTokens = {
+                bot_token: slackTokens.bot_token,
+                user_token: slackTokens.user_token,
+                userId: userId
+              };
+              this.log('info', '💾 Stored Slack tokens for Desktop mode');
+            }
+            
             // MCPサーバーを再初期化
             this.executor.initializeMCPServers();
             this.log('info', '✅ MCP servers re-initialized with Slack tokens');
@@ -1190,13 +1201,22 @@ ${task.originalRequest}
       console.warn(`⚠️ [${this.agentName}] Worker ${workerName} is busy, but assigning anyway`);
     }
     
+    // Desktop版の場合、Slackトークンも一緒に送る
+    const isDesktop = process.env.DESKTOP_MODE === 'true';
+    const payload = {
+      taskId: task.id,
+      task: task
+    };
+    
+    if (isDesktop && this.slackTokens) {
+      payload.slackTokens = this.slackTokens;
+      console.log(`🔑 [${this.agentName}] Sending Slack tokens to ${worker.name} (Desktop mode)`);
+    }
+    
     // IPCでタスクを送信
     worker.process.send({
       type: 'TASK_ASSIGN',
-      payload: {
-        taskId: task.id,
-        task: task
-      },
+      payload: payload,
       timestamp: Date.now()
     });
     
