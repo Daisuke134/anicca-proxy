@@ -12,6 +12,7 @@ import { ClaudeExecutorService } from '../../claudeExecutorService.js';
 import { ClaudeSession } from '../../claudeSession.js';
 import { MockDatabase } from '../../mockDatabase.js';
 import { loadClaudeMd, saveClaudeMd, appendLearning } from '../../workerMemory.js';
+import { getSlackTokensForUser } from '../../database.js';
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
@@ -245,30 +246,33 @@ export class BaseWorker extends IPCHandler {
     this.send(createStatusUpdateMessage(task.id, TaskStatus.IN_PROGRESS, 25));
     
     try {
-      // タスク実行前にユーザーのSlackトークンを取得して設定
-      const userId = task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID;
-      if (userId && this.getSlackTokensForUser) {
-        this.log('info', `🔑 Getting Slack tokens for user: ${userId}`);
-        try {
-          const slackTokens = await this.getSlackTokensForUser(userId);
-          if (slackTokens && slackTokens.bot_token) {
-            this.log('info', '✅ Slack tokens found, configuring MCP...');
-            
-            // ExecutorServiceにトークンを設定
-            this.executor.setSlackTokens({
-              bot_token: slackTokens.bot_token,
-              user_token: slackTokens.user_token,
-              userId: userId
-            });
-            
-            // MCPサーバーを再初期化
-            this.executor.initializeMCPServers();
-            this.log('info', '✅ MCP servers re-initialized with Slack tokens');
-          } else {
-            this.log('warn', '⚠️ No Slack tokens found for user');
+      // Desktop版以外の場合のみSupabaseからトークン取得
+      if (process.env.DESKTOP_MODE !== 'true') {
+        // タスク実行前にユーザーのSlackトークンを取得して設定
+        const userId = task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID;
+        if (userId && typeof getSlackTokensForUser === 'function') {
+          this.log('info', `🔑 Getting Slack tokens for user: ${userId}`);
+          try {
+            const slackTokens = await getSlackTokensForUser(userId);
+            if (slackTokens && slackTokens.bot_token) {
+              this.log('info', '✅ Slack tokens found, configuring MCP...');
+              
+              // ExecutorServiceにトークンを設定
+              this.executor.setSlackTokens({
+                bot_token: slackTokens.bot_token,
+                user_token: slackTokens.user_token,
+                userId: userId
+              });
+              
+              // MCPサーバーを再初期化
+              this.executor.initializeMCPServers();
+              this.log('info', '✅ MCP servers re-initialized with Slack tokens');
+            } else {
+              this.log('warn', '⚠️ No Slack tokens found for user');
+            }
+          } catch (error) {
+            this.log('error', `❌ Failed to get Slack tokens: ${error.message}`);
           }
-        } catch (error) {
-          this.log('error', `❌ Failed to get Slack tokens: ${error.message}`);
         }
       }
       

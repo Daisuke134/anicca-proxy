@@ -119,6 +119,25 @@ export class ParentAgent extends BaseWorker {
   }
   
   /**
+   * Slackトークンを設定してMCPサーバーを再初期化
+   */
+  setSlackTokens(tokens) {
+    this.log('info', '🔑 Setting Slack tokens for ParentAgent');
+    
+    // トークンを保存
+    this.slackTokens = tokens;
+    
+    // ExecutorServiceにトークンを設定
+    if (this.executor) {
+      this.executor.setSlackTokens(tokens);
+      
+      // MCPサーバーを再初期化
+      this.executor.initializeMCPServers();
+      this.log('info', '✅ MCP servers re-initialized with Slack tokens');
+    }
+  }
+
+  /**
    * チーム全体の記憶を読み込む
    */
   async loadTeamMemory() {
