@@ -78,7 +78,7 @@ export class ParentAgent extends BaseWorker {
       for (let i = 1; i <= this.maxWorkers; i++) {
         await this.spawnWorker(`Worker${i}`);
         // 少し待機して順番に起動
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
       
       console.log(`✅ ${this.agentName} initialization complete`);
