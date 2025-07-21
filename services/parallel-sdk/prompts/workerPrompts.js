@@ -114,7 +114,53 @@ osascript -e 'display notification "TODOアプリ完成！" with title "${worker
    \`\`\`
 3. node-cronでスケジュール登録：
    - まず \`npm install node-cron\` を実行（未インストールの場合）
-   - \`cron.schedule(schedule, callback, { timezone })\` で設定
+   - setup_cron.jsファイルを作成または更新：
+   \`\`\`javascript
+   // setup_cron.js
+   const cron = require('node-cron');
+   const fs = require('fs');
+   const path = require('path');
+   const { exec } = require('child_process');
+   
+   // scheduled_tasks.jsonを読み込む
+   const tasksFile = path.join(__dirname, 'scheduled_tasks.json');
+   const { tasks } = JSON.parse(fs.readFileSync(tasksFile, 'utf8'));
+   
+   // 既存のcronジョブをクリア（重複防止）
+   if (global.cronJobs) {
+     global.cronJobs.forEach(job => job.stop());
+   }
+   global.cronJobs = [];
+   
+   // 各タスクをスケジュール登録
+   tasks.forEach(task => {
+     console.log(\`📅 Scheduling task: \${task.description}\`);
+     
+     const job = cron.schedule(task.schedule, async () => {
+       console.log(\`🔔 [定期タスク実行] \${task.description}\`);
+       
+       // Worker自身のプロセスを使ってタスクを実行
+       // MCPツールを直接呼び出すか、必要に応じてコマンドを実行
+       if (task.channel && task.command.includes('Bible verse')) {
+         // 例: 聖書の一節を送信するタスク
+         const bibleVerseCommand = \`mcp__http__slack_send_message を使って \${task.channel} チャンネルに聖書の一節を投稿してください。[定期タスク]\`;
+         // ここでMCPツールを使用してSlackに投稿
+         console.log(\`Executing: \${bibleVerseCommand}\`);
+       } else {
+         // その他のタスクはcommandを実行
+         console.log(\`Executing: \${task.command}\`);
+       }
+     }, {
+       timezone: task.timezone,
+       scheduled: true
+     });
+     
+     global.cronJobs.push(job);
+   });
+   
+   console.log(\`✅ \${tasks.length} scheduled tasks registered\`);
+   \`\`\`
+   - \`node setup_cron.js\`を実行してcronジョブを開始
    - 本日中に実行時刻があれば本日から開始（「明日から」ではなく）
 4. CLAUDE.mdに記録：
    - 「## 定期タスク」セクションを作成または更新

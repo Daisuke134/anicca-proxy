@@ -624,7 +624,6 @@ ${statusList}
       name: workerName,
       process: childProcess,
       status: 'idle',
-      lastHeartbeat: Date.now(),
       stats: {}
     };
     
@@ -700,16 +699,7 @@ ${statusList}
         console.log(`📝 [${worker.name}] ${message.payload?.message}`);
         break;
         
-      case 'HEARTBEAT':
-        // Worker生存確認を受信
-        worker.lastHeartbeat = Date.now();
-        const status = message.payload?.status || 'unknown';
-        console.log(`💓 [${worker.name}] Heartbeat received - Status: ${status}`);
-        // 必要に応じて統計情報も更新
-        if (message.payload?.stats) {
-          worker.stats = message.payload.stats;
-        }
-        break;
+      // HEARTBEATは削除（不要なため）
         
       default:
         console.log(`❓ Unknown message type from ${worker.name}:`, message);

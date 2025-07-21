@@ -509,31 +509,8 @@ ${isDesktop ? `
    */
   async enterIdleMode() {
     this.log('info', `💤 ${this.agentName} entering idle mode...`);
-    
-    // 即座に一度heartbeatを送信
-    this.send({
-      type: MessageTypes.HEARTBEAT,
-      payload: {
-        status: 'idle',
-        agentName: this.agentName,
-        stats: this.stats
-      }
-    });
-    
-    // 定期的なheartbeat送信（30秒ごと）
-    if (!this.heartbeatInterval) {
-      this.heartbeatInterval = setInterval(() => {
-        this.send({
-          type: MessageTypes.HEARTBEAT,
-          payload: {
-            status: 'idle',
-            agentName: this.agentName,
-            stats: this.stats,
-            timestamp: Date.now()
-          }
-        });
-      }, 30000); // 30秒ごと
-    }
+    // アイドル状態に入るだけで、heartbeatは送信しない
+    // Workerプロセスは生き続け、定期タスクのnode-cronタイマーを保持する
   }
 
   /**
@@ -598,10 +575,7 @@ ${isDesktop ? `
     this.log('info', 'Shutting down...');
     
     // heartbeatインターバルをクリア
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
-    }
+    // heartbeatIntervalの削除（もう使用しない）
     
     // プロファイルを保存
     await this.saveProfile();
