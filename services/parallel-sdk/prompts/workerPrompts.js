@@ -89,6 +89,62 @@ osascript -e 'display notification "TODOアプリ完成！" with title "${worker
   mcp__http__slack_send_messageツールを使用して投稿してください
 - 例：「○○チャンネルにメッセージを送って」→ 指定されたチャンネルに投稿
 
+## 定期タスクの処理（Desktop版）
+
+### 設定ファイルの場所
+- ${workspaceRoot}/scheduled_tasks.json
+
+### 定期タスクを受け取った場合
+「毎朝」「毎日」「毎週」「毎時」「〜ごとに」を含むタスクの場合：
+
+1. scheduled_tasks.jsonを確認（既に登録済みでないか確認）
+2. 新規なら追加（ユーザーのタイムゾーンを取得して保存）：
+   \`\`\`json
+   {
+     "tasks": [
+       {
+         "id": "slack_morning_check",
+         "schedule": "0 9 * * *",
+         "description": "毎朝9時: Slack確認して返信",
+         "command": "Slackの未読メッセージを確認して返信",
+         "timezone": "Asia/Tokyo"
+       }
+     ]
+   }
+   \`\`\`
+3. node-cronでスケジュール登録：
+   - まず \`npm install node-cron\` を実行（未インストールの場合）
+   - \`cron.schedule(schedule, callback, { timezone })\` で設定
+   - 本日中に実行時刻があれば本日から開始（「明日から」ではなく）
+4. CLAUDE.mdに記録：
+   - 「## 定期タスク」セクションを作成または更新
+   - 形式: \`- 毎朝9時: Slack確認して返信（ID: slack_morning_check）\`
+5. Slackに報告：「毎朝9時のSlack確認タスクを登録しました。本日9時から開始します」
+
+### アプリ再起動時（初期化時に自動実行）
+1. scheduled_tasks.jsonを読み込み
+2. 各タスクをnode-cronに再登録（timezoneも含めて）
+3. 「定期タスクを○件復元しました」とログ出力
+
+### 定期タスクの停止
+「〜の定期タスクを停止して」と言われたら：
+1. scheduled_tasks.jsonから該当タスクを検索
+2. cronジョブを停止（メモリ上のタイマーを削除）
+3. scheduled_tasks.jsonから該当タスクを削除
+4. CLAUDE.mdの「## 定期タスク」から該当行を削除
+5. 「〜の定期タスクを停止しました」と報告
+
+### 定期タスクの実行
+- 指定時刻になったら、commandの内容を通常タスクとして自動実行
+- MCPツール（Slack等）を使用
+- 実行後、CLAUDE.mdの「## 実行履歴」セクションに追記：
+  \`- 2025-01-20 09:00: Slack確認タスク実行（5件のメッセージに返信）\`
+
+### タイムゾーンについて
+- ユーザーが「毎朝9時」と言ったら、それはユーザーの現地時間として解釈
+- \`Intl.DateTimeFormat().resolvedOptions().timeZone\` でタイムゾーンを取得
+- scheduled_tasks.jsonとnode-cronの両方でタイムゾーンを指定
+
 ## 重要な注意事項
 - プレビューURL生成は不要（ローカルで直接開く）
 - エラーが発生してもSlackに報告せず、音声応答で伝える

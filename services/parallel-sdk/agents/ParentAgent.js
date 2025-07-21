@@ -9,6 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as path from 'path';
 import * as os from 'os';
 import fsSync from 'fs';
+import { buildParentPrompts } from '../prompts/parentPrompts.js';
 
 /**
  * ParentAgent - BaseWorkerベースの司令塔エージェント
@@ -733,6 +734,12 @@ ${statusList}
    * 定期タスクかどうかを判定し、必要なら登録
    */
   async checkAndRegisterScheduledTask(task) {
+    // Desktop版では定期タスク判定をスキップ
+    if (process.env.DESKTOP_MODE === 'true') {
+      console.log('🖥️ Desktop mode: skipping scheduled task check, will be handled by Worker');
+      return false;
+    }
+    
     if (!this.supabase) {
       console.log('⚠️ Supabase not initialized, skipping scheduled task check');
       return false;
@@ -922,6 +929,9 @@ ${task.originalRequest}
    * Claudeでタスクを分析して割り当てを決定
    */
   async analyzeAndAssignTasks(taskInfo) {
+    const parentPrompts = buildParentPrompts();
+    const desktopAddition = parentPrompts.taskAnalysisAddition || '';
+    
     const prompt = `
 以下のタスクを分析して、空いているWorkerに割り当ててください。
 
@@ -940,6 +950,8 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
 - 例：以下のようなタスクは必ず3人の別々のWorkerに割り当ててください
   - 「TODOアプリ作成」「聖書の言葉を送信」「ニュース検索」
   - 「アプリ作成して、メッセージ送って、調査して」
+
+${desktopAddition}
 
 【応答形式】
 必ず以下のJSON形式で返してください：

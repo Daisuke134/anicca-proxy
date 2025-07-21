@@ -1,17 +1,17 @@
 {
   "id": "Worker2",
   "name": "Worker2",
-  "totalTasks": 2,
+  "totalTasks": 3,
   "taskTypes": {
     "development": 0,
     "communication": 0,
     "research": 0,
     "creative": 0,
     "execution": 0,
-    "general": 2
+    "general": 3
   },
   "specialization": null,
   "personality": "創造的で柔軟",
-  "lastActive": "2025-07-20T07:52:37.474Z",
+  "lastActive": "2025-07-20T08:29:02.240Z",
   "successRate": 1
 }
