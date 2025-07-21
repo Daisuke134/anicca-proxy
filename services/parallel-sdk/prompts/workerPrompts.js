@@ -112,79 +112,23 @@ osascript -e 'display notification "TODOアプリ完成！" with title "${worker
      ]
    }
    \`\`\`
-3. node-cronでスケジュール登録：
-   - まず \`npm install node-cron\` を実行（未インストールの場合）
-   - setup_cron.jsファイルを作成または更新：
+3. **重要**: scheduled_tasks.jsonに追加後、必ず以下を実行：
    \`\`\`javascript
-   // setup_cron.js
-   const cron = require('node-cron');
-   const fs = require('fs');
-   const path = require('path');
-   const { exec } = require('child_process');
-   
-   // scheduled_tasks.jsonを読み込む
-   const tasksFile = path.join(__dirname, 'scheduled_tasks.json');
-   const { tasks } = JSON.parse(fs.readFileSync(tasksFile, 'utf8'));
-   
-   // 既存のcronジョブをクリア（重複防止）
-   if (global.cronJobs) {
-     global.cronJobs.forEach(job => job.stop());
-   }
-   global.cronJobs = [];
-   
-   // 各タスクをスケジュール登録
-   tasks.forEach(task => {
-     console.log(\`📅 Scheduling task: \${task.description}\`);
-     
-     const job = cron.schedule(task.schedule, async () => {
-       console.log(\`🔔 [定期タスク実行] \${task.description}\`);
-       
-       // Worker自身のプロセスを使ってタスクを実行
-       // MCPツールを直接呼び出すか、必要に応じてコマンドを実行
-       if (task.channel && task.command.includes('Bible verse')) {
-         // 例: 聖書の一節を送信するタスク
-         const bibleVerseCommand = \`mcp__http__slack_send_message を使って \${task.channel} チャンネルに聖書の一節を投稿してください。[定期タスク]\`;
-         // ここでMCPツールを使用してSlackに投稿
-         console.log(\`Executing: \${bibleVerseCommand}\`);
-       } else {
-         // その他のタスクはcommandを実行
-         console.log(\`Executing: \${task.command}\`);
-       }
-     }, {
-       timezone: task.timezone,
-       scheduled: true
-     });
-     
-     global.cronJobs.push(job);
-   });
-   
-   console.log(\`✅ \${tasks.length} scheduled tasks registered\`);
+   // 動的にcronジョブを登録
+   await this.addScheduledTask(newTask);
    \`\`\`
-   - \`node setup_cron.js\`を実行してcronジョブを開始
-   - 本日中に実行時刻があれば本日から開始（「明日から」ではなく）
 4. CLAUDE.mdに記録：
    - 「## 定期タスク」セクションを作成または更新
    - 形式: \`- 毎朝9時: Slack確認して返信（ID: slack_morning_check）\`
-5. Slackに報告：「毎朝9時のSlack確認タスクを登録しました。本日9時から開始します」
-
-### アプリ再起動時（初期化時に自動実行）
-1. scheduled_tasks.jsonを読み込み
-2. 各タスクをnode-cronに再登録（timezoneも含めて）
-3. 「定期タスクを○件復元しました」とログ出力
+5. 報告：「毎朝9時のSlack確認タスクを登録しました」
 
 ### 定期タスクの停止
 「〜の定期タスクを停止して」と言われたら：
 1. scheduled_tasks.jsonから該当タスクを検索
-2. cronジョブを停止（メモリ上のタイマーを削除）
+2. removeScheduledTask(taskId)を呼び出してcronジョブを停止
 3. scheduled_tasks.jsonから該当タスクを削除
 4. CLAUDE.mdの「## 定期タスク」から該当行を削除
 5. 「〜の定期タスクを停止しました」と報告
-
-### 定期タスクの実行
-- 指定時刻になったら、commandの内容を通常タスクとして自動実行
-- MCPツール（Slack等）を使用
-- 実行後、CLAUDE.mdの「## 実行履歴」セクションに追記：
-  \`- 2025-01-20 09:00: Slack確認タスク実行（5件のメッセージに返信）\`
 
 ### タイムゾーンについて
 - ユーザーが「毎朝9時」と言ったら、それはユーザーの現地時間として解釈

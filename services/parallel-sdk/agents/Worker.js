@@ -4,6 +4,7 @@ import { previewManager } from '../utils/PreviewManager.js';
 import fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import cron from 'node-cron';
 
 /**
  * Worker - 汎用Workerエージェントの実装
@@ -14,6 +15,7 @@ class Worker extends BaseWorker {
   constructor() {
     super();
     this.workspaceRoot = null;
+    this.cronJobs = new Map(); // cron管理用
   }
   
   /**
@@ -49,6 +51,9 @@ class Worker extends BaseWorker {
       
       console.log(`✅ ${this.agentName} initialization complete`);
       console.log(`📊 ClaudeExecutorService will handle all MCP connections`);
+      
+      // 定期タスクを初期化
+      await this.initializeScheduledTasks();
       
       // 準備完了を親に通知（IPCHandlerが自動的に行う）
       
@@ -200,6 +205,108 @@ ${slackMessage}
     }
     
     return null;
+  }
+
+  /**
+   * 定期タスクを初期化
+   */
+  async initializeScheduledTasks() {
+    const tasksPath = path.join(this.workspaceRoot, 'scheduled_tasks.json');
+    
+    if (fs.existsSync(tasksPath)) {
+      const content = fs.readFileSync(tasksPath, 'utf8');
+      const { tasks } = JSON.parse(content);
+      
+      tasks.forEach(task => {
+        this.registerCronJob(task);
+      });
+      
+      console.log(`📅 [${this.agentName}] ${tasks.length}個の定期タスクを登録しました`);
+      
+      // ファイル監視を設定
+      this.watchScheduledTasks(tasksPath);
+    }
+  }
+
+  /**
+   * scheduled_tasks.jsonを監視
+   */
+  watchScheduledTasks(tasksPath) {
+    console.log(`👁️ [${this.agentName}] scheduled_tasks.jsonを監視開始`);
+    
+    fs.watchFile(tasksPath, { interval: 1000 }, async () => {
+      console.log(`📝 [${this.agentName}] scheduled_tasks.jsonが変更されました`);
+      
+      try {
+        // 新しい内容を読み込む
+        const content = fs.readFileSync(tasksPath, 'utf8');
+        const { tasks } = JSON.parse(content);
+        
+        // 新規タスクを検出して登録
+        tasks.forEach(task => {
+          if (!this.cronJobs.has(task.id)) {
+            this.registerCronJob(task);
+            console.log(`➕ [${this.agentName}] 新規定期タスク検出・登録: ${task.description}`);
+          }
+        });
+        
+        // 削除されたタスクを検出して停止
+        for (const [taskId, job] of this.cronJobs) {
+          if (!tasks.find(t => t.id === taskId)) {
+            job.stop();
+            this.cronJobs.delete(taskId);
+            console.log(`➖ [${this.agentName}] 定期タスク削除検出・停止: ${taskId}`);
+          }
+        }
+      } catch (error) {
+        console.error(`❌ [${this.agentName}] scheduled_tasks.json読み込みエラー:`, error);
+      }
+    });
+  }
+
+  /**
+   * cronジョブを登録
+   */
+  registerCronJob(task) {
+    const job = cron.schedule(task.schedule, async () => {
+      console.log(`🔔 [${this.agentName}] 定期タスク実行: ${task.description}`);
+      
+      // 自分自身のhandleTaskAssignmentを直接呼ぶ
+      await this.handleTaskAssignment({
+        taskId: Date.now().toString(),
+        task: {
+          originalRequest: task.command,
+          userId: process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID
+        }
+      });
+    }, {
+      timezone: task.timezone || 'Asia/Tokyo',
+      scheduled: true
+    });
+    
+    this.cronJobs.set(task.id, job);
+    console.log(`⏰ [${this.agentName}] Cron登録: ${task.description} (${task.schedule})`);
+  }
+
+  /**
+   * 定期タスクを追加（動的）
+   */
+  async addScheduledTask(task) {
+    // JSONに追加後、即座にcron登録
+    this.registerCronJob(task);
+    console.log(`➕ [${this.agentName}] 定期タスク追加: ${task.description}`);
+  }
+
+  /**
+   * 定期タスクを削除
+   */
+  async removeScheduledTask(taskId) {
+    const job = this.cronJobs.get(taskId);
+    if (job) {
+      job.stop();
+      this.cronJobs.delete(taskId);
+      console.log(`➖ [${this.agentName}] 定期タスク削除: ${taskId}`);
+    }
   }
   
   /**
