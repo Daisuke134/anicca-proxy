@@ -90,6 +90,10 @@ export class ParentAgent extends BaseWorker {
       // Desktop版専用プロンプトを設定
       const isDesktop = process.env.DESKTOP_MODE === 'true';
       if (isDesktop) {
+        // parentPrompts.jsから定期タスク管理プロンプトを取得
+        const parentPrompts = buildParentPrompts();
+        const scheduledTaskPrompt = parentPrompts.scheduledTaskPrompt || '';
+        
         this.desktopPrompt = `
 【作業環境】
 - Desktop版として動作中
@@ -109,8 +113,10 @@ export class ParentAgent extends BaseWorker {
 - チーム全体の重要情報は ~/Desktop/anicca-agent-workspace/parentagent/CLAUDE.md に記録
 - 各Workerの専門性や得意分野を記憶
 - ユーザーの傾向や好みを蓄積
-`;
+
+${scheduledTaskPrompt}`;
         console.log('🖥️ Desktop mode prompt configured for ParentAgent');
+        console.log('📋 Scheduled task management prompt included');
       }
       
     } catch (error) {
@@ -617,7 +623,9 @@ ${statusList}
       id: `worker-${workerName.toLowerCase()}`,
       name: workerName,
       process: childProcess,
-      status: 'idle'
+      status: 'idle',
+      lastHeartbeat: Date.now(),
+      stats: {}
     };
     
     this.workers.set(worker.id, worker);
@@ -690,6 +698,17 @@ ${statusList}
         
       case 'LOG':
         console.log(`📝 [${worker.name}] ${message.payload?.message}`);
+        break;
+        
+      case 'HEARTBEAT':
+        // Worker生存確認を受信
+        worker.lastHeartbeat = Date.now();
+        const status = message.payload?.status || 'unknown';
+        console.log(`💓 [${worker.name}] Heartbeat received - Status: ${status}`);
+        // 必要に応じて統計情報も更新
+        if (message.payload?.stats) {
+          worker.stats = message.payload.stats;
+        }
         break;
         
       default:
@@ -931,8 +950,11 @@ ${task.originalRequest}
   async analyzeAndAssignTasks(taskInfo) {
     const parentPrompts = buildParentPrompts();
     const desktopAddition = parentPrompts.taskAnalysisAddition || '';
+    const scheduledTaskPrompt = parentPrompts.scheduledTaskPrompt || '';
     
     const prompt = `
+${scheduledTaskPrompt}
+
 以下のタスクを分析して、空いているWorkerに割り当ててください。
 
 【タスク】

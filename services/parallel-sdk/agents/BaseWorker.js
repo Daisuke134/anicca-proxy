@@ -225,11 +225,17 @@ export class BaseWorker extends IPCHandler {
       this.send(createTaskCompleteMessage(taskId, result));
       this.log('info', `Task ${taskId} completed successfully`);
       
+      // タスク完了後もプロセスを維持（アイドル状態へ）
+      await this.enterIdleMode();
+      
     } catch (error) {
       // エラーを報告
       this.stats.failedTasks++;
       this.send(createErrorMessage(error, taskId));
       this.log('error', `Task ${taskId} failed: ${error.message}`);
+      
+      // エラー後もプロセスを維持
+      await this.enterIdleMode();
     } finally {
       this.currentTask = null;
     }
@@ -496,6 +502,39 @@ ${isDesktop ? `
       this.log('error', `Failed to save profile: ${error.message}`);
     }
   }
+  
+  /**
+   * アイドルモードに入る
+   * タスク完了後もプロセスを維持し、定期的にheartbeatを送信
+   */
+  async enterIdleMode() {
+    this.log('info', `💤 ${this.agentName} entering idle mode...`);
+    
+    // 即座に一度heartbeatを送信
+    this.send({
+      type: MessageTypes.HEARTBEAT,
+      payload: {
+        status: 'idle',
+        agentName: this.agentName,
+        stats: this.stats
+      }
+    });
+    
+    // 定期的なheartbeat送信（30秒ごと）
+    if (!this.heartbeatInterval) {
+      this.heartbeatInterval = setInterval(() => {
+        this.send({
+          type: MessageTypes.HEARTBEAT,
+          payload: {
+            status: 'idle',
+            agentName: this.agentName,
+            stats: this.stats,
+            timestamp: Date.now()
+          }
+        });
+      }, 30000); // 30秒ごと
+    }
+  }
 
   /**
    * CLAUDE.mdをSupabaseに同期
@@ -557,6 +596,12 @@ ${isDesktop ? `
    */
   async cleanup() {
     this.log('info', 'Shutting down...');
+    
+    // heartbeatインターバルをクリア
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
     
     // プロファイルを保存
     await this.saveProfile();

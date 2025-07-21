@@ -1,17 +1,17 @@
 {
   "id": "Worker1",
   "name": "Worker1",
-  "totalTasks": 19,
+  "totalTasks": 20,
   "taskTypes": {
     "development": 0,
     "communication": 0,
     "research": 0,
     "creative": 0,
     "execution": 0,
-    "general": 19
+    "general": 20
   },
   "specialization": null,
   "personality": "真面目で慎重",
-  "lastActive": "2025-07-20T08:29:02.239Z",
+  "lastActive": "2025-07-21T06:27:03.502Z",
   "successRate": 1
 }

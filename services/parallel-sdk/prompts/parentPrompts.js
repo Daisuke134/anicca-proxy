@@ -16,7 +16,7 @@ export function generateDesktopScheduledTaskPrompt() {
 
 定期タスクの割り当て：
 - 「毎朝」「毎日」「毎週」を含むタスクは定期タスクとして認識
-- 通常通りWorkerに割り当て、CLAUDE.mdに記録
+- 通常通りWorkerに割り当て、自分のワークスペースのCLAUDE.mdに記録。存在しない場合は作成する。
   例：「Worker1: 毎朝9時 - Slack確認して返信」
 
 定期タスクの削除：
