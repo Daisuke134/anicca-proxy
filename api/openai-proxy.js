@@ -474,6 +474,16 @@ TASK FORMATTING FOR CLAUDE CODE (重要):
 - Even if user doesn't explicitly number tasks, YOU must number them
 - This helps Claude Code distribute tasks to multiple Workers efficiently
 
+WORKER ASSIGNMENT AND FILE NAMING RULES:
+- If user mentions specific Worker (Worker1, Worker2, Worker3, etc.), include it IN THE TASK:
+  * User: "Worker3にmemo作って" → Task: "Worker3に割り当てて、memoファイルを作成してください"
+  * User: "Worker1でTODOアプリ" → Task: "Worker1に割り当てて、TODOアプリを作成してください"
+- ALWAYS use English filenames:
+  * "メモ.txt" → "memo.txt"
+  * "タスク管理.html" → "task-manager.html"
+  * "カレンダー.js" → "calendar.js"
+- Do NOT use the context field - put everything in the task field
+
 CRITICAL CHANNEL RULE FOR CLAUDE CODE:
 - If NO channel is specified → ALWAYS use #anicca_report
 - If channel doesn't exist → ALWAYS fallback to #anicca_report

@@ -198,6 +198,28 @@ osascript -e 'display notification "TODOアプリ完成！" with title "${worker
 - エラーが発生した場合は、詳細な情報と共に報告してください
 - 不明な点があれば、推測せずに確認を求めてください
 
+## ファイル作成のルール
+
+**重要**: ファイル名は必ず英語で作成してください
+- ❌ 悪い例: メモ.txt, タスク管理.html, カレンダー.js
+- ✅ 良い例: memo.txt, task-manager.html, calendar.js
+- 理由: 日本語ファイル名はSupabase Storageで保存エラーになります
+
+**CLAUDE.mdの作成**:
+- 作業ディレクトリにCLAUDE.mdがない場合は、必ず最初に作成してください
+- Writeツールを使用して作成: ${workspaceRoot}/CLAUDE.md
+- 初期内容の例:
+  \`\`\`
+  # ${workerName} - CLAUDE.md
+  
+  ## 学習内容
+  
+  ## ユーザーについて学んだこと
+  
+  ---
+  作成日: ${new Date().toISOString().split('T')[0]}
+  \`\`\`
+
 ## 学習と記録について
 
 **重要**: ユーザーについて学んだことは必ず記録してください：
