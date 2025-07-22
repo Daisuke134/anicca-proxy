@@ -52,7 +52,10 @@ class Worker extends BaseWorker {
       console.log(`✅ ${this.agentName} initialization complete`);
       console.log(`📊 ClaudeExecutorService will handle all MCP connections`);
       
-      // 定期タスクを初期化
+      // ワークスペース全体を復元（CLAUDE.md含む）
+      await this.loadMemory();
+      
+      // 定期タスクを初期化（scheduled_tasks.jsonが復元された後）
       await this.initializeScheduledTasks();
       
       // 準備完了を親に通知（IPCHandlerが自動的に行う）
@@ -271,12 +274,57 @@ ${slackMessage}
     const job = cron.schedule(task.schedule, async () => {
       console.log(`🔔 [${this.agentName}] 定期タスク実行: ${task.description}`);
       
+      // Desktop版で定期タスク実行時はSlackトークンを取得
+      if (process.env.DESKTOP_MODE === 'true') {
+        try {
+          const userId = process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID || global.currentUserId;
+          
+          if (userId) {
+            console.log(`🔑 [${this.agentName}] Fetching Slack tokens for scheduled task...`);
+            
+            // voiceServerからSlackトークンを取得
+            const response = await fetch('http://localhost:8085/api/tools/slack', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'getTokens',
+                arguments: {},
+                userId: userId
+              })
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              if (data.bot_token) {
+                // ExecutorServiceにトークンを設定
+                if (this.executor) {
+                  this.executor.setSlackTokens({
+                    bot_token: data.bot_token,
+                    user_token: data.user_token,
+                    userId: userId
+                  });
+                  
+                  // MCPサーバーを再初期化
+                  this.executor.initializeMCPServers();
+                  console.log(`✅ [${this.agentName}] Slack tokens set for scheduled task`);
+                }
+              }
+            } else {
+              console.log(`⚠️ [${this.agentName}] Failed to fetch Slack tokens for scheduled task`);
+            }
+          }
+        } catch (error) {
+          console.error(`❌ [${this.agentName}] Error fetching Slack tokens:`, error);
+        }
+      }
+      
       // 自分自身のhandleTaskAssignmentを直接呼ぶ
       await this.handleTaskAssignment({
         taskId: Date.now().toString(),
         task: {
           originalRequest: task.command,
-          userId: process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID
+          userId: process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID,
+          isScheduledTask: true  // 定期タスクフラグを追加
         }
       });
     }, {
@@ -313,12 +361,24 @@ ${slackMessage}
    * Worker固有のクリーンアップ
    */
   async cleanup() {
+    console.log(`🛑 [${this.agentName}] Starting cleanup...`);
+    
+    // 全てのcronジョブを停止
+    for (const [taskId, job] of this.cronJobs) {
+      job.stop();
+      console.log(`⏹️ [${this.agentName}] Stopped cron job: ${taskId}`);
+    }
+    this.cronJobs.clear();
+    
+    // 親クラスのクリーンアップを呼ぶ
     await super.cleanup();
     
     // ClaudeExecutorServiceのクリーンアップ
     if (this.claudeService) {
       // 必要に応じてクリーンアップ処理
     }
+    
+    console.log(`✅ [${this.agentName}] Cleanup completed`);
   }
 }
 
@@ -332,18 +392,15 @@ async function main() {
   // IPCリスニングを開始
   worker.startListening();
   
-  // グレースフルシャットダウン
-  process.on('SIGTERM', async () => {
-    console.log('Received SIGTERM, shutting down gracefully...');
-    await worker.cleanup();
-    process.exit(0);
+  // 親からのメッセージを処理
+  process.on('message', async (message) => {
+    if (message.type === 'SHUTDOWN') {
+      console.log(`🛑 [${worker.agentName}] Received shutdown signal from parent`);
+      await worker.cleanup();
+      process.exit(0);
+    }
   });
   
-  process.on('SIGINT', async () => {
-    console.log('Received SIGINT, shutting down gracefully...');
-    await worker.cleanup();
-    process.exit(0);
-  });
 }
 
 // エントリーポイント

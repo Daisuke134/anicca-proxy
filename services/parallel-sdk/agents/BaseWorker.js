@@ -11,7 +11,7 @@ import { buildWorkerPrompt } from '../prompts/workerPrompts.js';
 import { ClaudeExecutorService } from '../../claudeExecutorService.js';
 import { ClaudeSession } from '../../claudeSession.js';
 import { MockDatabase } from '../../mockDatabase.js';
-import { loadClaudeMd, saveClaudeMd, appendLearning } from '../../workerMemory.js';
+import { loadClaudeMd, saveClaudeMd, appendLearning, loadWorkspace, saveWorkspace } from '../../workerMemory.js';
 import { getSlackTokensForUser } from '../../database.js';
 import fs from 'fs/promises';
 import fsSync from 'fs';
@@ -83,8 +83,8 @@ export class BaseWorker extends IPCHandler {
     // プロファイルを読み込む
     this.loadProfile();
     
-    // CLAUDE.mdを読み込む
-    this.loadMemory();
+    // CLAUDE.md/ワークスペースの読み込みは各Workerのinitialize()で行う
+    // this.loadMemory();
     
     // 初期化完了を通知
     this.sendReady();
@@ -104,22 +104,40 @@ export class BaseWorker extends IPCHandler {
   }
   
   /**
-   * CLAUDE.mdを読み込む
+   * ワークスペース全体を読み込む（CLAUDE.mdを含む）
    */
   async loadMemory() {
     try {
       const userId = process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
-      console.log(`📚 [${this.agentName}] Loading CLAUDE.md for userId: ${userId}`);
-      this.claudeMd = await loadClaudeMd(userId, this.agentName);
+      console.log(`📚 [${this.agentName}] Loading workspace for userId: ${userId}`);
+      
+      // Web版の場合のみワークスペース全体を復元
+      const isDesktop = process.env.DESKTOP_MODE === 'true';
+      if (!isDesktop && this.workspaceRoot) {
+        // ワークスペース全体を復元
+        await loadWorkspace(userId, this.agentName, this.workspaceRoot);
+        console.log(`📂 [${this.agentName}] Workspace restored from Supabase Storage`);
+        
+        // CLAUDE.mdがローカルに復元されているはずなので読み込む
+        const claudeMdPath = path.join(this.workspaceRoot, 'CLAUDE.md');
+        if (fsSync.existsSync(claudeMdPath)) {
+          this.claudeMd = fsSync.readFileSync(claudeMdPath, 'utf8');
+          this.log('info', `📚 Loaded CLAUDE.md from workspace (${this.claudeMd.length} chars)`);
+        } else {
+          // CLAUDE.mdがない場合は従来の方法で読み込む
+          this.claudeMd = await loadClaudeMd(userId, this.agentName);
+        }
+      } else {
+        // Desktop版または従来の方法でCLAUDE.mdのみ読み込む
+        this.claudeMd = await loadClaudeMd(userId, this.agentName);
+      }
       
       if (this.claudeMd) {
-        this.log('info', `📚 Loaded CLAUDE.md (${this.claudeMd.length} chars)`);
-        
         // CLAUDE.mdの内容をシステムプロンプトに追加
         this.memoryContext = `\n## あなたの記憶（CLAUDE.md）\n${this.claudeMd}\n`;
       }
     } catch (error) {
-      this.log('error', `Failed to load CLAUDE.md: ${error.message}`);
+      this.log('error', `Failed to load workspace: ${error.message}`);
       this.memoryContext = '';
     }
   }
@@ -360,6 +378,9 @@ ${isDesktop ? `
       // WorkerがCLAUDE.mdに保存した内容をSupabaseに転送
       await this.syncClaudeMdToSupabase(workingDir);
       
+      // Web版の場合はワークスペース全体を保存
+      await this.syncWorkspaceToSupabase();
+      
       return formattedResult;
       
     } catch (error) {
@@ -564,6 +585,35 @@ ${isDesktop ? `
       }
     } catch (error) {
       this.log('error', `Failed to sync CLAUDE.md: ${error.message}`);
+    }
+  }
+  
+  /**
+   * ワークスペース全体をSupabaseに同期
+   */
+  async syncWorkspaceToSupabase() {
+    try {
+      // Desktop版はスキップ
+      const isDesktop = process.env.DESKTOP_MODE === 'true';
+      if (isDesktop) {
+        this.log('info', 'Desktop mode: Skip workspace sync to Supabase');
+        return;
+      }
+      
+      // ワークスペースが設定されていない場合はスキップ
+      if (!this.workspaceRoot) {
+        return;
+      }
+      
+      const userId = process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
+      console.log(`💾 [${this.agentName}] Syncing workspace to Supabase...`);
+      
+      // ワークスペース全体を保存
+      await saveWorkspace(userId, this.agentName, this.workspaceRoot);
+      
+      console.log(`✅ [${this.agentName}] Workspace synced to Supabase`);
+    } catch (error) {
+      this.log('error', `Failed to sync workspace: ${error.message}`);
     }
   }
   

@@ -84,8 +84,8 @@ export class ParentAgent extends BaseWorker {
       console.log(`✅ ${this.agentName} initialization complete`);
       console.log(`👔 Team composition: ${this.workers.size} workers ready`);
       
-      // ParentAgentのCLAUDE.mdを読み込む
-      await this.loadTeamMemory();
+      // ワークスペース全体を復元（loadMemoryがloadTeamMemoryも呼ぶ）
+      await this.loadMemory();
       
       // Desktop版専用プロンプトを設定
       const isDesktop = process.env.DESKTOP_MODE === 'true';
@@ -144,21 +144,6 @@ ${scheduledTaskPrompt}`;
     }
   }
 
-  /**
-   * チーム全体の記憶を読み込む
-   */
-  async loadTeamMemory() {
-    try {
-      const userId = process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
-      this.teamMemory = await loadClaudeMd(userId, 'ParentAgent');
-      
-      if (this.teamMemory) {
-        console.log(`📚 [${this.agentName}] Loaded team memory (${this.teamMemory.length} chars)`);
-      }
-    } catch (error) {
-      console.error(`Failed to load team memory: ${error.message}`);
-    }
-  }
   
   /**
    * チーム管理の学習内容を保存
@@ -203,10 +188,13 @@ ${scheduledTaskPrompt}`;
       this.lastTask = task;
       this.lastTaskTime = Date.now();
       
-      // 定期タスク削除のチェック
-      const isDeleteRequest = await this.checkScheduledTaskDeletion(task);
-      if (isDeleteRequest) {
-        return isDeleteRequest; // 削除結果を返す
+      // Desktop版では定期タスク削除チェックをスキップ
+      if (process.env.DESKTOP_MODE !== 'true') {
+        // Web版のみ定期タスク削除をチェック
+        const isDeleteRequest = await this.checkScheduledTaskDeletion(task);
+        if (isDeleteRequest) {
+          return isDeleteRequest; // 削除結果を返す
+        }
       }
       
       // タスク実行前にユーザーのSlackトークンを取得して設定
@@ -1280,6 +1268,40 @@ ${task.originalRequest}
     
     worker.status = 'busy';
     console.log(`🎯 [${this.agentName}] Assigned task to ${worker.name}: ${task.originalRequest.substring(0, 50)}...`);
+  }
+  
+  /**
+   * 全てのWorkerを適切にシャットダウン
+   */
+  async shutdown() {
+    console.log(`🛑 [${this.agentName}] Shutting down all workers...`);
+    
+    // 全てのWorkerにシャットダウンメッセージを送信
+    for (const [workerId, worker] of this.workers) {
+      if (worker.process && !worker.process.killed) {
+        console.log(`🛑 Sending shutdown signal to ${worker.name}...`);
+        
+        // シャットダウンメッセージを送信
+        worker.process.send({
+          type: 'SHUTDOWN',
+          timestamp: Date.now()
+        });
+      }
+    }
+    
+    // 少し待機してWorkerが正常終了する時間を与える
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // まだ生きているWorkerを強制終了
+    for (const [workerId, worker] of this.workers) {
+      if (worker.process && !worker.process.killed) {
+        console.log(`⚠️ Force killing ${worker.name}...`);
+        worker.process.kill('SIGTERM');
+      }
+    }
+    
+    this.workers.clear();
+    console.log(`✅ [${this.agentName}] All workers shut down`);
   }
   
 }

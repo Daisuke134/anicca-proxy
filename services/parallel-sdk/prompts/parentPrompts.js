@@ -22,6 +22,7 @@ export function generateDesktopScheduledTaskPrompt() {
 定期タスクの削除：
 - 「〜の定期タスクやめて」と言われたら
 - CLAUDE.mdで該当タスクの担当Workerを確認
+- CLAUDE.mdでその定期タスクを削除
 - そのWorkerに「〜の定期タスクを停止して」と指示
 
 定期タスクの確認：

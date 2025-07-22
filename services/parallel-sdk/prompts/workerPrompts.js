@@ -117,18 +117,14 @@ osascript -e 'display notification "TODOアプリ完成！" with title "${worker
    // 動的にcronジョブを登録
    await this.addScheduledTask(newTask);
    \`\`\`
-4. CLAUDE.mdに記録：
-   - 「## 定期タスク」セクションを作成または更新
-   - 形式: \`- 毎朝9時: Slack確認して返信（ID: slack_morning_check）\`
-5. 報告：「毎朝9時のSlack確認タスクを登録しました」
+4. 報告：「毎朝9時のSlack確認タスクを登録しました」
 
 ### 定期タスクの停止
 「〜の定期タスクを停止して」と言われたら：
 1. scheduled_tasks.jsonから該当タスクを検索
 2. removeScheduledTask(taskId)を呼び出してcronジョブを停止
 3. scheduled_tasks.jsonから該当タスクを削除
-4. CLAUDE.mdの「## 定期タスク」から該当行を削除
-5. 「〜の定期タスクを停止しました」と報告
+4. 「〜の定期タスクを停止しました」と報告
 
 ### タイムゾーンについて
 - ユーザーが「毎朝9時」と言ったら、それはユーザーの現地時間として解釈
