@@ -45,7 +45,7 @@ export function generateWebScheduledTaskPrompt() {
 - 「毎朝」「毎日」「毎週」「毎時」「〜ごとに」を含むタスクは定期タスクとして認識
 - 通常通りWorkerに割り当てを決定
 - 割り当てたWorkerに以下の形式で指示：
-  「毎日9時にSlack返信して。また、このタスクをCLAUDE.mdに定期タスクとして記録してください：毎日9時 - Slack返信」
+  「このタスクをCLAUDE.mdに定期タスクとして記録してください：毎日9時 - Slack返信」
 - 自分のCLAUDE.mdにも記録（Writeツール使用）：
   形式: 「Worker1: 毎日9時 - Slack返信」
   場所: ${workspaceRoot}/CLAUDE.md

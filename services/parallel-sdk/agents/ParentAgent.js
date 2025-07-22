@@ -286,7 +286,7 @@ ${scheduledTaskPrompt}`;
           const workerTask = {
             ...task,
             id: `${task.id}-scheduled-${assignment.worker}`,
-            originalRequest: `${assignment.task}。また、このタスクをCLAUDE.mdに定期タスクとして記録してください：${assignment.task}`
+            originalRequest: `このタスクをCLAUDE.mdに定期タスクとして記録してください：${assignment.task}`
           };
           
           // Workerに記録指示を送信
