@@ -758,6 +758,12 @@ ${statusList}
       return false;
     }
     
+    // すでに定期タスクとして実行されている場合はスキップ（無限ループ防止）
+    if (task.type === 'scheduled') {
+      console.log('📅 Skipping scheduled task check for already scheduled task');
+      return false;
+    }
+    
     if (!this.supabase) {
       console.log('⚠️ Supabase not initialized, skipping scheduled task check');
       return false;
@@ -778,7 +784,7 @@ ${task.originalRequest}
 定期実行タスクの場合、以下のJSON形式で返してください：
 {
   "isScheduled": true,
-  "instruction": "元の指示文そのまま",
+  "instruction": "頻度や時間の情報を除いたタスク内容のみ（例：「聖書の一節を15分おきに#anicca_reportチャンネルに送信」→「聖書の一節を#anicca_reportチャンネルに送信」）",
   "frequency": "daily/weekly/hourly/every_Xh/monthly",
   "time": "HH:MM形式（該当する場合）",
   "dayOfWeek": "曜日（weeklyの場合のみ）",
