@@ -19,6 +19,11 @@ export default async function handler(req, res) {
 
   try {
     console.log('🔍 Checking for scheduled tasks to execute...');
+    console.log('📍 Environment check:', {
+      RAILWAY_URL: process.env.RAILWAY_URL || 'not set',
+      SUPABASE_URL: process.env.SUPABASE_URL ? 'set' : 'not set',
+      authToken: authToken ? 'set' : 'not set'
+    });
     
     // Get current time
     const now = new Date();
@@ -62,7 +67,14 @@ export default async function handler(req, res) {
           .single();
 
         // Trigger task execution via parallel SDK
-        const response = await fetch(`${process.env.RAILWAY_URL || 'http://localhost:3838'}/api/parallel-sdk/execute`, {
+        // Use the public URL instead of localhost for Railway
+        const baseUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
+          ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+          : process.env.RAILWAY_URL || 'https://anicca-proxy-staging.up.railway.app';
+          
+        console.log(`🌐 Calling parallel-sdk/execute at: ${baseUrl}`);
+        
+        const response = await fetch(`${baseUrl}/api/parallel-sdk/execute`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -78,7 +90,9 @@ export default async function handler(req, res) {
           })
         });
 
+        console.log(`📡 Response status: ${response.status}`);
         const result = await response.json();
+        console.log(`📊 Task result:`, result);
 
         // Update execution log
         await supabase
@@ -127,6 +141,7 @@ export default async function handler(req, res) {
       }
     }
 
+    // Return response after all tasks are processed
     return res.status(200).json({
       message: 'Task check completed',
       executedCount: executedTasks.length,
