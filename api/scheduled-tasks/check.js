@@ -10,6 +10,13 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // 認証トークンチェック（環境変数で設定）
+  const authToken = process.env.CRON_AUTH_TOKEN;
+  if (authToken && req.headers.authorization !== `Bearer ${authToken}`) {
+    console.warn('⚠️ Unauthorized cron request attempt');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   try {
     console.log('🔍 Checking for scheduled tasks to execute...');
     
@@ -65,7 +72,8 @@ export default async function handler(req, res) {
               originalRequest: task.instruction,
               scheduledTaskId: task.id,
               taskType: task.task_type,
-              config: task.config
+              config: task.config,
+              assignedTo: task.assigned_to // Worker割り当て情報を追加
             }
           })
         });

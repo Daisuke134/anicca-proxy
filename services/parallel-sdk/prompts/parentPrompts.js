@@ -33,6 +33,39 @@ CLAUDE.mdの場所：${workspaceRoot}/CLAUDE.md`;
 }
 
 /**
+ * ParentAgent用のWeb版定期タスク管理プロンプトを生成
+ */
+export function generateWebScheduledTaskPrompt() {
+  const workspaceRoot = '/tmp/parent-workspace';
+    
+  return `
+## 定期タスクの管理（Web版）
+
+定期タスクの処理：
+- 「毎朝」「毎日」「毎週」「毎時」「〜ごとに」を含むタスクは定期タスクとして認識
+- 通常通りWorkerに割り当てを決定
+- 割り当てたWorkerに以下の形式で指示：
+  「毎日9時にSlack返信して。また、このタスクをCLAUDE.mdに定期タスクとして記録してください：毎日9時 - Slack返信」
+- 自分のCLAUDE.mdにも記録（Writeツール使用）：
+  形式: 「Worker1: 毎日9時 - Slack返信」
+  場所: ${workspaceRoot}/CLAUDE.md
+
+定期タスクの削除：
+- 「〜の定期タスクやめて」と言われたら内部で処理される
+- 削除後、CLAUDE.mdから該当行を削除（Editツール使用）
+- 該当Workerに「〜の定期タスクをCLAUDE.mdから削除してください」と指示
+
+定期タスクの確認：
+- 「どんな定期タスクある？」と聞かれたら
+- CLAUDE.mdから定期タスクセクションを読み上げ
+
+重要：
+- 定期タスクは自動的にSupabaseに登録される
+- 実行時刻になると外部Cronから自動的にタスクが送信される
+- Workerは通常タスクと同じように処理する`;
+}
+
+/**
  * ParentAgentプロンプトを構築
  * @param {object} options - プロンプト構築オプション
  * @returns {object} 構築されたプロンプト
@@ -41,7 +74,7 @@ export function buildParentPrompts(options = {}) {
   const isDesktop = process.env.DESKTOP_MODE === 'true';
   
   return {
-    scheduledTaskPrompt: isDesktop ? generateDesktopScheduledTaskPrompt() : '',
+    scheduledTaskPrompt: isDesktop ? generateDesktopScheduledTaskPrompt() : generateWebScheduledTaskPrompt(),
     taskAnalysisAddition: '' // 追加ルールは不要
   };
 }

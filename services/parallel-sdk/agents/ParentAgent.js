@@ -9,6 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as path from 'path';
 import * as os from 'os';
 import fsSync from 'fs';
+import fs from 'fs';
 import { buildParentPrompts } from '../prompts/parentPrompts.js';
 
 /**
@@ -252,11 +253,21 @@ ${scheduledTaskPrompt}`;
       // 1. Worker状況を取得
       const workerStatus = this.getWorkerStatus();
       
-      // 2. Claudeでタスクを分析して割り当てを決定（定期タスクも含む）
-      const assignments = await this.analyzeAndAssignTasks({
-        task: task.originalRequest,
-        workers: workerStatus
-      });
+      // 2. assignedToがある場合（定期タスク実行）は直接そのWorkerに割り当て
+      let assignments;
+      if (task.assignedTo) {
+        assignments = [{
+          worker: task.assignedTo,
+          task: task.originalRequest
+        }];
+        console.log(`📅 [${this.agentName}] Using pre-assigned worker for scheduled task: ${task.assignedTo}`);
+      } else {
+        // 通常のタスク分析と割り当て
+        assignments = await this.analyzeAndAssignTasks({
+          task: task.originalRequest,
+          workers: workerStatus
+        });
+      }
       
       // 3. タスクを定期と通常に分類
       const scheduledTasks = [];
@@ -269,8 +280,18 @@ ${scheduledTaskPrompt}`;
         };
         
         // 各タスクが定期タスクかチェック
-        const isScheduled = await this.checkAndRegisterScheduledTask(subTask);
+        const isScheduled = await this.checkAndRegisterScheduledTask(subTask, assignment.worker);
         if (isScheduled) {
+          // 定期タスクの場合、WorkerにCLAUDE.md記録を指示
+          const workerTask = {
+            ...task,
+            id: `${task.id}-scheduled-${assignment.worker}`,
+            originalRequest: `${assignment.task}。また、このタスクをCLAUDE.mdに定期タスクとして記録してください：${assignment.task}`
+          };
+          
+          // Workerに記録指示を送信
+          await this.assignSpecificTaskToWorker(assignment.worker, workerTask);
+          
           scheduledTasks.push({
             ...assignment,
             registered: true
@@ -730,7 +751,7 @@ ${statusList}
   /**
    * 定期タスクかどうかを判定し、必要なら登録
    */
-  async checkAndRegisterScheduledTask(task) {
+  async checkAndRegisterScheduledTask(task, assignedWorker = null) {
     // Desktop版では定期タスク判定をスキップ
     if (process.env.DESKTOP_MODE === 'true') {
       console.log('🖥️ Desktop mode: skipping scheduled task check, will be handled by Worker');
@@ -800,7 +821,8 @@ ${task.originalRequest}
             interval_hours: parsed.intervalHours,
             task_type: parsed.taskType,
             config: parsed.config || {},
-            next_run: nextRun
+            next_run: nextRun,
+            assigned_to: assignedWorker // Worker割り当て情報を追加
           })
           .select()
           .single();
