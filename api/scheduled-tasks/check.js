@@ -48,11 +48,25 @@ export default async function handler(req, res) {
 
     console.log(`📋 Found ${tasks.length} tasks to execute`);
 
-    // Process each task
-    const executedTasks = [];
-    
-    for (const task of tasks) {
-      try {
+    // Return response immediately
+    res.status(200).json({
+      message: 'Tasks queued for execution',
+      count: tasks.length,
+      tasks: tasks.map(t => ({ 
+        id: t.id, 
+        type: t.task_type,
+        assigned_to: t.assigned_to,
+        instruction: t.instruction.substring(0, 50) + '...'
+      }))
+    });
+
+    // Process tasks in background
+    setImmediate(async () => {
+      console.log('🚀 Starting background task execution...');
+      const executedTasks = [];
+      
+      for (const task of tasks) {
+        try {
         console.log(`⚡ Executing task: ${task.task_type} for user ${task.user_id}`);
         
         // Log task execution start
@@ -125,7 +139,7 @@ export default async function handler(req, res) {
           nextRun
         });
 
-      } catch (error) {
+        } catch (error) {
         console.error(`❌ Error executing task ${task.id}:`, error);
         
         // Log failure
@@ -138,15 +152,11 @@ export default async function handler(req, res) {
           })
           .eq('task_id', task.id)
           .eq('status', 'running');
+        }
       }
-    }
 
-    // Return response after all tasks are processed
-    return res.status(200).json({
-      message: 'Task check completed',
-      executedCount: executedTasks.length,
-      tasks: executedTasks
-    });
+      console.log(`✅ Background task execution completed. Executed ${executedTasks.length} tasks`);
+    }); // End of setImmediate
 
   } catch (error) {
     console.error('Scheduled task check error:', error);
