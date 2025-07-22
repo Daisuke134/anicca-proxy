@@ -225,11 +225,6 @@ async function generateDynamicTools(userId = null) {
           type: 'string',
           description: 'The task or question for Claude Code to handle'
         },
-        context: {
-          type: 'string',
-          description: 'Additional context if needed',
-          optional: true
-        },
         userId: {
           type: 'string',
           description: 'User ID for Slack integration (Supabase user ID)',
