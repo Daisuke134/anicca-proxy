@@ -250,6 +250,33 @@ ${scheduledTaskPrompt}`;
           this.log('warn', '⚠️ No Slack tokens found for user');
         }
       }
+      
+      // 定期タスク実行時（Cronからの自動実行）は早期リターン
+      if (task.type === 'scheduled' && task.assignedTo) {
+        console.log(`📅 [${this.agentName}] Executing scheduled task directly`);
+        
+        // assignedToで指定されたWorkerに直接送信
+        const taskId = `${task.id || Date.now()}`;
+        this.tasks.set(taskId, {
+          task: task,
+          assignedTo: task.assignedTo,
+          status: 'assigned'
+        });
+        
+        await this.assignSpecificTaskToWorker(task.assignedTo, task);
+        const result = await this.waitForTaskCompletion(taskId);
+        
+        return {
+          success: true,
+          output: '定期タスクを実行しました',
+          metadata: {
+            executedBy: this.agentName,
+            taskType: 'scheduled_execution',
+            result: result
+          }
+        };
+      }
+      
       // 1. Worker状況を取得
       const workerStatus = this.getWorkerStatus();
       
