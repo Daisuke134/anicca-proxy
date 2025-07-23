@@ -53,7 +53,7 @@ export default async function handler(req, res) {
 
   try {
     // 両方の形式に対応
-    let task, context, userId;
+    let task, context, userId, timezone;
     
     console.log('📥 Claude Code request:', {
       bodyKeys: Object.keys(req.body),
@@ -63,13 +63,14 @@ export default async function handler(req, res) {
     });
     
     if (req.body.arguments) {
-      // デスクトップ版形式: { arguments: { task: "...", context: "...", userId: "..." } }
+      // デスクトップ版形式: { arguments: { task: "...", context: "...", userId: "...", timezone: "..." } }
       const args = typeof req.body.arguments === 'string' 
         ? JSON.parse(req.body.arguments) 
         : req.body.arguments;
       task = args.task;
       context = args.context;
       userId = args.userId;
+      timezone = args.timezone;
       console.log('🔧 Using arguments format:', { 
         task: task ? task.substring(0, 50) + '...' : 'none',
         hasContext: !!context,
@@ -77,10 +78,11 @@ export default async function handler(req, res) {
         userIdType: typeof userId
       });
     } else {
-      // Web版形式: { task: "...", context: "...", userId: "..." }
+      // Web版形式: { task: "...", context: "...", userId: "...", timezone: "..." }
       task = req.body.task;
       context = req.body.context;
       userId = req.body.userId;
+      timezone = req.body.timezone;
       console.log('🔧 Using direct format:', { 
         task: task ? task.substring(0, 50) + '...' : 'none',
         hasContext: !!context,
@@ -139,6 +141,7 @@ export default async function handler(req, res) {
         id: uuidv4(),
         type: 'general',
         originalRequest: task,
+        timezone: timezone || null,
         context: {
           context: context || '',
           userId: userId || null,

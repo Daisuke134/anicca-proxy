@@ -229,6 +229,11 @@ async function generateDynamicTools(userId = null) {
           type: 'string',
           description: 'User ID for Slack integration (Supabase user ID)',
           optional: true
+        },
+        timezone: {
+          type: 'string',
+          description: 'User timezone (e.g., Asia/Tokyo)',
+          optional: true
         }
       },
       required: ['task']
