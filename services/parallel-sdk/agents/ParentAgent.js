@@ -820,7 +820,7 @@ ${task.originalRequest}
           .from('scheduled_tasks')
           .insert({
             user_id: task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID,
-            instruction: task.originalRequest,
+            instruction: parsed.instruction,
             frequency: parsed.frequency,
             time: parsed.time,
             day_of_week: parsed.dayOfWeek,
@@ -1057,11 +1057,29 @@ ${desktopAddition}
    * 定期タスク削除リクエストかチェックして削除
    */
   async checkScheduledTaskDeletion(task) {
+    // ユーザーの定期タスク一覧を取得
+    let userTasks = [];
+    if (this.supabase) {
+      const { data } = await this.supabase
+        .from('scheduled_tasks')
+        .select('*')
+        .eq('user_id', task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+      
+      if (data) {
+        userTasks = data;
+      }
+    }
+    
     const prompt = `
 以下のリクエストが定期タスクの削除を要求しているか判定してください。
 
 【リクエスト】
 ${task.originalRequest}
+
+【現在の定期タスク一覧】
+${userTasks.map((t, i) => `${i+1}. ${t.instruction} (ID: ${t.id})`).join('\n')}
 
 【削除リクエストの例】
 - 定期タスク削除して
@@ -1070,10 +1088,11 @@ ${task.originalRequest}
 - 毎分のタスクを取り消して
 - Slackチェックの定期タスクやめて
 
-削除リクエストの場合、以下のJSON形式で返してください：
+削除リクエストの場合、該当するタスクのIDを特定して以下のJSON形式で返してください：
 {
   "isDeleteRequest": true,
-  "targetDescription": "削除対象の説明（例：こんにちは、Slackチェック、さっきの）"
+  "taskId": "削除するタスクのID",
+  "targetDescription": "削除対象の説明"
 }
 
 削除リクエストでない場合：
@@ -1094,7 +1113,7 @@ ${task.originalRequest}
         console.log(`🗑️ [${this.agentName}] Scheduled task deletion requested: ${parsed.targetDescription}`);
         
         // 削除処理
-        const deleteResult = await this.deleteScheduledTask(task.userId, parsed.targetDescription);
+        const deleteResult = await this.deleteScheduledTask(task.userId, parsed.taskId);
         
         return {
           success: true,
@@ -1118,45 +1137,23 @@ ${task.originalRequest}
   /**
    * 定期タスクを削除
    */
-  async deleteScheduledTask(userId, targetDescription) {
+  async deleteScheduledTask(userId, taskId) {
     if (!this.supabase) {
       return { deleted: false, message: '定期タスク管理システムが利用できません。' };
     }
 
     try {
-      // ユーザーの定期タスクを取得
-      const { data: tasks, error: fetchError } = await this.supabase
+      // 指定されたタスクを取得
+      const { data: targetTask, error: fetchError } = await this.supabase
         .from('scheduled_tasks')
         .select('*')
+        .eq('id', taskId)
         .eq('user_id', userId)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
+        .single();
 
-      if (fetchError) {
-        console.error('Failed to fetch scheduled tasks:', fetchError);
-        return { deleted: false, message: '定期タスクの取得に失敗しました。' };
-      }
-
-      if (!tasks || tasks.length === 0) {
-        return { deleted: false, message: '登録されている定期タスクがありません。' };
-      }
-
-      // 削除対象を特定
-      let targetTask = null;
-      
-      if (targetDescription.includes('さっき') || targetDescription.includes('最新') || targetDescription.includes('最後')) {
-        // 最新のタスクを削除
-        targetTask = tasks[0];
-      } else {
-        // 説明に一致するタスクを検索
-        targetTask = tasks.find(task => 
-          task.instruction.includes(targetDescription) ||
-          task.task_type.includes(targetDescription)
-        );
-      }
-
-      if (!targetTask) {
-        return { deleted: false, message: `「${targetDescription}」に該当する定期タスクが見つかりません。` };
+      if (fetchError || !targetTask) {
+        console.error('Failed to fetch scheduled task:', fetchError);
+        return { deleted: false, message: '指定された定期タスクが見つかりません。' };
       }
 
       // タスクを削除（実際には無効化）

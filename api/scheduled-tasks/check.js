@@ -88,6 +88,13 @@ export default async function handler(req, res) {
           
         console.log(`🌐 Calling parallel-sdk/execute at: ${baseUrl}`);
         
+        // 頻度情報を削除してクリーンな指示を送る
+        const cleanedInstruction = task.instruction
+          .replace(/毎日|毎朝|毎週|毎月|毎時|毎分|[0-9]+分ごとに|[0-9]+時間ごとに|[0-9]+分おきに|[0-9]+時間おきに/g, '')
+          .trim();
+        
+        console.log(`🧹 Cleaned instruction: "${cleanedInstruction}" (original: "${task.instruction}")`);
+        
         const response = await fetch(`${baseUrl}/api/parallel-sdk/execute`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -95,7 +102,7 @@ export default async function handler(req, res) {
             userId: task.user_id,
             task: {
               type: 'scheduled',
-              originalRequest: task.instruction,
+              originalRequest: cleanedInstruction,
               scheduledTaskId: task.id,
               taskType: task.task_type,
               config: task.config,
@@ -186,7 +193,9 @@ function calculateNextRun(task) {
         
       case 'every_Xh':
         const hours = task.interval_hours || 6;
-        next.setHours(next.getHours() + hours);
+        // 分単位で計算して正確な時間を加算
+        const minutes = Math.round(hours * 60);
+        next.setMinutes(next.getMinutes() + minutes);
         break;
         
       case 'monthly':
