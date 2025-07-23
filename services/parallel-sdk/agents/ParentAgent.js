@@ -816,7 +816,8 @@ ${task.originalRequest}
   "time": "HH:MM形式（該当する場合）",
   "dayOfWeek": "曜日（weeklyの場合のみ）",
   "intervalHours": 数値（every_Xhの場合のみ）,
-  "taskType": "slack_check/email_check/post_message等"
+  "taskType": "slack_check/email_check/post_message等",
+  "timezone": "ユーザーの現在のタイムゾーン（Asia/Tokyoなど）"
 }
 
 定期実行でない場合：
@@ -855,7 +856,8 @@ ${task.originalRequest}
             task_type: parsed.taskType,
             config: parsed.config || {},
             next_run: nextRun,
-            assigned_to: assignedWorker // Worker割り当て情報を追加
+            assigned_to: assignedWorker, // Worker割り当て情報を追加
+            timezone: parsed.timezone || 'Asia/Tokyo' // タイムゾーンを追加
           })
           .select()
           .single();
@@ -886,49 +888,137 @@ ${task.originalRequest}
    */
   calculateInitialNextRun(taskInfo) {
     const now = new Date();
-    let next = new Date();
+    const timezone = taskInfo.timezone || 'UTC';
+    
+    let next;
 
     switch (taskInfo.frequency) {
       case 'daily':
         const [hours, minutes] = taskInfo.time.split(':').map(Number);
-        next.setHours(hours, minutes, 0, 0);
+        
+        // ユーザーのタイムゾーンでの現在日時を取得
+        const userDateStr = new Date().toLocaleDateString('en-US', { 
+          timeZone: timezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+        
+        // MM/DD/YYYY形式から年月日を取得
+        const [month, day, year] = userDateStr.split('/');
+        
+        // ユーザーのタイムゾーンでの指定時刻を作成
+        const userTimeStr = `${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}T${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:00`;
+        
+        // タイムゾーンを考慮してDateオブジェクトを作成
+        const tempDate = new Date(userTimeStr);
+        const tzOffset = new Date().toLocaleString('en-US', { timeZone: timezone, timeZoneName: 'short' });
+        const utcOffset = new Date().toLocaleString('en-US', { timeZone: 'UTC', timeZoneName: 'short' });
+        
+        // タイムゾーンオフセットを計算（より確実な方法）
+        const userLocalTime = new Date(tempDate.toLocaleString('en-US', { timeZone: timezone }));
+        const utcTime = new Date(tempDate.toLocaleString('en-US', { timeZone: 'UTC' }));
+        const offsetMs = utcTime - userLocalTime;
+        
+        next = new Date(tempDate.getTime() + offsetMs);
+        
+        // 過去の時刻なら翌日に
         if (next <= now) {
           next.setDate(next.getDate() + 1);
         }
-        break;
+        
+        return next.toISOString();
 
       case 'weekly':
         const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         const targetDay = days.indexOf(taskInfo.dayOfWeek.toLowerCase());
-        const currentDay = now.getDay();
+        
+        // ユーザーのタイムゾーンでの現在の曜日を取得
+        const userWeekdayStr = new Date().toLocaleDateString('en-US', { 
+          timeZone: timezone,
+          weekday: 'long'
+        }).toLowerCase();
+        const currentDay = days.indexOf(userWeekdayStr);
         
         let daysToAdd = targetDay - currentDay;
         if (daysToAdd <= 0) daysToAdd += 7;
         
-        next.setDate(next.getDate() + daysToAdd);
+        // ユーザーのタイムゾーンでの日付を計算
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + daysToAdd);
+        
+        const targetDateStr = targetDate.toLocaleDateString('en-US', { 
+          timeZone: timezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+        
+        const [wmonth, wday, wyear] = targetDateStr.split('/');
         const [whours, wminutes] = taskInfo.time.split(':').map(Number);
-        next.setHours(whours, wminutes, 0, 0);
-        break;
+        
+        // 指定時刻でDateオブジェクトを作成
+        const weeklyTimeStr = `${wyear}-${wmonth.padStart(2,'0')}-${wday.padStart(2,'0')}T${whours.toString().padStart(2,'0')}:${wminutes.toString().padStart(2,'0')}:00`;
+        const weeklyTempDate = new Date(weeklyTimeStr);
+        
+        // タイムゾーンオフセットを計算
+        const weeklyUserTime = new Date(weeklyTempDate.toLocaleString('en-US', { timeZone: timezone }));
+        const weeklyUtcTime = new Date(weeklyTempDate.toLocaleString('en-US', { timeZone: 'UTC' }));
+        const weeklyOffsetMs = weeklyUtcTime - weeklyUserTime;
+        
+        next = new Date(weeklyTempDate.getTime() + weeklyOffsetMs);
+        
+        return next.toISOString();
 
       case 'hourly':
+        next = new Date(now);
         next.setHours(next.getHours() + 1, 0, 0, 0);
-        break;
+        return next.toISOString();
 
       case 'every_Xh':
         const intervalHours = taskInfo.intervalHours || 6;
+        next = new Date(now);
         next.setHours(next.getHours() + intervalHours);
-        break;
+        return next.toISOString();
 
       case 'monthly':
-        next.setMonth(next.getMonth() + 1, 1); // 翌月1日
+        // ユーザーのタイムゾーンでの翌月1日を計算
+        const nextMonth = new Date();
+        nextMonth.setMonth(nextMonth.getMonth() + 1, 1);
+        
+        const monthlyDateStr = nextMonth.toLocaleDateString('en-US', { 
+          timeZone: timezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+        
+        const [mmonth, mday, myear] = monthlyDateStr.split('/');
+        
         if (taskInfo.time) {
           const [mhours, mminutes] = taskInfo.time.split(':').map(Number);
-          next.setHours(mhours, mminutes, 0, 0);
+          
+          // 指定時刻でDateオブジェクトを作成
+          const monthlyTimeStr = `${myear}-${mmonth.padStart(2,'0')}-${mday.padStart(2,'0')}T${mhours.toString().padStart(2,'0')}:${mminutes.toString().padStart(2,'0')}:00`;
+          const monthlyTempDate = new Date(monthlyTimeStr);
+          
+          // タイムゾーンオフセットを計算
+          const monthlyUserTime = new Date(monthlyTempDate.toLocaleString('en-US', { timeZone: timezone }));
+          const monthlyUtcTime = new Date(monthlyTempDate.toLocaleString('en-US', { timeZone: 'UTC' }));
+          const monthlyOffsetMs = monthlyUtcTime - monthlyUserTime;
+          
+          next = new Date(monthlyTempDate.getTime() + monthlyOffsetMs);
+        } else {
+          // 時刻指定がない場合は0時
+          const monthlyTimeStr = `${myear}-${mmonth.padStart(2,'0')}-${mday.padStart(2,'0')}T00:00:00`;
+          next = new Date(monthlyTimeStr);
         }
-        break;
+        
+        return next.toISOString();
     }
 
-    return next.toISOString();
+    // デフォルト（到達しないはず）
+    return new Date().toISOString();
   }
 
   /**
