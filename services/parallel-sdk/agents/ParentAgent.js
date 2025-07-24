@@ -120,6 +120,33 @@ ${scheduledTaskPrompt}`;
         console.log('📋 Scheduled task management prompt included');
       }
       
+      // Web版専用プロンプトを設定
+      if (!isDesktop) {
+        // parentPrompts.jsから定期タスク管理プロンプトを取得
+        const parentPrompts = buildParentPrompts();
+        const scheduledTaskPrompt = parentPrompts.scheduledTaskPrompt || '';
+        
+        this.webPrompt = `
+【作業環境】
+- Web版として動作中
+- ワークスペース: /tmp/parent-workspace/
+- CLAUDE.mdパス: /tmp/parent-workspace/CLAUDE.md
+
+【タスク管理】
+- 複数の異なるタスクは必ず別々のWorkerに割り当て
+- 各Workerは独立したワークスペースで作業: /tmp/worker-X/
+- 例: 「TODOアプリ作って、カレンダー作って」→ Worker1とWorker2に分散
+
+【記憶管理】
+- チーム全体の重要情報は /tmp/parent-workspace/CLAUDE.md に記録
+- 各Workerの専門性や得意分野を記憶
+- ユーザーの傾向や好みを蓄積
+
+${scheduledTaskPrompt}`;
+        console.log('🌐 Web mode prompt configured for ParentAgent');
+        console.log('📋 Scheduled task management prompt included');
+      }
+      
     } catch (error) {
       console.error(`❌ ${this.agentName} initialization failed:`, error);
       process.exit(1);
