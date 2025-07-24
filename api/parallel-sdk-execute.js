@@ -21,16 +21,12 @@ export default async function handler(req, res) {
       await parentAgent.initialize();
     }
     
-    // 環境変数を設定
-    process.env.CURRENT_USER_ID = userId;
-    process.env.SLACK_USER_ID = userId;
-    
-    // タスクを実行
+    // タスクを実行（環境変数は設定しない）
     console.log(`📋 Executing task for user ${userId}:`, task);
     
     const result = await parentAgent.executeTask({
       ...task,
-      userId
+      userId  // taskオブジェクトに直接userIdを含める
     });
     
     return res.status(200).json({

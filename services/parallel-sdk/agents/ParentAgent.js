@@ -165,12 +165,28 @@ ${scheduledTaskPrompt}`;
   async executeTask(task) {
     console.log(`📋 [${this.agentName}] Received main task: ${task.originalRequest}`);
     
+    // taskオブジェクトに必ずuserIdを含める
+    const taskUserId = task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID || 'system';
+    console.log(`[TASK] userId sources:`, {
+      'task.userId': task.userId,
+      'env.CURRENT_USER_ID': process.env.CURRENT_USER_ID,
+      'env.SLACK_USER_ID': process.env.SLACK_USER_ID,
+      'final': taskUserId
+    });
+    
+    // taskオブジェクトを拡張
+    const enhancedTask = {
+      ...task,
+      userId: taskUserId,
+      requestTime: Date.now()
+    };
+    
     const startTime = Date.now();
     
     try {
       // 重複タスクチェック
       if (this.lastTask && (Date.now() - this.lastTaskTime) < this.DUPLICATE_WINDOW) {
-        const isDuplicate = await this.checkTaskDuplicate(this.lastTask.originalRequest, task.originalRequest);
+        const isDuplicate = await this.checkTaskDuplicate(this.lastTask.originalRequest, enhancedTask.originalRequest);
         if (isDuplicate) {
           console.log(`🚫 [${this.agentName}] Duplicate task detected, skipping...`);
           return {
@@ -186,20 +202,20 @@ ${scheduledTaskPrompt}`;
       }
       
       // タスクを記録
-      this.lastTask = task;
+      this.lastTask = enhancedTask;
       this.lastTaskTime = Date.now();
       
       // Desktop版では定期タスク削除チェックをスキップ
       if (process.env.DESKTOP_MODE !== 'true') {
         // Web版のみ定期タスク削除をチェック
-        const isDeleteRequest = await this.checkScheduledTaskDeletion(task);
+        const isDeleteRequest = await this.checkScheduledTaskDeletion(enhancedTask);
         if (isDeleteRequest) {
           return isDeleteRequest; // 削除結果を返す
         }
       }
       
       // タスク実行前にユーザーのSlackトークンを取得して設定
-      const userId = task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID;
+      const userId = enhancedTask.userId;
       if (userId) {
         const isDesktop = process.env.DESKTOP_MODE === 'true';
         
@@ -1046,18 +1062,29 @@ ${desktopAddition}
    * 定期タスク削除リクエストかチェックして削除
    */
   async checkScheduledTaskDeletion(task) {
+    // taskオブジェクトから直接userIdを取得
+    const userId = task.userId;
+    
+    if (!userId || userId === 'system') {
+      console.error('[DELETION_CHECK] Invalid userId:', userId);
+      return null;
+    }
+    
+    console.log('[DELETION_CHECK] Checking deletion for userId:', userId);
+    
     // ユーザーの定期タスク一覧を取得
     let userTasks = [];
     if (this.supabase) {
       const { data } = await this.supabase
         .from('scheduled_tasks')
         .select('*')
-        .eq('user_id', task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID)
+        .eq('user_id', userId)
         .eq('status', 'active')
         .order('created_at', { ascending: false });
       
       if (data) {
         userTasks = data;
+        console.log('[DELETION_CHECK] Found active tasks:', userTasks.length);
       }
     }
     
@@ -1097,11 +1124,27 @@ ${userTasks.map((t, i) => `${i+1}. ${t.instruction} (ID: ${t.id})`).join('\n')}
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
+      console.log(`[DELETION_CHECK] Parsed response:`, parsed);
+      console.log(`[DELETION_CHECK] Task info:`, { taskId: parsed.taskId, userId: task.userId });
       
       if (parsed.isDeleteRequest) {
         console.log(`🗑️ [${this.agentName}] Scheduled task deletion requested: ${parsed.targetDescription}`);
         
-        // 削除処理
+        // taskIdが存在しない場合のチェック
+        if (!parsed.taskId) {
+          console.error(`[DELETION_CHECK] ERROR: No taskId found in parsed response`);
+          return {
+            success: false,
+            output: '削除するタスクのIDが特定できませんでした。',
+            metadata: {
+              executedBy: this.agentName,
+              taskType: 'scheduled_deletion',
+              deleted: false
+            }
+          };
+        }
+        
+        // 削除処理 - task.userIdを使用
         const deleteResult = await this.deleteScheduledTask(task.userId, parsed.taskId);
         
         return {
@@ -1132,6 +1175,16 @@ ${userTasks.map((t, i) => `${i+1}. ${t.instruction} (ID: ${t.id})`).join('\n')}
     }
 
     try {
+      // Supabaseクライアントの状態確認
+      console.log(`[DELETE] Supabase client status:`, this.supabase ? 'initialized' : 'not initialized');
+      if (this.supabase && this.supabase.auth) {
+        const { data: { user } } = await this.supabase.auth.getUser();
+        console.log(`[DELETE] Supabase auth user:`, user ? { id: user.id, email: user.email } : 'No user');
+      }
+      
+      // 削除処理開始ログ
+      console.log(`[DELETE] Attempting to update task ${taskId} for user ${userId}`);
+      
       // 指定されたタスクを取得
       const { data: targetTask, error: fetchError } = await this.supabase
         .from('scheduled_tasks')
@@ -1145,15 +1198,43 @@ ${userTasks.map((t, i) => `${i+1}. ${t.instruction} (ID: ${t.id})`).join('\n')}
         return { deleted: false, message: '指定された定期タスクが見つかりません。' };
       }
 
-      // タスクを削除（実際には無効化）
-      const { error: updateError } = await this.supabase
+      // 取得したタスクの詳細ログ
+      console.log(`[DELETE] Target task:`, targetTask);
+      console.log(`[DELETE] userId comparison: DB="${targetTask.user_id}" vs Request="${userId}"`);
+
+      // 更新クエリ実行前ログ
+      console.log(`[DELETE] Executing update query...`);
+      
+      // タスクを削除（実際には無効化）- selectを追加して結果を取得
+      const { data: updateData, error: updateError, count } = await this.supabase
         .from('scheduled_tasks')
-        .update({ status: 'inactive' })
-        .eq('id', targetTask.id);
+        .update({ 
+          status: 'inactive',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', String(targetTask.id))
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .select();
+
+      // 更新結果の詳細ログ
+      console.log(`[DELETE] Update result:`, { updateData, updateError, count });
 
       if (updateError) {
         console.error('Failed to delete scheduled task:', updateError);
         return { deleted: false, message: '定期タスクの削除に失敗しました。' };
+      }
+
+      // 更新後の検証
+      const { data: verifyData, error: verifyError } = await this.supabase
+        .from('scheduled_tasks')
+        .select('*')
+        .eq('id', taskId)
+        .single();
+      
+      console.log(`[DELETE] Verification after update:`, verifyData);
+      if (verifyError) {
+        console.log(`[DELETE] Verification error:`, verifyError);
       }
 
       // Slackに削除通知
