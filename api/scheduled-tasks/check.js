@@ -48,26 +48,42 @@ export default async function handler(req, res) {
 
     console.log(`📋 Found ${tasks.length} tasks to execute`);
 
-    // Return response immediately
-    res.status(200).json({
-      message: 'Tasks queued for execution',
-      count: tasks.length,
-      tasks: tasks.map(t => ({ 
-        id: t.id, 
-        type: t.task_type,
-        assigned_to: t.assigned_to,
-        instruction: t.instruction.substring(0, 50) + '...'
-      }))
-    });
-
-    // Process tasks in background
-    setImmediate(async () => {
-      console.log('🚀 Starting background task execution...');
-      const executedTasks = [];
-      
-      for (const task of tasks) {
-        try {
-        console.log(`⚡ Executing task: ${task.task_type} for user ${task.user_id}`);
+    // Process tasks and update them BEFORE sending response
+    console.log('🚀 Processing scheduled tasks...');
+    const executedTasks = [];
+    
+    for (const task of tasks) {
+      try {
+        console.log(`⚡ Processing task: ${task.task_type} for user ${task.user_id}`);
+        
+        // Calculate next run time FIRST
+        const nextRun = calculateNextRun(task);
+        
+        // Update task with next run time and last run BEFORE execution
+        console.log(`🔄 Updating task in Supabase...`);
+        console.log(`  - Task ID: ${task.id}`);
+        console.log(`  - Last Run: ${now.toISOString()}`);
+        console.log(`  - Next Run: ${nextRun}`);
+        
+        const { data: updateData, error: updateError } = await supabase
+          .from('scheduled_tasks')
+          .update({
+            next_run: nextRun,
+            last_run: now.toISOString()
+          })
+          .eq('id', task.id)
+          .select();
+        
+        if (updateError) {
+          console.error(`❌ Failed to update task in Supabase:`, updateError);
+          console.error(`  - Error details:`, JSON.stringify(updateError, null, 2));
+          // Continue with execution anyway
+        } else {
+          console.log(`✅ Task updated successfully`);
+          if (updateData && updateData.length > 0) {
+            console.log(`  - Updated record:`, updateData[0]);
+          }
+        }
         
         // Log task execution start
         const { data: logEntry } = await supabase
@@ -116,38 +132,29 @@ export default async function handler(req, res) {
         console.log(`📊 Task result:`, result);
 
         // Update execution log
-        await supabase
-          .from('task_execution_logs')
-          .update({
-            completed_at: new Date().toISOString(),
-            status: result.success ? 'completed' : 'failed',
-            result: result,
-            error: result.error
-          })
-          .eq('id', logEntry.id);
-
-        // Calculate next run time
-        const nextRun = calculateNextRun(task);
-        
-        // Update task with next run time and last run
-        await supabase
-          .from('scheduled_tasks')
-          .update({
-            next_run: nextRun,
-            last_run: now.toISOString()
-          })
-          .eq('id', task.id);
+        if (logEntry) {
+          await supabase
+            .from('task_execution_logs')
+            .update({
+              completed_at: new Date().toISOString(),
+              status: result.success ? 'completed' : 'failed',
+              result: result,
+              error: result.error
+            })
+            .eq('id', logEntry.id);
+        }
 
         executedTasks.push({
           taskId: task.id,
           taskType: task.task_type,
           userId: task.user_id,
           success: result.success,
-          nextRun
+          nextRun,
+          updateSuccess: !updateError
         });
 
-        } catch (error) {
-        console.error(`❌ Error executing task ${task.id}:`, error);
+      } catch (error) {
+        console.error(`❌ Error processing task ${task.id}:`, error);
         
         // Log failure
         await supabase
@@ -159,11 +166,23 @@ export default async function handler(req, res) {
           })
           .eq('task_id', task.id)
           .eq('status', 'running');
-        }
       }
+    }
 
-      console.log(`✅ Background task execution completed. Executed ${executedTasks.length} tasks`);
-    }); // End of setImmediate
+    console.log(`✅ Task processing completed. Processed ${executedTasks.length} tasks`);
+    
+    // Return response AFTER all processing is done
+    return res.status(200).json({
+      message: 'Tasks executed',
+      count: executedTasks.length,
+      tasks: executedTasks.map(t => ({ 
+        id: t.taskId, 
+        type: t.taskType,
+        success: t.success,
+        nextRun: t.nextRun,
+        updateSuccess: t.updateSuccess
+      }))
+    });
 
   } catch (error) {
     console.error('Scheduled task check error:', error);
