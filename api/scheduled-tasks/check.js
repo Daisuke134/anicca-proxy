@@ -174,70 +174,19 @@ export default async function handler(req, res) {
 // Calculate next run time based on frequency
 function calculateNextRun(task) {
   const now = new Date();
-  const timezone = task.timezone || 'UTC';
   let next = new Date(task.next_run);
   
   // Ensure we're calculating from a future time
   while (next <= now) {
     switch (task.frequency) {
       case 'daily':
-        if (task.time) {
-          // タイムゾーンを考慮した日付計算
-          const [hours, minutes] = task.time.split(':').map(Number);
-          
-          // 次の日の同じ時刻を計算
-          next.setDate(next.getDate() + 1);
-          
-          // ユーザーのタイムゾーンでの日付文字列を取得
-          const nextDateStr = next.toLocaleDateString('en-US', { 
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-          });
-          
-          const [month, day, year] = nextDateStr.split('/');
-          
-          // 指定時刻でDateオブジェクトを作成
-          const timeStr = `${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}T${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:00`;
-          const tempDate = new Date(timeStr);
-          
-          // タイムゾーンオフセットを計算
-          const userTime = new Date(tempDate.toLocaleString('en-US', { timeZone: timezone }));
-          const utcTime = new Date(tempDate.toLocaleString('en-US', { timeZone: 'UTC' }));
-          const offsetMs = utcTime - userTime;
-          
-          next = new Date(tempDate.getTime() + offsetMs);
-        } else {
-          next.setDate(next.getDate() + 1);
-        }
+        // 単純に24時間後
+        next.setDate(next.getDate() + 1);
         break;
         
       case 'weekly':
-        if (task.time) {
-          // 7日後の同じ時刻を計算
-          next.setDate(next.getDate() + 7);
-          
-          const [whours, wminutes] = task.time.split(':').map(Number);
-          const weekDateStr = next.toLocaleDateString('en-US', { 
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-          });
-          
-          const [wmonth, wday, wyear] = weekDateStr.split('/');
-          const weekTimeStr = `${wyear}-${wmonth.padStart(2,'0')}-${wday.padStart(2,'0')}T${whours.toString().padStart(2,'0')}:${wminutes.toString().padStart(2,'0')}:00`;
-          const weekTempDate = new Date(weekTimeStr);
-          
-          const weekUserTime = new Date(weekTempDate.toLocaleString('en-US', { timeZone: timezone }));
-          const weekUtcTime = new Date(weekTempDate.toLocaleString('en-US', { timeZone: 'UTC' }));
-          const weekOffsetMs = weekUtcTime - weekUserTime;
-          
-          next = new Date(weekTempDate.getTime() + weekOffsetMs);
-        } else {
-          next.setDate(next.getDate() + 7);
-        }
+        // 単純に7日後
+        next.setDate(next.getDate() + 7);
         break;
         
       case 'hourly':
@@ -252,30 +201,8 @@ function calculateNextRun(task) {
         break;
         
       case 'monthly':
-        if (task.time) {
-          // 翌月の同じ日、指定時刻
-          next.setMonth(next.getMonth() + 1);
-          
-          const [mhours, mminutes] = task.time.split(':').map(Number);
-          const monthDateStr = next.toLocaleDateString('en-US', { 
-            timeZone: timezone,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-          });
-          
-          const [mmonth, mday, myear] = monthDateStr.split('/');
-          const monthTimeStr = `${myear}-${mmonth.padStart(2,'0')}-${mday.padStart(2,'0')}T${mhours.toString().padStart(2,'0')}:${mminutes.toString().padStart(2,'0')}:00`;
-          const monthTempDate = new Date(monthTimeStr);
-          
-          const monthUserTime = new Date(monthTempDate.toLocaleString('en-US', { timeZone: timezone }));
-          const monthUtcTime = new Date(monthTempDate.toLocaleString('en-US', { timeZone: 'UTC' }));
-          const monthOffsetMs = monthUtcTime - monthUserTime;
-          
-          next = new Date(monthTempDate.getTime() + monthOffsetMs);
-        } else {
-          next.setMonth(next.getMonth() + 1);
-        }
+        // 単純に1ヶ月後
+        next.setMonth(next.getMonth() + 1);
         break;
         
       default:

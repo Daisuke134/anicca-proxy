@@ -819,18 +819,19 @@ ${task.originalRequest}
   "intervalHours": 数値（every_Xhの場合のみ）,
   "taskType": "slack_check/email_check/post_message等",
   "timezone": ${task.timezone ? `"${task.timezone}"` : 'null'},
-  "nextRun": "次回実行時刻をISO 8601形式のUTCで（例: 2025-01-24T00:00:00+00）"
+  "nextRun": "次回実行時刻をISO 8601形式のUTCで（例: 2025-01-24T00:00:00Z または 2025-01-24T00:00:00+00:00）"
 }
 
 重要な指示：
 ${task.timezone ? `- timeで指定された時刻は、ユーザーのタイムゾーン（${task.timezone}）のローカル時間として解釈してください
-- nextRunは必ずUTC時刻に変換して返してください（末尾は+00）
+- nextRunは必ずUTC時刻に変換して返してください（末尾はZまたは+00:00形式で）
 - 例：timezone="${task.timezone}"でtime="09:00"の場合、そのタイムゾーンの9時をUTCに変換してnextRunに設定` : '- タイムゾーン情報がないため、timeはUTCとして解釈してください'}
 - 現在時刻: ${new Date().toISOString()}
 - nextRunの計算ルール：
   * 指定時刻が現在時刻より未来（1分後でも）の場合は、必ず今日のその時刻に設定
   * 指定時刻が現在時刻を過ぎている場合のみ、明日のその時刻に設定
   * 例：現在1:47で「1:50に実行」の場合、今日の1:50に設定（明日ではない）
+- nextRunの形式は必ず2025-01-24T00:00:00Zまたは2025-01-24T00:00:00+00:00の形式で返す（+00だけはNG）
 
 定期実行でない場合：
 {
