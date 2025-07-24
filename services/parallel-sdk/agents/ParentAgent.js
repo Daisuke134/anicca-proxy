@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as os from 'os';
 import fsSync from 'fs';
 import fs from 'fs';
-import { buildParentPrompts } from '../prompts/parentPrompts.js';
+import { buildParentPrompts, generateUnifiedTaskAnalysisPrompt } from '../prompts/parentPrompts.js';
 
 /**
  * ParentAgent - BaseWorkerベースの司令塔エージェント
@@ -986,102 +986,35 @@ ${task.timezone ? `- timeで指定された時刻は、ユーザーのタイム�
    * Claudeでタスクを分析して割り当てを決定
    */
   async analyzeAndAssignTasks(taskInfo) {
-    const parentPrompts = buildParentPrompts();
-    const desktopAddition = parentPrompts.taskAnalysisAddition || '';
-    const scheduledTaskPrompt = parentPrompts.scheduledTaskPrompt || '';
+    const isDesktop = process.env.DESKTOP_MODE === 'true';
     
-    const prompt = `
-${scheduledTaskPrompt}
-
-以下のタスクを分析して、空いているWorkerに割り当ててください。
-
-【タスク】
-${taskInfo.task}
-
-【Worker状況】
-${JSON.stringify(taskInfo.workers, null, 2)}
-
-【ルール】
-- busyのWorkerは避けて、idleのWorkerだけに割り当ててください
-- **重要**: 2つ以上の異なるタスクがある場合は、必ず別々のWorkerに割り当ててください
-- タスクの難易度に関係なく、異なる種類のタスクは並列処理のために分割してください
-- ユーザーが「複数のWorkerに分けて」と明示的に指示した場合は、必ずその通りに実行してください
-- 同じ種類のタスクを無理に分割する必要はありません
-- 例：以下のようなタスクは必ず3人の別々のWorkerに割り当ててください
-  - 「TODOアプリ作成」「聖書の言葉を送信」「ニュース検索」
-  - 「アプリ作成して、メッセージ送って、調査して」
-
-${desktopAddition}
-
-【応答形式】
-必ず以下のJSON形式で返してください：
-{
-  "assignments": [
-    { "worker": "Worker名", "task": "具体的なタスク内容" },
-    ...
-  ]
-}
-
-例1（複数タスク）:
-{
-  "assignments": [
-    { "worker": "Worker1", "task": "聖書の言葉をSlackに投稿" },
-    { "worker": "Worker2", "task": "TODOアプリを作成" },
-    { "worker": "Worker4", "task": "ニュース記事を探してSlackに投稿" }
-  ]
-}
-
-例2（単一タスク）:
-{
-  "assignments": [
-    { "worker": "Worker1", "task": "ウェブサイトのデザインを改善する" }
-  ]
-}`;
-
+    // 統合プロンプトを使用
+    const prompt = generateUnifiedTaskAnalysisPrompt(
+      {
+        task: taskInfo.task,
+        workers: taskInfo.workers,
+        timezone: taskInfo.timezone // Web版の場合のみ使用
+      },
+      isDesktop
+    );
+    
     try {
-      // ParentAgentもClaudeSessionを持っているので、それを使う
-      // rawオプションを使用して生のレスポンスを取得
-      const response = await this.session.sendMessage(prompt, { raw: true });
+      // JSON返却を期待せず、直接実行
+      console.log(`🎯 [${this.agentName}] Executing unified task analysis...`);
+      await this.session.sendMessage(prompt);
       
-      // デバッグ: Claudeのレスポンスを確認
-      console.log(`📝 [${this.agentName}] Claude raw response length:`, response.length);
-      console.log(`📝 [${this.agentName}] First 200 chars:`, response.substring(0, 200));
+      // 処理完了 - 結果は自動的にexecuteTaskに返される
+      console.log(`✅ [${this.agentName}] Task analysis and execution completed`);
       
-      // レスポンスからJSONを抽出（Markdownコードブロックも考慮）
-      let jsonStr;
-      
-      // まずMarkdownコードブロック内のJSONを探す
-      const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (codeBlockMatch) {
-        jsonStr = codeBlockMatch[1];
-        console.log(`📝 [${this.agentName}] Found JSON in code block:`, jsonStr);
-      } else {
-        // コードブロックがない場合は、純粋なJSONを探す
-        const jsonMatch = response.match(/\{[\s\S]*"assignments"[\s\S]*\}/);
-        if (!jsonMatch) {
-          console.error(`❌ No JSON found in response. Full response:`, response);
-          throw new Error('Failed to find JSON in Claude response');
-        }
-        jsonStr = jsonMatch[0];
-        console.log(`📝 [${this.agentName}] Found JSON without code block:`, jsonStr);
-      }
-      
-      // JSONをパース
-      const parsed = JSON.parse(jsonStr);
-      console.log(`🎯 [${this.agentName}] Task assignments:`, parsed.assignments);
-      
-      return parsed.assignments;
+      // 空の配列を返す（後方互換性のため）
+      return [];
     } catch (error) {
       console.error(`❌ [${this.agentName}] Failed to analyze tasks:`, error);
       console.error(`❌ Full error details:`, error.message);
       console.error(`❌ Error stack:`, error.stack);
       
-      // フォールバック: 単一タスクとして扱う
-      const idleWorker = this.getIdleWorker();
-      return [{
-        worker: idleWorker ? idleWorker.name : 'Worker1',
-        task: taskInfo.task
-      }];
+      // エラーの場合も空の配列を返す
+      return [];
     }
   }
   
