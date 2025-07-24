@@ -28,6 +28,9 @@ export function generateUnifiedTaskAnalysisPrompt(taskInfo, isDesktop) {
     ? '~/Desktop/anicca-agent-workspace/parentagent'
     : '/tmp/parent-workspace';
   
+  // タイムゾーン処理を事前に準備
+  const timezoneParam = isDesktop ? "" : ",\n     timezone: task.timezone";
+  
   return `
 あなたはParentAgentです。以下のタスクを分析して、適切に処理してください。
 
@@ -64,7 +67,7 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
    \`\`\`
    this.assignSpecificTaskToWorker('Worker1', {
      ...task,
-     originalRequest: '定期タスクとして登録してください: 毎日9時 - Slackチェック'${!isDesktop ? ",\n     timezone: task.timezone // Web版のみ必須" : ""}
+     originalRequest: '定期タスクとして登録してください: 毎日9時 - Slackチェック'${timezoneParam}
    });
    \`\`\`
 
