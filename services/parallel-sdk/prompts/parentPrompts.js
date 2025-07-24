@@ -56,46 +56,36 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
 「毎日」「毎朝」「毎週」「毎月」「毎時」「〜ごとに」を含む場合は定期タスクとして処理。
 
 ### 定期タスク登録の場合:
-1. まず自分のCLAUDE.mdに記録:
+
+1. idleのWorkerを選択し、自分のCLAUDE.mdに記録:
    - ${workspaceRoot}/CLAUDE.md を読む
    - 「## 定期タスク」セクションに追加
    - 形式: "Worker1: 毎日9時 - Slackチェック"
 
-2. Workerに割り当て:
-   - idleのWorkerを選択
-   - 以下のメッセージを送信:
-   \`\`\`
-   this.assignSpecificTaskToWorker('Worker1', {
-     ...task,
-     originalRequest: '定期タスクとして登録してください: 毎日9時 - Slackチェック'${timezoneParam}
-   });
-   \`\`\`
+2. 応答に含める内容:
+   - assignments配列に、選択したWorkerと指示内容を含める
+   - 例: { "worker": "Worker1", "task": "定期タスクとして登録してください: 毎日9時 - Slackチェック" }
+   - Web版の場合、タスクにtimezoneを含める
 
-3. ユーザーに報告:
-   - "定期タスク「毎日9時 - Slackチェック」をWorker1に登録しました"
+3. ユーザーへの報告:
+   - 処理完了メッセージを準備
 
 ## 2. 定期タスク削除判定
 「定期タスクやめて」「〜の定期タスク削除」を含む場合:
 
 1. CLAUDE.mdから該当タスクを検索:
    - ${workspaceRoot}/CLAUDE.md を読む
-   - 「さっきの」なら最新のタスク
-   - 内容で検索（例: "Slack"を含む定期タスク）
 
 2. 見つかったら:
    - 担当Workerを特定（例: Worker1）
    - CLAUDE.mdから該当行を削除
 
-3. Workerに停止指示:
-   \`\`\`
-   this.assignSpecificTaskToWorker('Worker1', {
-     ...task,
-     originalRequest: '定期タスク「Slackチェック」を停止してください'
-   });
-   \`\`\`
+3. 応答に含める内容:
+   - assignments配列に、担当Workerと停止指示を含める
+   - 例: { "worker": "Worker1", "task": "定期タスク「Slackチェック」を停止してください" }
 
-4. ユーザーに報告:
-   - "定期タスク「Slackチェック」を停止しました"
+4. ユーザーへの報告:
+   - 削除完了メッセージを準備
 
 ## 3. 定期タスク確認
 「どんな定期タスクある？」「定期タスク一覧」を含む場合:
@@ -113,19 +103,51 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
    - 複数の異なるタスクは別々のWorkerに
    - busyのWorkerは避ける
 
-2. 割り当て実行:
-   \`\`\`
-   this.assignSpecificTaskToWorker('Worker1', {
-     ...task,
-     originalRequest: 'TODOアプリを作成してください'
-   });
-   \`\`\`
+2. 応答に含める内容:
+   - assignments配列に、選択したWorkerとタスクを含める
+   - 例: { "worker": "Worker1", "task": "TODOアプリを作成してください" }
 
 ## 重要な注意事項
 
-- **JSON形式で返答しないでください**
-- **上記の処理を直接実行してください**
-- **処理が完了したら、簡潔に結果を報告してください**`;
+- **必ず最後に以下のJSON形式で返答してください**
+- **処理を実行した後、assignments配列に適切な内容を含めて返してください**
+
+応答形式：
+{
+  "assignments": [
+    { "worker": "Worker名", "task": "実行するタスク内容" }
+  ]
+}
+
+例1（定期タスク登録）:
+{
+  "assignments": [
+    { "worker": "Worker1", "task": "定期タスクとして登録してください: 毎日9時 - Slackチェック" }
+  ],
+  "message": "定期タスク「毎日9時 - Slackチェック」をWorker1に登録しました"
+}
+
+例2（定期タスク削除）:
+{
+  "assignments": [
+    { "worker": "Worker1", "task": "定期タスク「Slackチェック」を停止してください" }
+  ],
+  "message": "定期タスク「Slackチェック」を削除しました"
+}
+
+例3（定期タスク確認）:
+{
+  "assignments": [],
+  "message": "現在の定期タスク:\n- Worker1: 毎日9時 - Slackチェック\n- Worker2: 毎週月曜 - レポート作成"
+}
+
+例4（通常タスク）:
+{
+  "assignments": [
+    { "worker": "Worker1", "task": "TODOアプリを作成してください" },
+    { "worker": "Worker2", "task": "カレンダーアプリを作成してください" }
+  ]
+}`;
 }
 
 /**

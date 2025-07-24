@@ -333,10 +333,26 @@ ${scheduledTaskPrompt}`;
         console.log(`📅 [${this.agentName}] Using pre-assigned worker for scheduled task: ${task.assignedTo}`);
       } else {
         // 通常のタスク分析と割り当て
-        assignments = await this.analyzeAndAssignTasks({
+        const result = await this.analyzeAndAssignTasks({
           task: task.originalRequest,
           workers: workerStatus
         });
+        
+        // resultから assignments と message を取得
+        assignments = result.assignments || [];
+        const message = result.message;
+        
+        // 定期タスク確認など、assignmentsが空でmessageがある場合
+        if (assignments.length === 0 && message) {
+          return {
+            success: true,
+            output: message,
+            metadata: {
+              executedBy: this.agentName,
+              taskType: 'information'
+            }
+          };
+        }
       }
       
       // 3. タスクを定期と通常に分類
@@ -350,7 +366,9 @@ ${scheduledTaskPrompt}`;
         };
         
         // 各タスクが定期タスクかチェック
-        const isScheduled = await this.checkAndRegisterScheduledTask(subTask, assignment.worker);
+        // const isScheduled = await this.checkAndRegisterScheduledTask(subTask, assignment.worker);
+        // 一時的に無効化 - WorkerがすべてのタスクをhandleTimeout
+        const isScheduled = false;
         if (isScheduled) {
           // 定期タスクの場合、WorkerにCLAUDE.md記録を指示
           const workerTask = {
@@ -374,7 +392,7 @@ ${scheduledTaskPrompt}`;
       // 4. 統合TODOリストを投稿
       await this.postCombinedTodoList(scheduledTasks, normalTasks);
       
-      // 定期タスクのみの場合は登録メッセージを返す
+      // 定期タスクのみの場合は登録メッセージを返す（現在は常にfalseなので実行されない）
       if (normalTasks.length === 0 && scheduledTasks.length > 0) {
         return {
           success: true,
@@ -999,22 +1017,28 @@ ${task.timezone ? `- timeで指定された時刻は、ユーザーのタイム�
     );
     
     try {
-      // JSON返却を期待せず、直接実行
+      // Claudeからの応答を取得してJSONをパース
       console.log(`🎯 [${this.agentName}] Executing unified task analysis...`);
-      await this.session.sendMessage(prompt);
+      const response = await this.session.sendMessage(prompt, { raw: true });
       
-      // 処理完了 - 結果は自動的にexecuteTaskに返される
-      console.log(`✅ [${this.agentName}] Task analysis and execution completed`);
+      // JSONを抽出
+      const jsonMatch = response.match(/\{[\s\S]*"assignments"[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.error(`❌ No JSON found in response. Full response:`, response);
+        return [];
+      }
       
-      // 空の配列を返す（後方互換性のため）
-      return [];
+      const parsed = JSON.parse(jsonMatch[0]);
+      console.log(`🎯 [${this.agentName}] Task assignments:`, parsed.assignments);
+      
+      return parsed; // 全体を返す（messageフィールドも含めて）
     } catch (error) {
       console.error(`❌ [${this.agentName}] Failed to analyze tasks:`, error);
       console.error(`❌ Full error details:`, error.message);
       console.error(`❌ Error stack:`, error.stack);
       
-      // エラーの場合も空の配列を返す
-      return [];
+      // エラーの場合も空のオブジェクトを返す
+      return { assignments: [] };
     }
   }
   
