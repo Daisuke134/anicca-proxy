@@ -37,6 +37,9 @@ export class BaseWorker extends IPCHandler {
     // 現在のタスク
     this.currentTask = null;
     
+    // 現在のタスクのuserIdを保持
+    this.currentUserId = null;
+    
     // ClaudeExecutorServiceをインスタンス化（エージェント名を渡す）
     const database = new MockDatabase();
     this.executor = new ClaudeExecutorService(database, this.agentName);
@@ -108,7 +111,7 @@ export class BaseWorker extends IPCHandler {
    */
   async loadMemory() {
     try {
-      const userId = process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
+      const userId = this.currentUserId || process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
       console.log(`📚 [${this.agentName}] Loading workspace for userId: ${userId}`);
       
       // Web版の場合のみワークスペース全体を復元
@@ -147,7 +150,7 @@ export class BaseWorker extends IPCHandler {
    */
   async saveMemory(learning) {
     try {
-      const userId = process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
+      const userId = this.currentUserId || process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
       console.log(`💾 [${this.agentName}] Saving to CLAUDE.md for userId: ${userId}`);
       
       // 学習内容を追記
@@ -270,11 +273,15 @@ export class BaseWorker extends IPCHandler {
     this.send(createStatusUpdateMessage(task.id, TaskStatus.IN_PROGRESS, 25));
     
     try {
+      // タスクのuserIdを保存（重要！）
+      this.currentUserId = task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID || 'system';
+      this.log('info', `📌 Setting currentUserId: ${this.currentUserId}`);
+      
       // Desktop版以外の場合のみSupabaseからトークン取得
       if (process.env.DESKTOP_MODE !== 'true') {
         // タスク実行前にユーザーのSlackトークンを取得して設定
-        const userId = task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID;
-        if (userId && typeof getSlackTokensForUser === 'function') {
+        const userId = this.currentUserId;
+        if (userId && userId !== 'system' && typeof getSlackTokensForUser === 'function') {
           this.log('info', `🔑 Getting Slack tokens for user: ${userId}`);
           try {
             const slackTokens = await getSlackTokensForUser(userId);
@@ -555,10 +562,11 @@ ${isDesktop ? `
         
         // ファイルを読み込む
         const content = await fs.readFile(claudeMdPath, 'utf-8');
-        const userId = process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
+        const userId = this.currentUserId || process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
         
         // デバッグ: userIdの取得元を確認
         console.log(`🔍 [${this.agentName}] syncClaudeMdToSupabase userId sources:`, {
+          currentUserId: this.currentUserId || 'not set',
           SLACK_USER_ID: process.env.SLACK_USER_ID || 'not set',
           CURRENT_USER_ID: process.env.CURRENT_USER_ID || 'not set',
           globalCurrentUserId: global.currentUserId || 'not set',
@@ -605,8 +613,8 @@ ${isDesktop ? `
         return;
       }
       
-      const userId = process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
-      console.log(`💾 [${this.agentName}] Syncing workspace to Supabase...`);
+      const userId = this.currentUserId || process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
+      console.log(`💾 [${this.agentName}] Syncing workspace to Supabase for userId: ${userId}`);
       
       // ワークスペース全体を保存
       await saveWorkspace(userId, this.agentName, this.workspaceRoot);
