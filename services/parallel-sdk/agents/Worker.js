@@ -328,7 +328,7 @@ ${slackMessage}
         }
       });
     }, {
-      timezone: task.timezone || 'Asia/Tokyo',
+      timezone: task.timezone,
       scheduled: true
     });
     

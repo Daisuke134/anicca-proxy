@@ -5,9 +5,46 @@ import { ParentAgent } from '../../services/parallel-sdk/agents/ParentAgent.js';
 import { MockDatabase } from '../../services/mockDatabase.js';
 import { getSlackTokensForUser } from '../../services/database.js';
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
 
 // ParentAgentのインスタンス（再利用）
 let parentAgent = null;
+
+// タスク重複チェック用キャッシュ
+const requestCache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5分
+
+/**
+ * タスクのハッシュを生成
+ */
+function createTaskHash(task) {
+  return crypto.createHash('md5').update(task).digest('hex');
+}
+
+/**
+ * 重複タスクかどうかをチェック
+ */
+function checkTaskDuplicate(task) {
+  const taskHash = createTaskHash(task);
+  const cached = requestCache.get(taskHash);
+  
+  if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+    console.log(`🔄 Duplicate task detected: ${task.substring(0, 50)}...`);
+    return true;
+  }
+  
+  // キャッシュに追加
+  requestCache.set(taskHash, { timestamp: Date.now() });
+  
+  // 古いキャッシュエントリを削除（メモリリーク対策）
+  for (const [hash, entry] of requestCache) {
+    if (Date.now() - entry.timestamp > CACHE_DURATION) {
+      requestCache.delete(hash);
+    }
+  }
+  
+  return false;
+}
 
 async function initializeParentAgent() {
   console.log('🔄 Checking ParentAgent status...');
@@ -86,6 +123,18 @@ export default async function handler(req, res) {
     
     if (!task) {
       return res.status(400).json({ error: 'Task is required' });
+    }
+
+    // 重複チェック
+    if (checkTaskDuplicate(task)) {
+      console.log(`🚫 Duplicate task blocked: ${task.substring(0, 50)}...`);
+      return res.json({
+        success: true,
+        result: {
+          response: 'その依頼は既に実行中です。少々お待ちください。',
+          duplicate: true
+        }
+      });
     }
 
     // userIdがある場合はSlackトークンを取得

@@ -47,63 +47,10 @@ export class ClaudeSession {
    * セッションIDを生成
    */
   generateSessionId() {
-    // エージェント名を含むセッションIDを生成
-    const deviceId = this.getOrCreateDeviceId();
-    return `ANICCA-${this.agentName}-${deviceId}`;
-  }
-  
-  /**
-   * デバイスIDを取得または生成
-   */
-  getOrCreateDeviceId() {
-    const homeDir = process.env.HOME || process.env.USERPROFILE;
-    
-    // ホームディレクトリが取得できない場合はメモリ内でのみ保持
-    if (!homeDir) {
-      console.warn('⚠️ Home directory not found, using in-memory device ID');
-      if (!this.inMemoryDeviceId) {
-        this.inMemoryDeviceId = crypto.randomBytes(16).toString('hex');
-      }
-      return this.inMemoryDeviceId;
-    }
-    
-    const deviceIdFile = path.join(homeDir, '.anicca', 'device-id.json');
-    
-    try {
-      // 既存のデバイスIDを読み込み
-      if (fs.existsSync(deviceIdFile)) {
-        const data = JSON.parse(fs.readFileSync(deviceIdFile, 'utf-8'));
-        if (data.deviceId) {
-          return data.deviceId;
-        }
-      }
-    } catch (error) {
-      console.warn('⚠️ Failed to read device ID:', error);
-    }
-    
-    // 新しいデバイスIDを生成
-    const deviceId = crypto.randomUUID();
-    
-    try {
-      // ディレクトリを作成
-      const dir = path.dirname(deviceIdFile);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      
-      // デバイスIDを保存
-      fs.writeFileSync(deviceIdFile, JSON.stringify({
-        deviceId,
-        createdAt: new Date().toISOString(),
-        platform: process.platform
-      }, null, 2));
-      
-      console.log('🆔 New device ID created:', deviceId);
-    } catch (error) {
-      console.error('❌ Failed to save device ID:', error);
-    }
-    
-    return deviceId;
+    // エージェント名とタイムスタンプベースのセッションIDを生成
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 8);
+    return `ANICCA-${this.agentName}-${timestamp}-${random}`;
   }
   
   /**

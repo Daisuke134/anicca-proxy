@@ -77,16 +77,11 @@ export class ParentAgent extends BaseWorker {
     try {
       console.log(`🎩 ${this.agentName} is starting initialization...`);
       
-      // 5人の永続的なWorkerを起動
-      console.log(`👥 Spawning permanent worker team...`);
-      for (let i = 1; i <= this.maxWorkers; i++) {
-        await this.spawnWorker(`Worker${i}`);
-        // 少し待機して順番に起動
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      }
+      // Workerは遅延起動（最初のタスク受信時にuserIdと共に起動）
+      console.log(`👥 Workers will be spawned on first task with correct userId`);
       
       console.log(`✅ ${this.agentName} initialization complete`);
-      console.log(`👔 Team composition: ${this.workers.size} workers ready`);
+      console.log(`👔 Workers will be spawned on demand`);
       
       // ワークスペース全体を復元（loadMemoryがloadTeamMemoryも呼ぶ）
       await this.loadMemory();
@@ -261,7 +256,18 @@ export class ParentAgent extends BaseWorker {
         };
       }
       
-      // 1. Worker状況を取得
+      // 1. Workerが起動していない場合は起動
+      if (this.workers.size === 0) {
+        console.log(`🚀 [${this.agentName}] First task received, spawning workers with userId: ${this.currentUserId}`);
+        for (let i = 1; i <= this.maxWorkers; i++) {
+          await this.spawnWorkerWithUserId(`Worker${i}`, this.currentUserId);
+          // 少し待機して順番に起動
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+        console.log(`✅ [${this.agentName}] ${this.maxWorkers} workers spawned with userId: ${this.currentUserId}`);
+      }
+      
+      // 2. Worker状況を取得
       const workerStatus = this.getWorkerStatus();
       
       // 2. assignedToがある場合（定期タスク実行）は直接そのWorkerに割り当て
@@ -604,11 +610,9 @@ ${statusList}
   
   
   /**
-   * Workerを起動
+   * 指定されたuserIdでWorkerを起動
    */
-  async spawnWorker(workerName) {
-    // ParentAgent自身が受け取ったuserIdを優先的に使用
-    const userId = process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
+  async spawnWorkerWithUserId(workerName, userId) {
     console.log(`🚀 [${this.agentName}] Spawning ${workerName} with userId: ${userId}`);
     
     // 子プロセスとしてWorkerを起動（Slackトークンも渡す）
@@ -656,6 +660,15 @@ ${statusList}
     });
     
     return worker;
+  }
+  
+  /**
+   * Workerを起動（後方互換性のため維持）
+   */
+  async spawnWorker(workerName) {
+    // currentUserIdを優先的に使用
+    const userId = this.currentUserId || process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
+    return this.spawnWorkerWithUserId(workerName, userId);
   }
   
   /**
