@@ -64,6 +64,9 @@ export class ParentAgent extends BaseWorker {
     this.lastTaskTime = 0;
     this.DUPLICATE_WINDOW = 30000; // 30秒以内の同じタスクは重複とみなす
     
+    // 現在のタスクのuserIdを保持
+    this.currentUserId = null;
+    
     console.log(`👑 ${this.agentName} is initializing as the team leader...`);
   }
   
@@ -120,7 +123,7 @@ export class ParentAgent extends BaseWorker {
    */
   async saveTeamLearning(learning) {
     try {
-      const userId = process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
+      const userId = this.currentUserId || process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
       await appendLearning(userId, 'ParentAgent', learning);
       console.log(`💾 [${this.agentName}] Saved team learning: ${learning}`);
     } catch (error) {
@@ -147,8 +150,12 @@ export class ParentAgent extends BaseWorker {
     const enhancedTask = {
       ...task,
       userId: taskUserId,
-      requestTime: Date.now()
+      requestTime: Date.now(),
+      timezone: task.timezone || 'Asia/Tokyo'  // timezoneを追加
     };
+    
+    // currentUserIdを保存
+    this.currentUserId = taskUserId;
     
     const startTime = Date.now();
     
@@ -340,10 +347,9 @@ export class ParentAgent extends BaseWorker {
         await this.postCompletionUpdate(normalTasks, scheduledTasks, results);
       }
       
-      // 7. タスク管理の学習を記録
+      // 7. タスク処理完了
       const duration = Date.now() - startTime;
       const totalTasks = normalTasks.length + scheduledTasks.length;
-      await this.saveTeamLearning(`${totalTasks}個のタスク（通常:${normalTasks.length}、定期:${scheduledTasks.length}）を処理。所要時間: ${duration}ms`);
       
       // 応答メッセージを構築
       let outputMessage = '';
@@ -354,6 +360,9 @@ export class ParentAgent extends BaseWorker {
         if (outputMessage) outputMessage += '、';
         outputMessage += `${scheduledTasks.length}個の定期タスクを登録しました`;
       }
+      
+      // ParentAgentがCLAUDE.mdに記録した内容をSupabaseに同期
+      await this.syncClaudeMdToSupabase(this.workspaceRoot);
       
       return {
         success: true,

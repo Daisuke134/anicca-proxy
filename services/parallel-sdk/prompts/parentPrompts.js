@@ -59,7 +59,7 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
 
 1. idleのWorkerを選択し、自分のCLAUDE.mdに記録:
    - ${workspaceRoot}/CLAUDE.md を読む
-   - 「## 定期タスク」セクションに追加
+   - 「## 定期タスク」セクションに追加（なければ作成）
    - 形式: "Worker1: 毎日9時 - Slackチェック"
 
 2. 応答に含める内容:

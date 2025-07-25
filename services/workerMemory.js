@@ -40,8 +40,8 @@ export async function loadClaudeMd(userId, agentName) {
     
     if (error) {
       if (error.message.includes('not found')) {
-        console.log(`📝 CLAUDE.md not found for ${agentName}, creating new one`);
-        return getInitialClaudeMd(agentName);
+        console.log(`📝 CLAUDE.md not found for ${agentName}, returning empty`);
+        return '';
       }
       throw error;
     }
@@ -52,7 +52,7 @@ export async function loadClaudeMd(userId, agentName) {
     
   } catch (error) {
     console.error(`❌ Error loading CLAUDE.md: ${error.message}`);
-    return getInitialClaudeMd(agentName);
+    return '';
   }
 }
 
@@ -157,26 +157,6 @@ export async function saveDailyReport(userId, agentName, report) {
   }
 }
 
-/**
- * 初期CLAUDE.mdテンプレートを生成
- * @private
- */
-function getInitialClaudeMd(agentName) {
-  return `# ${agentName} - CLAUDE.md
-
-## 専門分野
-- まだ専門分野は決まっていません
-
-## 学習内容
-
-## 完了タスク履歴
-
-## ユーザーについて学んだこと
-
----
-このファイルは自動的に更新されます。
-`;
-}
 
 /**
  * ワークスペース全体を復元する

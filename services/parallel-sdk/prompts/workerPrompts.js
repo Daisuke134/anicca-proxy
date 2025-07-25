@@ -276,7 +276,7 @@ osascript -e 'display notification "TODOアプリ完成！" with title "${worker
 5. 「〜の定期タスクを停止しました」と報告
 
 ### タイムゾーンについて
-- **Web版**: ParentAgentから task.timezone として渡されるものを使用
+- ParentAgentから task.timezone として渡されるものを使用
 - タスクに含まれるtimezoneパラメータを必ず確認してください
 
 ## 定期タスクの実行

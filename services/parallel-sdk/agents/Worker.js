@@ -323,7 +323,7 @@ ${slackMessage}
         taskId: Date.now().toString(),
         task: {
           originalRequest: task.command,
-          userId: process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID,
+          userId: task.userId || process.env.CURRENT_USER_ID || process.env.SLACK_USER_ID,
           isScheduledTask: true  // 定期タスクフラグを追加
         }
       });
