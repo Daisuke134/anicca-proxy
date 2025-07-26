@@ -182,33 +182,6 @@ ${slackMessage}
     return result;
   }
   
-  /**
-   * リクエストからプロジェクト名を抽出
-   * @private
-   */
-  extractProjectName(request) {
-    if (!request) return null;
-    
-    // 「〜アプリ」「〜ゲーム」「〜ツール」などのパターンを抽出
-    const patterns = [
-      /(\S+)アプリ/,
-      /(\S+)ゲーム/,
-      /(\S+)ツール/,
-      /(\S+)ダッシュボード/,
-      /(\S+)システム/,
-      /(\S+)サイト/,
-      /(\S+)ページ/
-    ];
-    
-    for (const pattern of patterns) {
-      const match = request.match(pattern);
-      if (match) {
-        return match[1];
-      }
-    }
-    
-    return null;
-  }
 
   /**
    * 定期タスクを初期化
@@ -338,32 +311,8 @@ ${slackMessage}
     
     this.cronJobs.set(task.id, job);
     console.log(`⏰ [${this.agentName}] Cron登録: ${task.description} (${task.schedule})`);
-    
-    // cronジョブを明示的に開始
-    job.start();
-    console.log(`▶️ [${this.agentName}] Cronジョブ開始: ${task.id}`);
   }
 
-  /**
-   * 定期タスクを追加（動的）
-   */
-  async addScheduledTask(task) {
-    // JSONに追加後、即座にcron登録
-    this.registerCronJob(task);
-    console.log(`➕ [${this.agentName}] 定期タスク追加: ${task.description}`);
-  }
-
-  /**
-   * 定期タスクを削除
-   */
-  async removeScheduledTask(taskId) {
-    const job = this.cronJobs.get(taskId);
-    if (job) {
-      job.stop();
-      this.cronJobs.delete(taskId);
-      console.log(`➖ [${this.agentName}] 定期タスク削除: ${taskId}`);
-    }
-  }
   
   /**
    * Worker固有のクリーンアップ

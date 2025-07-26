@@ -77,11 +77,22 @@ export class ParentAgent extends BaseWorker {
     try {
       console.log(`🎩 ${this.agentName} is starting initialization...`);
       
-      // Workerは遅延起動（最初のタスク受信時にuserIdと共に起動）
-      console.log(`👥 Workers will be spawned on first task with correct userId`);
+      // userIdを環境変数やグローバル変数から取得
+      const userId = process.env.CURRENT_USER_ID || 
+                    process.env.SLACK_USER_ID || 
+                    global.currentUserId || 
+                    'system';
+      
+      console.log(`🚀 Spawning workers with userId: ${userId}`);
+      
+      // 即座にWorkerを起動（Web版・Desktop版共通）
+      for (let i = 1; i <= this.maxWorkers; i++) {
+        await this.spawnWorkerWithUserId(`Worker${i}`, userId);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
       
       console.log(`✅ ${this.agentName} initialization complete`);
-      console.log(`👔 Workers will be spawned on demand`);
+      console.log(`👔 Team composition: ${this.workers.size} workers ready`);
       
       // ワークスペース全体を復元（loadMemoryがloadTeamMemoryも呼ぶ）
       await this.loadMemory();
@@ -217,44 +228,7 @@ export class ParentAgent extends BaseWorker {
         }
       }
       
-      // 定期タスク実行時（Cronからの自動実行）は早期リターン
-      if (task.type === 'scheduled' && task.assignedTo) {
-        console.log(`📅 [${this.agentName}] Executing scheduled task directly`);
-        
-        // assignedToで指定されたWorkerに直接送信
-        const taskId = `${task.id || Date.now()}`;
-        this.tasks.set(taskId, {
-          task: task,
-          assignedTo: task.assignedTo,
-          status: 'assigned'
-        });
-        
-        await this.assignSpecificTaskToWorker(task.assignedTo, task);
-        const result = await this.waitForTaskCompletion(taskId);
-        
-        return {
-          success: true,
-          output: '定期タスクを実行しました',
-          metadata: {
-            executedBy: this.agentName,
-            taskType: 'scheduled_execution',
-            result: result
-          }
-        };
-      }
-      
-      // 1. Workerが起動していない場合は起動
-      if (this.workers.size === 0) {
-        console.log(`🚀 [${this.agentName}] First task received, spawning workers with userId: ${this.currentUserId}`);
-        for (let i = 1; i <= this.maxWorkers; i++) {
-          await this.spawnWorkerWithUserId(`Worker${i}`, this.currentUserId);
-          // 少し待機して順番に起動
-          await new Promise(resolve => setTimeout(resolve, 1500));
-        }
-        console.log(`✅ [${this.agentName}] ${this.maxWorkers} workers spawned with userId: ${this.currentUserId}`);
-      }
-      
-      // 2. Worker状況を取得
+      // Worker状況を取得
       const workerStatus = this.getWorkerStatus();
       
       // 2. assignedToがある場合（定期タスク実行）は直接そのWorkerに割り当て
@@ -296,18 +270,6 @@ export class ParentAgent extends BaseWorker {
       // 4. 統合TODOリストを投稿
       await this.postCombinedTodoList(scheduledTasks, normalTasks);
       
-      // 定期タスクのみの場合は登録メッセージを返す（現在は常にfalseなので実行されない）
-      if (normalTasks.length === 0 && scheduledTasks.length > 0) {
-        return {
-          success: true,
-          output: `${scheduledTasks.length}個の定期タスクを登録しました。`,
-          metadata: {
-            executedBy: this.agentName,
-            taskType: 'scheduled_registration',
-            scheduledCount: scheduledTasks.length
-          }
-        };
-      }
       
       // 5. 通常タスクのみを並列で実行
       const taskPromises = normalTasks.map(async (assignment, index) => {
@@ -348,10 +310,6 @@ export class ParentAgent extends BaseWorker {
       let outputMessage = '';
       if (normalTasks.length > 0) {
         outputMessage += `${normalTasks.length}個のタスクを完了しました`;
-      }
-      if (scheduledTasks.length > 0) {
-        if (outputMessage) outputMessage += '、';
-        outputMessage += `${scheduledTasks.length}個の定期タスクを登録しました`;
       }
       
       // ワークスペースを保存（CLAUDE.md含む）
@@ -621,15 +579,6 @@ ${statusList}
     });
     
     return worker;
-  }
-  
-  /**
-   * Workerを起動（後方互換性のため維持）
-   */
-  async spawnWorker(workerName) {
-    // currentUserIdを優先的に使用
-    const userId = this.currentUserId || process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
-    return this.spawnWorkerWithUserId(workerName, userId);
   }
   
   /**
