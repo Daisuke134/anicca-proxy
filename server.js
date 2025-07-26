@@ -81,6 +81,11 @@ import hackerNewsHandler from './api/tools/get_hacker_news_stories.js';
 import exaHandler from './api/tools/search_exa.js';
 import claudeCodeHandler from './api/tools/claude_code.js';
 import claudeHandler from './api/claude.js';
+// Auth handlers
+import authGoogleHandler from './api/auth/google.js';
+import authCallbackHandler from './api/auth/callback.js';
+import authSessionHandler from './api/auth/session.js';
+import authRefreshHandler from './api/auth/refresh.js';
 // New Slack OAuth handlers
 import slackOauthUrlHandler from './api/slack/oauth-url.js';
 import slackOauthCallbackHandler from './api/slack/oauth-callback.js'; // 新しいエンドポイント
@@ -120,6 +125,11 @@ app.all('/api/tools/linkedin_search', exaHandler);
 app.all('/api/tools/crawling', exaHandler);
 app.all('/api/tools/competitor_finder', exaHandler);
 app.all('/api/tools/claude_code', claudeCodeHandler);
+// Auth routes
+app.all('/api/auth/google', authGoogleHandler);
+app.all('/api/auth/callback', authCallbackHandler);
+app.all('/api/auth/session', authSessionHandler);
+app.all('/api/auth/refresh', authRefreshHandler);
 // New Slack OAuth routes
 app.all('/api/slack/oauth-url', slackOauthUrlHandler);
 app.all('/api/slack/oauth-callback', slackOauthCallbackHandler);
