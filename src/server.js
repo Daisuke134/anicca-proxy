@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { initDatabase, loadLatestTokensFromDB } from './services/database.js';
+import { initDatabase, loadLatestTokensFromDB } from './services/storage/database.js';
 
 // Only load dotenv in development
 if (process.env.NODE_ENV !== 'production') {
@@ -70,29 +70,29 @@ app.get('/health', (req, res) => {
 });
 
 // Import all API handlers
-import openaiProxyHandler from './api/openai-proxy.js';
-import downloadHandler from './api/download.js';
-import landingHandler from './api/landing.js';
-import hackerNewsHandler from './api/tools/get_hacker_news_stories.js';
-import exaHandler from './api/tools/search_exa.js';
-import claudeCodeHandler from './api/tools/claude_code.js';
-import claudeHandler from './api/claude.js';
+import openaiProxyHandler from './api/proxy/openai.js';
+import downloadHandler from './api/static/download.js';
+import landingHandler from './api/static/landing.js';
+import hackerNewsHandler from './api/tools/web/news.js';
+import exaHandler from './api/tools/web/search.js';
+import claudeCodeHandler from './api/tools/sdk/claude-code.js';
+import claudeHandler from './api/proxy/claude.js';
 // Auth handlers
-import authGoogleHandler from './api/auth/google.js';
-import authCallbackHandler from './api/auth/callback.js';
-import authSessionHandler from './api/auth/session.js';
-import authRefreshHandler from './api/auth/refresh.js';
+import authGoogleHandler from './api/auth/google/oauth.js';
+import authCallbackHandler from './api/auth/google/callback.js';
+import authSessionHandler from './api/auth/google/session.js';
+import authRefreshHandler from './api/auth/google/refresh.js';
 // New Slack OAuth handlers
-import slackOauthUrlHandler from './api/slack/oauth-url.js';
-import slackOauthCallbackHandler from './api/slack/oauth-callback.js'; // 新しいエンドポイント
-import slackCheckConnectionHandler from './api/slack/check-connection.js';
+import slackOauthUrlHandler from './api/auth/slack/oauth-url.js';
+import slackOauthCallbackHandler from './api/auth/slack/oauth-callback.js'; // 新しいエンドポイント
+import slackCheckConnectionHandler from './api/auth/slack/check-connection.js';
 // Tool handlers
-import slackToolHandler from './api/tools/slack.js';
-import playwrightHandler from './api/tools/playwright.js';
+import slackToolHandler from './api/tools/web/slack.js';
+import playwrightHandler from './api/tools/web/browser.js';
 // Preview app handler
-import previewAppHandler from './api/preview-app.js';
+import previewAppHandler from './api/static/preview-app.js';
 // Parallel SDK handler
-import parallelSdkExecuteHandler from './api/parallel-sdk-execute.js';
+import parallelSdkExecuteHandler from './api/execution/parallel-sdk.js';
 
 // API Routes - 完全移植
 app.all('/api/openai-proxy*', openaiProxyHandler);

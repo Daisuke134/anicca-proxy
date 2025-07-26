@@ -1,5 +1,5 @@
 import { BaseWorker } from './BaseWorker.js';
-import { getSlackTokensForUser } from '../../database.js';
+import { getSlackTokensForUser } from '../../storage/database.js';
 import { previewManager } from '../utils/PreviewManager.js';
 import fs from 'fs';
 import * as path from 'path';

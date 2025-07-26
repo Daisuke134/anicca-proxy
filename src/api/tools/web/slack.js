@@ -1,6 +1,6 @@
 import { WebClient } from '@slack/web-api';
 import crypto from 'crypto';
-import { getSlackTokensForUser } from '../../services/database.js';
+import { getSlackTokensForUser } from '../../../services/storage/database.js';
 
 // 復号化関数
 function decrypt(text) {

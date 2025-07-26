@@ -1,4 +1,4 @@
-import { exaMcpService } from '../../services/exaMcpService.js';
+import { exaMcpService } from '../../../services/mcp-clients/exaClient.js';
 
 // MCPサービスの初期化（一度だけ）
 let isInitialized = false;

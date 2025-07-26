@@ -8,11 +8,11 @@ import {
   createLogMessage
 } from '../IPCProtocol.js';
 import { buildWorkerPrompt } from '../prompts/workerPrompts.js';
-import { ClaudeExecutorService } from '../../claudeExecutorService.js';
-import { ClaudeSession } from '../../claudeSession.js';
-import { MockDatabase } from '../../mockDatabase.js';
-import { loadWorkspace, saveWorkspace } from '../../workerMemory.js';
-import { getSlackTokensForUser } from '../../database.js';
+import { ClaudeExecutorService } from '../../claude/executorService.js';
+import { ClaudeSession } from '../../claude/sessionManager.js';
+// import { MockDatabase } from '../../mockDatabase.js'; // Removed in Phase 1
+import { loadWorkspace, saveWorkspace } from '../../storage/workerMemory.js';
+import { getSlackTokensForUser } from '../../storage/database.js';
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
@@ -41,8 +41,8 @@ export class BaseWorker extends IPCHandler {
     this.currentUserId = null;
     
     // ClaudeExecutorServiceをインスタンス化（エージェント名を渡す）
-    const database = new MockDatabase();
-    this.executor = new ClaudeExecutorService(database, this.agentName);
+    // const database = new MockDatabase(); // Removed in Phase 1
+    this.executor = new ClaudeExecutorService(null, this.agentName); // databaseパラメータはnullに
     
     // 永続的なセッションを作成
     this.session = new ClaudeSession(this.executor, this.agentName);

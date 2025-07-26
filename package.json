@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "description": "Proxy server for ANICCA AI Screen Narrator",
   "type": "module",
-  "main": "api/gemini.js",
+  "main": "src/server.js",
   "scripts": {
     "dev": "vercel dev",
     "deploy": "vercel --prod",
-    "start": "node server.js",
-    "dev:railway": "nodemon server.js"
+    "start": "node src/server.js",
+    "dev:railway": "nodemon src/server.js"
   },
   "keywords": [
     "proxy",

@@ -1,4 +1,4 @@
-import { getSlackTokensForUser } from '../services/database.js';
+import { getSlackTokensForUser } from '../../services/storage/database.js';
 import crypto from 'crypto';
 
 // タスクキャッシュ（重複防止用）

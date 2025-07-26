@@ -1,9 +1,9 @@
 // Claude SDK版のthink_with_claude
 // 並列実行版 - ParentAgentを使用
 
-import { ParentAgent } from '../../services/parallel-sdk/agents/ParentAgent.js';
-import { MockDatabase } from '../../services/mockDatabase.js';
-import { getSlackTokensForUser } from '../../services/database.js';
+import { ParentAgent } from '../../../services/parallel-sdk/agents/ParentAgent.js';
+// import { MockDatabase } from '../../services/mockDatabase.js'; // Removed in Phase 1
+import { getSlackTokensForUser } from '../../../services/storage/database.js';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 

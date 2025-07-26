@@ -1,4 +1,4 @@
-import { ClaudeExecutorService } from './claudeExecutorService.js';
+import { ClaudeExecutorService } from './executorService.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';

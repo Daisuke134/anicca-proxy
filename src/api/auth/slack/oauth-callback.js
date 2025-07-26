@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import axios from 'axios';
-import { saveTokens } from '../../services/tokenStorage.js';
-import { saveTokensToDB } from '../../services/database.js';
+// import { saveTokens } from '../../services/tokenStorage.js'; // Removed in Phase 1
+import { saveTokensToDB } from '../../../services/storage/database.js';
 
 // 暗号化キー（本番環境では環境変数から取得）
 const ENCRYPTION_KEY = process.env.SLACK_TOKEN_ENCRYPTION_KEY 

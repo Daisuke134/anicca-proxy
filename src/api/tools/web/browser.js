@@ -1,4 +1,4 @@
-import { playwrightMcpService } from '../../services/playwrightMcpService.js';
+import { playwrightMcpService } from '../../../services/mcp-clients/playwrightClient.js';
 
 // MCPサービスの初期化（一度だけ）
 let isInitialized = false;
