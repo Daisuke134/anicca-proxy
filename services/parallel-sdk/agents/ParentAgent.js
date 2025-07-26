@@ -354,6 +354,11 @@ export class ParentAgent extends BaseWorker {
         outputMessage += `${scheduledTasks.length}個の定期タスクを登録しました`;
       }
       
+      // ワークスペースを保存（CLAUDE.md含む）
+      const isDesktop = process.env.DESKTOP_MODE === 'true';
+      if (!isDesktop && this.workspaceRoot) {
+        await saveWorkspace(this.currentUserId, this.agentName, this.workspaceRoot);
+      }
       
       return {
         success: true,
@@ -452,35 +457,6 @@ export class ParentAgent extends BaseWorker {
     updateContent += `\n進捗: ${totalCount}/${totalCount}完了`;
     
     const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:\n\n${updateContent}`;
-    
-    await this.executor.executeGeneralRequest({
-      type: 'general',
-      parameters: { query }
-    });
-  }
-  
-  /**
-   * 完了報告をSlackに投稿（旧メソッド、後方互換性のため残す）
-   */
-  async postCompletionReport(task, workerName, result) {
-    // デバッグ: 受け取った結果を確認
-    console.log(`📊 [${this.agentName}] Received result from ${workerName}:`, {
-      hasResult: !!result,
-      hasMetadata: !!result?.metadata,
-      hasPreview: !!result?.metadata?.preview,
-      previewUrl: result?.metadata?.preview?.previewUrl
-    });
-    
-    // previewUrlをトップレベルとmetadataの両方から探す
-    const previewUrl = result?.previewUrl || result?.metadata?.preview?.previewUrl || '';
-    
-    console.log(`🔍 [${this.agentName}] Preview URL found: ${previewUrl ? 'Yes' : 'No'}`);
-    
-    const query = `mcp__http__slack_send_messageを使って#anicca_reportチャンネルに以下を投稿してください:
-
-[ParentAgent] ✅ 全タスク完了！
-✅ ${task.originalRequest} (${workerName})
-${previewUrl ? `\n🌐 アプリを見る: ${previewUrl}` : ''}`;
     
     await this.executor.executeGeneralRequest({
       type: 'general',
@@ -712,28 +688,6 @@ ${statusList}
       default:
         console.log(`❓ Unknown message type from ${worker.name}:`, message);
     }
-  }
-  
-  /**
-   * タスクタイプを分析
-   * @private
-   */
-  analyzeTaskType(request) {
-    if (!request) return null;
-    
-    const lowerRequest = request.toLowerCase();
-    
-    if (lowerRequest.includes('アプリ') || lowerRequest.includes('app')) {
-      return 'アプリ開発';
-    } else if (lowerRequest.includes('修正') || lowerRequest.includes('fix')) {
-      return 'バグ修正';
-    } else if (lowerRequest.includes('デザイン') || lowerRequest.includes('ui')) {
-      return 'デザイン';
-    } else if (lowerRequest.includes('slack') || lowerRequest.includes('メッセージ')) {
-      return 'コミュニケーション';
-    }
-    
-    return '一般';
   }
   
   /**

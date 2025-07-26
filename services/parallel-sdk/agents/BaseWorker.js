@@ -301,22 +301,7 @@ ${this.memoryContext || ''}
 【受け取ったタスク】
 ${task.originalRequest}
 
-${isDesktop ? `
-` : `
-【実行手順】
-1. まず#anicca_reportチャンネルに開始報告:
-   [${this.agentName}] 🚀 タスク開始: ${task.originalRequest}
-
-2. タスクを実行
-
-3. 完了したら#anicca_reportチャンネルに報告:
-   [${this.agentName}] ✅ タスク完了: ${task.originalRequest}
-
-必ずmcp__http__slack_send_messageツールを使用してSlackに投稿してください。
-`}
-
 作業ディレクトリ: ${workingDir}
-プロジェクトごとにサブディレクトリを作成してください。
 `;
       
       // セッションを使用して実行
@@ -338,7 +323,11 @@ ${isDesktop ? `
       };
       
       // Web版の場合はワークスペース全体を保存（CLAUDE.md含む）
-      await this.syncWorkspaceToSupabase();
+      const isDesktopSave = process.env.DESKTOP_MODE === 'true';
+      if (!isDesktopSave && this.workspaceRoot) {
+        const userId = this.currentUserId || process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
+        await saveWorkspace(userId, this.agentName, this.workspaceRoot);
+      }
       
       return formattedResult;
       
@@ -414,35 +403,6 @@ ${isDesktop ? `
     // Workerプロセスは生き続け、定期タスクのnode-cronタイマーを保持する
   }
 
-  
-  /**
-   * ワークスペース全体をSupabaseに同期
-   */
-  async syncWorkspaceToSupabase() {
-    try {
-      // Desktop版はスキップ
-      const isDesktop = process.env.DESKTOP_MODE === 'true';
-      if (isDesktop) {
-        this.log('info', 'Desktop mode: Skip workspace sync to Supabase');
-        return;
-      }
-      
-      // ワークスペースが設定されていない場合はスキップ
-      if (!this.workspaceRoot) {
-        return;
-      }
-      
-      const userId = this.currentUserId || process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
-      console.log(`💾 [${this.agentName}] Syncing workspace to Supabase for userId: ${userId}`);
-      
-      // ワークスペース全体を保存
-      await saveWorkspace(userId, this.agentName, this.workspaceRoot);
-      
-      console.log(`✅ [${this.agentName}] Workspace synced to Supabase`);
-    } catch (error) {
-      this.log('error', `Failed to sync workspace: ${error.message}`);
-    }
-  }
   
   /**
    * クリーンアップ処理

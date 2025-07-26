@@ -60,8 +60,7 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
 ### 定期タスク登録の場合:
 
 1. タスクを割り振るidleのWorkerを選択し、自分のCLAUDE.mdに記録:
-   - ${workspaceRoot}/CLAUDE.md を読む
-   - 「## 定期タスク」セクションに追加。もし複数このセクションがあれば一つにまとめて整理する。
+   - ${workspaceRoot}/CLAUDE.mdの「## 定期タスク」セクションに追加。
    - 形式: "Worker1: 毎日9時 - Slackチェック"
 
 2. 応答に含める内容:
