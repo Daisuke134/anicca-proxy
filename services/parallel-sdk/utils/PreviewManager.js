@@ -16,7 +16,7 @@ import { createClient } from '@supabase/supabase-js';
 export class PreviewManager {
   constructor() {
     // Supabaseクライアントの初期化
-    const supabaseUrl = process.env.SUPABASE_URL || 'https://mzkwtwourrkduqkrsxpc.supabase.co';
+    const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
     if (!supabaseServiceKey) {

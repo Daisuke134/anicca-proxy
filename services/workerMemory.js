@@ -8,7 +8,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Supabase client setup
-const supabaseUrl = process.env.SUPABASE_URL || 'https://mzkwtwourrkduqkrsxpc.supabase.co';
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = supabaseServiceKey 
