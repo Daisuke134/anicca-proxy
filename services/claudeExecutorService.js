@@ -3,7 +3,6 @@ import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { SimpleEncryption } from './simpleEncryption.js';
 
 // Claude SDKのインポートを確認
 // console.log('🔍 Claude SDK import check:');
