@@ -218,7 +218,9 @@ ${slackMessage}
     
     if (fs.existsSync(tasksPath)) {
       const content = fs.readFileSync(tasksPath, 'utf8');
-      const { tasks } = JSON.parse(content);
+      // 末尾のカンマを除去してからパース
+      const cleanContent = content.replace(/,\s*\]/, ']').replace(/,\s*\}/, '}');
+      const { tasks } = JSON.parse(cleanContent);
       
       tasks.forEach(task => {
         this.registerCronJob(task);
@@ -243,7 +245,9 @@ ${slackMessage}
       try {
         // 新しい内容を読み込む
         const content = fs.readFileSync(tasksPath, 'utf8');
-        const { tasks } = JSON.parse(content);
+        // 末尾のカンマを除去してからパース
+        const cleanContent = content.replace(/,\s*\]/, ']').replace(/,\s*\}/, '}');
+        const { tasks } = JSON.parse(cleanContent);
         
         // 新規タスクを検出して登録
         tasks.forEach(task => {
@@ -334,6 +338,10 @@ ${slackMessage}
     
     this.cronJobs.set(task.id, job);
     console.log(`⏰ [${this.agentName}] Cron登録: ${task.description} (${task.schedule})`);
+    
+    // cronジョブを明示的に開始
+    job.start();
+    console.log(`▶️ [${this.agentName}] Cronジョブ開始: ${task.id}`);
   }
 
   /**

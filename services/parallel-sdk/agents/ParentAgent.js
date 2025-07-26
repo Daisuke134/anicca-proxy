@@ -3,7 +3,7 @@ import { fork } from 'child_process';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { v4: uuidv4 } = require('uuid');
-import { loadClaudeMd, saveClaudeMd, appendLearning } from '../../workerMemory.js';
+import { loadWorkspace, saveWorkspace } from '../../workerMemory.js';
 import { getSlackTokensForUser } from '../../database.js';
 import { createClient } from '@supabase/supabase-js';
 import * as path from 'path';
@@ -112,19 +112,6 @@ export class ParentAgent extends BaseWorker {
     }
   }
 
-  
-  /**
-   * チーム管理の学習内容を保存
-   */
-  async saveTeamLearning(learning) {
-    try {
-      const userId = this.currentUserId || process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
-      await appendLearning(userId, 'ParentAgent', learning);
-      console.log(`💾 [${this.agentName}] Saved team learning: ${learning}`);
-    } catch (error) {
-      console.error(`Failed to save team learning: ${error.message}`);
-    }
-  }
   
   /**
    * タスクを受け取って処理（BaseWorkerのexecuteTaskをオーバーライド）
@@ -367,8 +354,6 @@ export class ParentAgent extends BaseWorker {
         outputMessage += `${scheduledTasks.length}個の定期タスクを登録しました`;
       }
       
-      // ParentAgentがCLAUDE.mdに記録した内容をSupabaseに同期
-      await this.syncClaudeMdToSupabase(this.workspaceRoot);
       
       return {
         success: true,

@@ -11,7 +11,7 @@ import { buildWorkerPrompt } from '../prompts/workerPrompts.js';
 import { ClaudeExecutorService } from '../../claudeExecutorService.js';
 import { ClaudeSession } from '../../claudeSession.js';
 import { MockDatabase } from '../../mockDatabase.js';
-import { loadClaudeMd, saveClaudeMd, appendLearning, loadWorkspace, saveWorkspace } from '../../workerMemory.js';
+import { loadWorkspace, saveWorkspace } from '../../workerMemory.js';
 import { getSlackTokensForUser } from '../../database.js';
 import fs from 'fs/promises';
 import fsSync from 'fs';
@@ -83,9 +83,6 @@ export class BaseWorker extends IPCHandler {
     console.log(`🤖 ${this.agentName} (${this.agentId}) is initializing...`);
     this.setupHandlers();
     
-    // プロファイルを読み込む
-    this.loadProfile();
-    
     // CLAUDE.md/ワークスペースの読み込みは各Workerのinitialize()で行う
     // this.loadMemory();
     
@@ -127,12 +124,17 @@ export class BaseWorker extends IPCHandler {
           this.claudeMd = fsSync.readFileSync(claudeMdPath, 'utf8');
           this.log('info', `📚 Loaded CLAUDE.md from workspace (${this.claudeMd.length} chars)`);
         } else {
-          // CLAUDE.mdがない場合は従来の方法で読み込む
-          this.claudeMd = await loadClaudeMd(userId, this.agentName);
+          // CLAUDE.mdがない場合は空文字列で初期化
+          this.claudeMd = '';
         }
       } else {
-        // Desktop版または従来の方法でCLAUDE.mdのみ読み込む
-        this.claudeMd = await loadClaudeMd(userId, this.agentName);
+        // Desktop版の場合もローカルファイルから読み込む
+        const claudeMdPath = path.join(this.workspaceRoot, 'CLAUDE.md');
+        if (fsSync.existsSync(claudeMdPath)) {
+          this.claudeMd = fsSync.readFileSync(claudeMdPath, 'utf8');
+        } else {
+          this.claudeMd = '';
+        }
       }
       
       if (this.claudeMd) {
@@ -142,26 +144,6 @@ export class BaseWorker extends IPCHandler {
     } catch (error) {
       this.log('error', `Failed to load workspace: ${error.message}`);
       this.memoryContext = '';
-    }
-  }
-  
-  /**
-   * 学習内容をCLAUDE.mdに保存
-   */
-  async saveMemory(learning) {
-    try {
-      const userId = this.currentUserId || process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
-      console.log(`💾 [${this.agentName}] Saving to CLAUDE.md for userId: ${userId}`);
-      
-      // 学習内容を追記
-      await appendLearning(userId, this.agentName, learning);
-      
-      // 更新後のCLAUDE.mdを再読み込み
-      await this.loadMemory();
-      
-      this.log('info', `💾 Saved learning to CLAUDE.md: ${learning}`);
-    } catch (error) {
-      this.log('error', `Failed to save to CLAUDE.md: ${error.message}`);
     }
   }
   
@@ -202,14 +184,6 @@ export class BaseWorker extends IPCHandler {
     });
   }
   
-  
-  /**
-   * MCP接続を設定
-   */
-  setMCPConnections(connections) {
-    this.mcpConnections = connections;
-    this.log('info', `MCP connections configured: ${Object.keys(connections).join(', ')}`);
-  }
   
   /**
    * タスク割り当てを処理
@@ -328,14 +302,6 @@ ${this.memoryContext || ''}
 ${task.originalRequest}
 
 ${isDesktop ? `
-【実行手順】
-1. タスクを実行
-
-2. 重要な学習事項があれば ${workingDir}/CLAUDE.md に記録:
-   - ユーザーの好みや傾向（例：ダークモード好き）
-   - 新しく学んだ技術やパターン
-   - 今後に活かせる知見
-   - 「覚えて」と言われた内容は必ず記録
 ` : `
 【実行手順】
 1. まず#anicca_reportチャンネルに開始報告:
@@ -345,17 +311,6 @@ ${isDesktop ? `
 
 3. 完了したら#anicca_reportチャンネルに報告:
    [${this.agentName}] ✅ タスク完了: ${task.originalRequest}
-   
-   【重要】アプリ作成タスクの場合:
-   - ローカルパス（/tmp/...）は投稿しないでください
-   - 「場所: /tmp/...」という形式は使わないでください
-   - プレビューURLは別途自動的に投稿されます
-
-4. 重要な学習事項があれば ${workingDir}/CLAUDE.md に記録:
-   - ユーザーの好みや傾向（例：ダークモード好き）
-   - 新しく学んだ技術やパターン
-   - 今後に活かせる知見
-   - 「覚えて」と言われた内容は必ず記録
 
 必ずmcp__http__slack_send_messageツールを使用してSlackに投稿してください。
 `}
@@ -382,10 +337,7 @@ ${isDesktop ? `
         }
       };
       
-      // WorkerがCLAUDE.mdに保存した内容をSupabaseに転送
-      await this.syncClaudeMdToSupabase(workingDir);
-      
-      // Web版の場合はワークスペース全体を保存
+      // Web版の場合はワークスペース全体を保存（CLAUDE.md含む）
       await this.syncWorkspaceToSupabase();
       
       return formattedResult;
@@ -408,36 +360,6 @@ ${isDesktop ? `
     } else if (message.type === 'error') {
       this.log('error', `❌ Error: ${message.error}`);
     }
-  }
-  
-  /**
-   * タスク固有のプロンプトを取得
-   * @private
-   */
-  getTaskSpecificPrompt(task) {
-    let specificPrompt = `\n## 現在のタスク情報\n`;
-    specificPrompt += `タスクID: ${task.id}\n`;
-    specificPrompt += `タスクタイプ: ${task.type || '汎用'}\n`;
-    specificPrompt += `あなたは${this.agentName}として作業しています。\n`;
-    
-    // アプリ作成タスクの場合
-    if (task.originalRequest?.toLowerCase().includes('アプリ') || 
-        task.type === 'development') {
-      specificPrompt += `\n### アプリ作成の注意事項\n`;
-      specificPrompt += `- 作成したアプリは必ず /tmp/preview/app-${task.id}/ に配置してください\n`;
-      specificPrompt += `- index.html をエントリーポイントとして作成してください\n`;
-      specificPrompt += `- 必要なすべてのファイル（CSS、JS等）を含めてください\n`;
-    }
-    
-    // Slack関連タスクの場合
-    if (task.originalRequest?.toLowerCase().includes('slack') || 
-        task.type === 'communication') {
-      specificPrompt += `\n### Slack操作の注意事項\n`;
-      specificPrompt += `- #anicca_report チャンネルに進捗を報告してください\n`;
-      specificPrompt += `- チャンネル名は必ず # を付けて指定してください\n`;
-    }
-    
-    return specificPrompt;
   }
   
   /**
@@ -483,55 +405,6 @@ ${isDesktop ? `
   }
   
   /**
-   * プロファイルを読み込む
-   * @private
-   */
-  async loadProfile() {
-    try {
-      const profileData = await fs.readFile(this.profilePath, 'utf-8');
-      const profile = JSON.parse(profileData);
-      
-      // 統計情報を復元
-      this.stats = {
-        completedTasks: profile.totalTasks || 0,
-        failedTasks: 0,
-        taskTypes: profile.taskTypes || {}
-      };
-      
-      this.personality = profile.personality;
-      this.specialization = profile.specialization;
-      
-      this.log('info', `Profile loaded: ${this.personality}`);
-    } catch (error) {
-      this.log('warn', `Failed to load profile: ${error.message}`);
-    }
-  }
-  
-  /**
-   * プロファイルを保存
-   * @private
-   */
-  async saveProfile() {
-    try {
-      const profile = {
-        id: this.agentName,
-        name: this.agentName,
-        totalTasks: this.stats.completedTasks,
-        taskTypes: this.stats.taskTypes,
-        specialization: this.specialization,
-        personality: this.personality,
-        lastActive: new Date().toISOString(),
-        successRate: this.stats.completedTasks / (this.stats.completedTasks + this.stats.failedTasks) || 0
-      };
-      
-      await fs.writeFile(this.profilePath, JSON.stringify(profile, null, 2));
-      this.log('info', 'Profile saved');
-    } catch (error) {
-      this.log('error', `Failed to save profile: ${error.message}`);
-    }
-  }
-  
-  /**
    * アイドルモードに入る
    * タスク完了後もプロセスを維持し、定期的にheartbeatを送信
    */
@@ -541,60 +414,6 @@ ${isDesktop ? `
     // Workerプロセスは生き続け、定期タスクのnode-cronタイマーを保持する
   }
 
-  /**
-   * CLAUDE.mdをSupabaseに同期
-   * @private
-   */
-  async syncClaudeMdToSupabase(workingDir) {
-    try {
-      // Desktop版チェック
-      const isDesktop = process.env.DESKTOP_MODE === 'true';
-      if (isDesktop) {
-        this.log('info', '🖥️ Desktop版: Supabase同期をスキップ');
-        return;
-      }
-      
-      const claudeMdPath = path.join(workingDir, 'CLAUDE.md');
-      
-      // ファイルが存在するか確認
-      if (fsSync.existsSync(claudeMdPath)) {
-        this.log('info', `📄 Found CLAUDE.md at ${claudeMdPath}`);
-        
-        // ファイルを読み込む
-        const content = await fs.readFile(claudeMdPath, 'utf-8');
-        const userId = this.currentUserId || process.env.SLACK_USER_ID || process.env.CURRENT_USER_ID || global.currentUserId || 'system';
-        
-        // デバッグ: userIdの取得元を確認
-        console.log(`🔍 [${this.agentName}] syncClaudeMdToSupabase userId sources:`, {
-          currentUserId: this.currentUserId || 'not set',
-          SLACK_USER_ID: process.env.SLACK_USER_ID || 'not set',
-          CURRENT_USER_ID: process.env.CURRENT_USER_ID || 'not set',
-          globalCurrentUserId: global.currentUserId || 'not set',
-          finalUserId: userId
-        });
-        
-        // 既存の内容と新しい内容をマージ
-        const existingContent = await loadClaudeMd(userId, this.agentName);
-        let mergedContent = existingContent;
-        
-        // 新しい内容を追加（重複を避ける）
-        if (!existingContent.includes(content)) {
-          mergedContent = existingContent + '\n' + content;
-        }
-        
-        // Supabase Storageに保存
-        await saveClaudeMd(userId, this.agentName, mergedContent);
-        this.log('info', `✅ Synced CLAUDE.md to Supabase for ${this.agentName}`);
-        
-        // ローカルファイルを削除（オプション）
-        // await fs.unlink(claudeMdPath);
-      } else {
-        this.log('info', `No CLAUDE.md found at ${claudeMdPath}`);
-      }
-    } catch (error) {
-      this.log('error', `Failed to sync CLAUDE.md: ${error.message}`);
-    }
-  }
   
   /**
    * ワークスペース全体をSupabaseに同期
@@ -634,9 +453,6 @@ ${isDesktop ? `
     
     // heartbeatインターバルをクリア
     // heartbeatIntervalの削除（もう使用しない）
-    
-    // プロファイルを保存
-    await this.saveProfile();
     
     // 現在のタスクがあれば中断を報告
     if (this.currentTask) {

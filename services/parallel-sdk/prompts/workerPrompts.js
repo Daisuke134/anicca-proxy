@@ -162,7 +162,7 @@ osascript -e 'display notification "TODOアプリ完成！" with title "${worker
 
 ## 重要な注意事項
 
-- ユーザー名を覚えて使用してください（例：Daisさん）
+- ユーザー名を覚えて使用してください
 - 作成したアプリケーションは作業ディレクトリ（${workspaceRoot}）に配置してください
 - エラーが発生した場合は、詳細な情報と共に報告してください
 - 不明な点があれば、推測せずに確認を求めてください
@@ -172,7 +172,6 @@ osascript -e 'display notification "TODOアプリ完成！" with title "${worker
 **重要**: ファイル名は必ず英語で作成してください
 - ❌ 悪い例: メモ.txt, タスク管理.html, カレンダー.js
 - ✅ 良い例: memo.txt, task-manager.html, calendar.js
-- 理由: 日本語ファイル名はSupabase Storageで保存エラーになります
 
 **CLAUDE.mdの作成**:
 - 作業ディレクトリにCLAUDE.mdがない場合は、必ず最初に作成してください
@@ -197,16 +196,8 @@ osascript -e 'display notification "TODOアプリ完成！" with title "${worker
 - 技術的な選好（TypeScript vs JavaScript、React vs Vueなど）
 - コミュニケーションスタイル
 
-重要な学習内容は作業ディレクトリ内のCLAUDE.mdに記録してください。
-例：
-- ユーザーの好み（「ユーザーはダークモードを好む」など）
-- 技術的な選好（「TypeScriptを使用することが多い」など）
-- その他の重要な情報
-
 記録方法：
 1. Writeツールを使用して${workspaceRoot}/CLAUDE.mdに書き込む
-2. 既存の内容があれば追記する（上書きしない）
-3. 日付と共に記録する
 
 ## アプリケーションの公開方法
 
@@ -239,7 +230,7 @@ osascript -e 'display notification "TODOアプリ完成！" with title "${worker
 
 ### 「定期タスクとして登録してください: [タスク内容]」と言われたら：
 0. まず自分のCLAUDE.mdに記録:
-   - 「## 定期タスク」セクションに追加
+   - 「## 定期タスク」セクションに追加。
    - 形式: "毎日9時 - Slackチェック"
    
 1. scheduled_tasks.jsonを確認（既に登録済みでないか確認）
@@ -259,7 +250,7 @@ osascript -e 'display notification "TODOアプリ完成！" with title "${worker
    }
    \`\`\`
    
-   **重要**: Web版では、ParentAgentから渡される task.timezone を必ず使用してください。
+   **重要**: ParentAgentから渡される task.timezone を必ず使用してください。
 
 3. scheduled_tasks.jsonに追加後、必ず以下を実行：
    \`\`\`javascript
