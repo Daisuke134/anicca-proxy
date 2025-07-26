@@ -77,8 +77,8 @@ export class BaseWorker extends IPCHandler {
     // プロファイルとインストラクションのパス
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
-    this.profilePath = path.join(__dirname, '..', 'workers', 'profiles', `${this.agentName.toLowerCase()}.json`);
-    this.instructionPath = path.join(__dirname, '..', 'workers', 'instructions', `${this.agentName.toLowerCase()}.md`);
+    this.profilePath = path.join(__dirname, '..', 'config', 'profiles', `${this.agentName.toLowerCase()}.json`);
+    this.instructionPath = path.join(__dirname, '..', 'config', 'instructions', `${this.agentName.toLowerCase()}.md`);
     
     console.log(`🤖 ${this.agentName} (${this.agentId}) is initializing...`);
     this.setupHandlers();

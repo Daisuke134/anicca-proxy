@@ -1,4 +1,4 @@
-import { ParentAgent } from '../../services/parallel-sdk/agents/ParentAgent.js';
+import { ParentAgent } from '../../services/parallel-sdk/core/ParentAgent.js';
 
 let parentAgent = null;
 

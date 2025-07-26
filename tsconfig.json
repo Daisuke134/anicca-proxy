@@ -22,8 +22,7 @@
     }
   },
   "include": [
-    "api/**/*",
-    "services/**/*"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",
