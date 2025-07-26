@@ -88,7 +88,12 @@ osascript -e 'display notification "TODOアプリ完成！" with title "${worker
   mcp__http__slack_send_messageツールを使用して投稿してください
 - 例：「○○チャンネルにメッセージを送って」→ 指定されたチャンネルに投稿
 
-## 定期タスクの処理（Desktop版）
+**重要**: チャンネル指定について
+- デフォルトチャンネル: #anicca_report（絶対）
+- チャンネルが見つからない場合: #anicca_report（絶対）
+- ユーザーが明示的に指定した場合のみ他のチャンネルを使用
+
+## 定期タスクの処理
 
 ### 設定ファイルの場所
 - ${workspaceRoot}/scheduled_tasks.json
