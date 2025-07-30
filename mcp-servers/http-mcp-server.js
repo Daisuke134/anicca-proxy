@@ -10,6 +10,11 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import fetch from 'node-fetch';
 
+// プロキシベースURL（NODE_ENVで判定）
+const PROXY_BASE_URL = process.env.NODE_ENV === 'production'
+  ? 'https://anicca-proxy-production.up.railway.app'
+  : 'https://anicca-proxy-staging.up.railway.app';
+
 const server = new Server(
   {
     name: 'http-mcp-server',
@@ -190,7 +195,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     // Slack-specific shortcuts
     if (name === 'slack_send_message') {
       const { channel, message } = args;
-      const slackApiUrl = process.env.SLACK_API_URL || 'https://anicca-proxy-staging.up.railway.app/api/tools/slack';
+      const slackApiUrl = process.env.SLACK_API_URL || `${PROXY_BASE_URL}/api/tools/slack`;
       const userId = process.env.USER_ID; // 環境変数から取得
       
       console.error(`[HTTP MCP] Sending Slack message to ${channel} for user ${userId}`);
@@ -248,7 +253,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     
     if (name === 'slack_list_channels') {
-      const slackApiUrl = process.env.SLACK_API_URL || 'https://anicca-proxy-staging.up.railway.app/api/tools/slack';
+      const slackApiUrl = process.env.SLACK_API_URL || `${PROXY_BASE_URL}/api/tools/slack`;
       const userId = process.env.USER_ID; // 環境変数から取得
       
       console.error(`[HTTP MCP] Listing Slack channels for user ${userId}`);
@@ -311,7 +316,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     
     if (name === 'slack_get_channel_history') {
       const { channel, limit = 10 } = args;
-      const slackApiUrl = process.env.SLACK_API_URL || 'https://anicca-proxy-staging.up.railway.app/api/tools/slack';
+      const slackApiUrl = process.env.SLACK_API_URL || `${PROXY_BASE_URL}/api/tools/slack`;
       const userId = process.env.USER_ID; // 環境変数から取得
       
       console.error(`[HTTP MCP] Getting ${limit} messages from ${channel} for user ${userId}`);
@@ -379,7 +384,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     
     if (name === 'slack_create_channel') {
       const { name: channelName = 'anicca_report', is_private = false } = args;
-      const slackApiUrl = process.env.SLACK_API_URL || 'https://anicca-proxy-staging.up.railway.app/api/tools/slack';
+      const slackApiUrl = process.env.SLACK_API_URL || `${PROXY_BASE_URL}/api/tools/slack`;
       const userId = process.env.USER_ID;
       
       console.error(`[HTTP MCP] Creating Slack channel ${channelName} for user ${userId}`);
@@ -441,7 +446,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     
     if (name === 'slack_send_dm_to_user') {
       const { message } = args;
-      const slackApiUrl = process.env.SLACK_API_URL || 'https://anicca-proxy-staging.up.railway.app/api/tools/slack';
+      const slackApiUrl = process.env.SLACK_API_URL || `${PROXY_BASE_URL}/api/tools/slack`;
       const userId = process.env.USER_ID;
       
       console.error(`[HTTP MCP] Sending DM to user ${userId}`);

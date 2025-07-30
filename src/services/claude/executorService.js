@@ -19,6 +19,8 @@ import * as os from 'os';
   }
 })();
 
+import { PROXY_BASE_URL, SERVER_CONFIG, DIRECTORIES } from '../../config/environment.js';
+
 // ActionRequest type definition (for reference)
 // {
 //   type: 'general' | 'search' | 'code' | 'file' | 'command' | 'slack' | 'github' | 'browser' | 'wait';
@@ -77,8 +79,8 @@ export class ClaudeExecutorService extends EventEmitter {
       
       // ANTHROPIC_BASE_URLを設定してプロキシ経由にする
       // エージェントタイプをURLパスに含める
-      // RailwayのプロキシURLを使用
-      const baseProxyUrl = 'https://anicca-proxy-staging.up.railway.app';
+      // 環境変数から取得したプロキシURLを使用
+      const baseProxyUrl = PROXY_BASE_URL;
       
       const proxyUrl = `${baseProxyUrl}/api/claude/${agentType}`;
       process.env.ANTHROPIC_BASE_URL = proxyUrl;
@@ -108,9 +110,7 @@ export class ClaudeExecutorService extends EventEmitter {
       // デフォルト値（後方互換性のため）
       this.workspaceRoot = process.env.DESKTOP_MODE
         ? path.join(os.homedir(), 'Desktop', 'anicca-agent-workspace')
-        : (process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT
-          ? path.join('/tmp', 'anicca-agent-workspace')
-          : path.join(os.homedir(), 'Desktop', 'anicca-agent-workspace'));
+        : path.join(DIRECTORIES.TEMP_BASE, 'anicca-agent-workspace');
     }
     
     try {
@@ -1034,7 +1034,7 @@ ${action.parameters.query || ''}`;
         command: 'node',
         args: [httpMcpPath],
         env: {
-          SLACK_API_URL: 'https://anicca-proxy-staging.up.railway.app/api/tools/slack',
+          SLACK_API_URL: `${PROXY_BASE_URL}/api/tools/slack`,
           USER_ID: this.slackTokens.userId,
           SLACK_USER_ID: this.slackTokens.slack_user_id || ''
         }

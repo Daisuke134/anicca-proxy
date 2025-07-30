@@ -4,6 +4,7 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { v4: uuidv4 } = require('uuid');
 import { createClient } from '@supabase/supabase-js';
+import { PROXY_BASE_URL, SERVER_CONFIG, DIRECTORIES } from '../../../config/environment.js';
 
 /**
  * PreviewManager - アプリケーションのプレビュー管理
@@ -27,9 +28,7 @@ export class PreviewManager {
     this.bucketName = 'worker-memories';
     
     // 一時的な作業ディレクトリ（アップロード前の準備用）
-    this.tempBasePath = process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT
-      ? '/tmp/preview'
-      : path.join(process.cwd(), 'tmp', 'preview');
+    this.tempBasePath = path.join(DIRECTORIES.TEMP_BASE, 'preview');
     
     // プレビューディレクトリを確保
     this.ensurePreviewDirectory();
@@ -123,9 +122,9 @@ export class PreviewManager {
       }
       
       // プロキシURLを生成（署名付きURLの代わりに）
-      const proxyBaseUrl = process.env.RAILWAY_PUBLIC_DOMAIN
-        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-        : 'https://anicca-proxy-staging.up.railway.app';
+      const proxyBaseUrl = SERVER_CONFIG.PUBLIC_DOMAIN
+        ? `https://${SERVER_CONFIG.PUBLIC_DOMAIN}`
+        : PROXY_BASE_URL;
       
       const previewUrl = `${proxyBaseUrl}/api/preview-app/${userId}/Worker${workerNumber}/projects/${projectId}/index.html`;
       

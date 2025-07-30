@@ -11,6 +11,7 @@ import * as os from 'os';
 import fsSync from 'fs';
 import fs from 'fs';
 import { buildParentPrompts, generateUnifiedTaskAnalysisPrompt } from '../prompts/parentPrompts.js';
+import logger from '../../../utils/logger.js';
 
 /**
  * ParentAgent - BaseWorkerベースの司令塔エージェント
@@ -29,7 +30,7 @@ export class ParentAgent extends BaseWorker {
     
     // PresidentはClaude 4 Opusを使用
     process.env.CLAUDE_AGENT_TYPE = 'parent';
-    console.log('👑 Setting CLAUDE_AGENT_TYPE to "parent" for Claude 4 Opus usage');
+    logger.info('👑 Setting CLAUDE_AGENT_TYPE to "parent" for Claude 4 Opus usage');
     
     // エージェント管理
     this.workers = new Map(); // workerId -> { process, name, status }
@@ -49,8 +50,8 @@ export class ParentAgent extends BaseWorker {
     if (!fsSync.existsSync(this.workspaceRoot)) {
       fsSync.mkdirSync(this.workspaceRoot, { recursive: true });
     }
-    console.log(`📁 ParentAgent workspace: ${this.workspaceRoot}`);
-    console.log(`🖥️ Running in ${isDesktop ? 'Desktop' : 'Web'} mode`);
+    logger.info(`📁 ParentAgent workspace: ${this.workspaceRoot}`);
+    logger.info(`🖥️ Running in ${isDesktop ? 'Desktop' : 'Web'} mode`);
     
     // Supabase初期化
     const supabaseUrl = process.env.SUPABASE_URL;
@@ -67,7 +68,7 @@ export class ParentAgent extends BaseWorker {
     // 現在のタスクのuserIdを保持
     this.currentUserId = null;
     
-    console.log(`👑 ${this.agentName} is initializing as the team leader...`);
+    logger.info(`👑 ${this.agentName} is initializing as the team leader...`);
   }
   
   /**
@@ -75,7 +76,7 @@ export class ParentAgent extends BaseWorker {
    */
   async initialize() {
     try {
-      console.log(`🎩 ${this.agentName} is starting initialization...`);
+      logger.info(`🎩 ${this.agentName} is starting initialization...`);
       
       // userIdを環境変数やグローバル変数から取得
       const userId = process.env.CURRENT_USER_ID || 

@@ -101,8 +101,11 @@ export default async function handler(req, res) {
     
     // チャンネル名をIDに変換する関数
     async function resolveChannelId(channelNameOrId) {
+      console.log(`🔍 resolveChannelId input: "${channelNameOrId}"`);
+      
       // すでにIDの形式（C,G,Dで始まる）ならそのまま返す
       if (channelNameOrId.match(/^[CGD][A-Z0-9]+$/)) {
+        console.log(`✅ Already an ID: ${channelNameOrId}`);
         return channelNameOrId;
       }
       
@@ -131,7 +134,7 @@ export default async function handler(req, res) {
       }
       
       // #を削除
-      const channelName = channelNameOrId.replace(/^#/, '');
+      const channelName = channelNameOrId.replace(/^#/, '').trim();
       
       // チャンネル一覧を取得して名前で検索
       try {
@@ -141,6 +144,7 @@ export default async function handler(req, res) {
         });
         
         const channel = channelsList.channels?.find(ch => ch.name === channelName);
+        console.log(`🔍 Channel search result:`, channel ? `Found: ${channel.id}` : 'Not found');
         if (channel) {
           console.log(`🔄 Resolved channel name "${channelName}" to ID: ${channel.id}`);
           return channel.id;
@@ -203,7 +207,9 @@ export default async function handler(req, res) {
         
         result = await slack.chat.postMessage({
           channel: sendChannelId,
-          text: args.message || args.text
+          text: args.message || args.text,
+          thread_ts: args.thread_ts,
+          as_user: userToken ? true : false
         });
         break;
         
@@ -261,8 +267,13 @@ export default async function handler(req, res) {
         break;
         
       case 'add_reaction':
+        // チャンネル名をIDに変換
+        console.log('🔍 add_reaction - original channel:', args.channel, 'timestamp:', args.timestamp, 'name:', args.name);
+        const reactionChannelId = await resolveChannelId(args.channel);
+        console.log('🔍 add_reaction - resolved channel ID:', reactionChannelId);
+        
         result = await slack.reactions.add({
-          channel: args.channel,
+          channel: reactionChannelId,
           timestamp: args.timestamp,
           name: args.name
         });

@@ -2,6 +2,10 @@ import crypto from 'crypto';
 import axios from 'axios';
 // import { saveTokens } from '../../services/tokenStorage.js'; // Removed in Phase 1
 import { saveTokensToDB } from '../../../services/storage/database.js';
+import { PROXY_BASE_URL as FULL_PROXY_BASE_URL, WEB_CONFIG } from '../../../config/environment.js';
+
+// プロキシベースURL（ホスト部分のみ）
+const PROXY_BASE_URL = FULL_PROXY_BASE_URL.replace(/^https?:\/\//, '');
 
 // 暗号化キー（本番環境では環境変数から取得）
 const ENCRYPTION_KEY = process.env.SLACK_TOKEN_ENCRYPTION_KEY 
@@ -29,7 +33,7 @@ export default async function handler(req, res) {
     // エラーチェック
     if (error) {
       console.error('❌ Slack OAuth error:', error);
-      const redirectUrl = process.env.ANICCA_WEB_URL || 'http://localhost:3000';
+      const redirectUrl = WEB_CONFIG.ANICCA_WEB_URL;
       return res.redirect(`${redirectUrl}?error=true&service=slack&message=${encodeURIComponent(error)}`);
     }
     
@@ -47,7 +51,7 @@ export default async function handler(req, res) {
         code: code,
         // 動的にリダイレクトURIを生成（リクエストから判定）
         redirect_uri: (() => {
-          const host = req.headers.host || 'anicca-proxy-staging.up.railway.app';
+          const host = req.headers.host || PROXY_BASE_URL;
           const protocol = req.headers['x-forwarded-proto'] || 'https';
           return `${protocol}://${host}/api/slack/oauth-callback`;
         })()
@@ -129,7 +133,7 @@ export default async function handler(req, res) {
     };
     
     // ファイルに保存（後方互換性のため）
-    await saveTokens(teamId, tokenData);
+    // await saveTokens(teamId, tokenData); // TODO: saveTokens関数が未定義
     
     // データベースに保存
     if (userId) {
@@ -238,11 +242,11 @@ export default async function handler(req, res) {
       // デバッグログを追加
       console.log('🔍 OAuth callback redirect debug:');
       console.log('  - NODE_ENV:', process.env.NODE_ENV);
-      console.log('  - ANICCA_WEB_URL:', process.env.ANICCA_WEB_URL);
+      console.log('  - ANICCA_WEB_URL:', WEB_CONFIG.ANICCA_WEB_URL);
       console.log('  - userId:', userId);
       console.log('  - state:', state);
       
-      let redirectUrl = process.env.ANICCA_WEB_URL || 'http://localhost:3000';
+      let redirectUrl = WEB_CONFIG.ANICCA_WEB_URL;
       
       // stateにredirectUrlが含まれている場合は優先的に使用
       try {
@@ -264,7 +268,7 @@ export default async function handler(req, res) {
     
   } catch (error) {
     console.error('OAuth callback error:', error);
-    const redirectUrl = process.env.ANICCA_WEB_URL || 'http://localhost:3000';
+    const redirectUrl = WEB_CONFIG.ANICCA_WEB_URL;
     res.redirect(`${redirectUrl}?error=true&service=slack&message=${encodeURIComponent(error.message)}`);
   }
 }

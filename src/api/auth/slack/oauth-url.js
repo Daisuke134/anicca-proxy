@@ -1,3 +1,8 @@
+import { PROXY_BASE_URL as FULL_PROXY_BASE_URL } from '../../../config/environment.js';
+
+// プロキシベースURL（ホスト部分のみ）
+const PROXY_BASE_URL = FULL_PROXY_BASE_URL.replace(/^https?:\/\//, '');
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -18,7 +23,7 @@ export default async function handler(req, res) {
     // Slack OAuth URLを直接構築
     const clientId = process.env.SLACK_CLIENT_ID;
     // 動的にリダイレクトURIを生成（環境に応じて自動判定）
-    const host = req.headers.host || 'anicca-proxy-staging.up.railway.app';
+    const host = req.headers.host || PROXY_BASE_URL;
     const protocol = req.headers['x-forwarded-proto'] || 'https';
     const redirectUri = `${protocol}://${host}/api/slack/oauth-callback`;
     

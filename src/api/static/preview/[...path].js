@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import mime from 'mime-types';
+import { DIRECTORIES } from '../../../config/environment.js';
 
 /**
  * 簡易HTTPサーバー - /tmp/previewアプリの公開機能
@@ -12,9 +13,7 @@ import mime from 'mime-types';
  */
 
 // プレビューディレクトリのベースパス
-const PREVIEW_BASE_PATH = process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT
-  ? '/tmp/preview'
-  : path.join(process.cwd(), 'tmp', 'preview');
+const PREVIEW_BASE_PATH = path.join(DIRECTORIES.TEMP_BASE, 'preview');
 
 // セキュリティ: 許可されたファイル拡張子
 const ALLOWED_EXTENSIONS = [
