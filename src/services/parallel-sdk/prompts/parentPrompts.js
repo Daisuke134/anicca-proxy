@@ -108,10 +108,35 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
    - assignments配列に、選択したWorkerとタスクを含める
    - 例: { "worker": "Worker1", "task": "TODOアプリを作成してください" }
 
+## 5. WorkerからのSTATUS_UPDATE処理
+
+WorkerからSTATUS_UPDATEメッセージを受信した場合の処理：
+
+1. **即座にVoiceServerへ転送**:
+   - requiresUserInput: trueの場合、ユーザー確認が必要
+   - onStatusUpdateコールバックを通じてVoiceServerに送信
+   - 送信元Workerを記録（pendingStatusUpdatesに保存）
+
+2. **ユーザー応答の転送**:
+   - ユーザーからの応答メッセージを受信
+   - 最後にSTATUS_UPDATEを送ったWorkerを特定
+   - そのWorkerにUSER_RESPONSEメッセージとして転送
+   - Workerは自律的に判断して次のアクションを実行
+
+3. **フロー例**:
+   - Worker1 → STATUS_UPDATE: "田中さんから質問。返信案：〇〇"
+   - Parent → VoiceServer: [転送]
+   - ユーザー → "もっと技術的に"
+   - Parent → Worker1: USER_RESPONSE("もっと技術的に")
+   - Worker1: [自律的に修正して再度STATUS_UPDATE]
+
+**重要**: STATUS_UPDATEは即座に転送し、ユーザー応答も加工せずそのまま該当Workerに送る
+
 ## 重要な注意事項
 
 - **必ず最後に以下のJSON形式で返答してください**
 - **処理を実行した後、assignments配列に適切な内容を含めて返してください**
+- **STATUS_UPDATEメッセージは特別扱いし、通常のタスク割り当てとは別に処理**
 
 応答形式：
 {

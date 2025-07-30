@@ -136,6 +136,73 @@ const httpTools = [
       required: ['message'],
     },
   },
+  {
+    name: 'slack_reply_to_thread',
+    description: 'Reply to a specific message thread in Slack',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        channel: {
+          type: 'string',
+          description: 'Channel name (e.g., "#general") or channel ID',
+        },
+        message: {
+          type: 'string',
+          description: 'The reply message to send',
+        },
+        thread_ts: {
+          type: 'string',
+          description: 'Thread timestamp (e.g., "1234567890.123456")',
+        },
+      },
+      required: ['channel', 'message', 'thread_ts'],
+    },
+  },
+  {
+    name: 'slack_add_reaction',
+    description: 'Add a reaction to a Slack message',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        channel: {
+          type: 'string',
+          description: 'Channel name (e.g., "#general") or channel ID',
+        },
+        timestamp: {
+          type: 'string',
+          description: 'Message timestamp (e.g., "1234567890.123456")',
+        },
+        name: {
+          type: 'string',
+          description: 'Reaction name without colons (e.g., "thumbsup", "heart")',
+        },
+      },
+      required: ['channel', 'timestamp', 'name'],
+    },
+  },
+  {
+    name: 'slack_get_thread_replies',
+    description: 'Get all replies in a message thread',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        channel: {
+          type: 'string',
+          description: 'Channel name (e.g., "#general") or channel ID',
+        },
+        thread_ts: {
+          type: 'string',
+          description: 'Thread parent timestamp',
+        },
+        limit: {
+          type: 'number',
+          description: 'Number of replies to fetch',
+          default: 100,
+        },
+      },
+      required: ['channel', 'thread_ts'],
+    },
+  },
 ];
 
 // Handle tool listing
@@ -497,6 +564,207 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           {
             type: 'text',
             text: `DM sent successfully to user`,
+          },
+        ],
+      };
+    }
+    
+    if (name === 'slack_reply_to_thread') {
+      const { channel, message, thread_ts } = args;
+      const slackApiUrl = process.env.SLACK_API_URL || `${PROXY_BASE_URL}/api/tools/slack`;
+      const userId = process.env.USER_ID;
+      
+      console.error(`[HTTP MCP] Replying to thread ${thread_ts} in ${channel} for user ${userId}`);
+      console.error(`[HTTP MCP] Request details:`, {
+        url: slackApiUrl,
+        channel: channel,
+        thread_ts: thread_ts,
+        userId: userId || 'undefined',
+        hasUserId: !!userId,
+        envUserId: process.env.USER_ID || 'not set',
+        messageLength: message?.length || 0
+      });
+      
+      const response = await fetch(slackApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'send_message',
+          arguments: { 
+            channel, 
+            message,
+            thread_ts // これがキー
+          },
+          userId: userId || process.env.USER_ID,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      console.error(`[HTTP MCP] Slack API response:`, {
+        success: response.ok,
+        status: response.status,
+        hasResult: !!result,
+        hasError: !!result.error,
+        userId: userId
+      });
+      
+      if (!response.ok) {
+        console.error(`[HTTP MCP] Slack API error:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: result.error,
+          message: result.message,
+          userId: userId,
+          url: slackApiUrl
+        });
+        throw new Error(result.message || `Slack API error: ${response.status}`);
+      }
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Reply sent to thread ${thread_ts} in ${channel} successfully`,
+          },
+        ],
+      };
+    }
+    
+    if (name === 'slack_add_reaction') {
+      const { channel, timestamp, name: reactionName } = args;
+      const slackApiUrl = process.env.SLACK_API_URL || `${PROXY_BASE_URL}/api/tools/slack`;
+      const userId = process.env.USER_ID;
+      
+      console.error(`[HTTP MCP] Adding reaction ${reactionName} to message ${timestamp} in ${channel} for user ${userId}`);
+      console.error(`[HTTP MCP] Request details:`, {
+        url: slackApiUrl,
+        channel: channel,
+        timestamp: timestamp,
+        reactionName: reactionName,
+        userId: userId || 'undefined',
+        hasUserId: !!userId,
+        envUserId: process.env.USER_ID || 'not set'
+      });
+      
+      const response = await fetch(slackApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'add_reaction',
+          arguments: { 
+            channel,
+            timestamp,
+            name: reactionName
+          },
+          userId: userId || process.env.USER_ID,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      console.error(`[HTTP MCP] Slack API response:`, {
+        success: response.ok,
+        status: response.status,
+        hasResult: !!result,
+        hasError: !!result.error,
+        userId: userId
+      });
+      
+      if (!response.ok) {
+        console.error(`[HTTP MCP] Slack API error:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: result.error,
+          message: result.message,
+          userId: userId,
+          url: slackApiUrl
+        });
+        throw new Error(result.message || `Slack API error: ${response.status}`);
+      }
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Reaction :${reactionName}: added successfully`,
+          },
+        ],
+      };
+    }
+    
+    if (name === 'slack_get_thread_replies') {
+      const { channel, thread_ts, limit = 100 } = args;
+      const slackApiUrl = process.env.SLACK_API_URL || `${PROXY_BASE_URL}/api/tools/slack`;
+      const userId = process.env.USER_ID;
+      
+      console.error(`[HTTP MCP] Getting thread replies for ${thread_ts} in ${channel} for user ${userId}`);
+      console.error(`[HTTP MCP] Request details:`, {
+        url: slackApiUrl,
+        channel: channel,
+        thread_ts: thread_ts,
+        limit: limit,
+        userId: userId || 'undefined',
+        hasUserId: !!userId,
+        envUserId: process.env.USER_ID || 'not set'
+      });
+      
+      const response = await fetch(slackApiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'get_thread_replies',
+          arguments: { 
+            channel,
+            thread_ts,
+            limit
+          },
+          userId: userId || process.env.USER_ID,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      console.error(`[HTTP MCP] Slack API response:`, {
+        success: response.ok,
+        status: response.status,
+        hasResult: !!result,
+        hasError: !!result.error,
+        userId: userId
+      });
+      
+      if (!response.ok) {
+        console.error(`[HTTP MCP] Slack API error:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: result.error,
+          message: result.message,
+          userId: userId,
+          url: slackApiUrl
+        });
+        throw new Error(result.message || `Slack API error: ${response.status}`);
+      }
+      
+      // Format thread replies
+      const replies = result.result?.messages || [];
+      const formattedReplies = replies
+        .map(msg => {
+          const time = new Date(parseFloat(msg.ts) * 1000).toLocaleString();
+          return `[${time}] ${msg.user}: ${msg.text}`;
+        })
+        .join('\n\n');
+      
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Thread replies for ${thread_ts} in ${channel}:\n\n${formattedReplies}`,
           },
         ],
       };

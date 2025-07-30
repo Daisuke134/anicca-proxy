@@ -355,6 +355,29 @@ export default async function handler(req, res) {
         }
         break;
         
+      case 'get_thread_replies':
+        // チャンネル名をIDに変換
+        const repliesChannelId = await resolveChannelId(args.channel);
+        const threadTs = args.thread_ts;
+        const replyLimit = args.limit || 100;
+        
+        console.log(`📤 Getting thread replies for ${threadTs} in ${repliesChannelId}`);
+        
+        try {
+          // conversations.repliesを使用してスレッドの返信を取得
+          result = await slack.conversations.replies({
+            channel: repliesChannelId,
+            ts: threadTs,
+            limit: replyLimit
+          });
+          
+          console.log(`✅ Retrieved ${result.messages?.length || 0} thread replies`);
+        } catch (repliesError) {
+          console.error('❌ Thread replies error:', repliesError);
+          throw new Error(`Failed to get thread replies: ${repliesError.message}`);
+        }
+        break;
+        
       default:
         throw new Error(`Unknown Slack action: ${action}`);
     }
