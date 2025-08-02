@@ -12,6 +12,7 @@ import fsSync from 'fs';
 import fs from 'fs';
 import { buildParentPrompts, generateUnifiedTaskAnalysisPrompt } from '../prompts/parentPrompts.js';
 import logger from '../../../utils/logger.js';
+import { MessageTypes } from '../IPCProtocol.js';
 
 /**
  * ParentAgent - BaseWorkerベースの司令塔エージェント
@@ -67,6 +68,10 @@ export class ParentAgent extends BaseWorker {
     
     // 現在のタスクのuserIdを保持
     this.currentUserId = null;
+    
+    // STATUS_UPDATE管理用
+    this.pendingStatusUpdates = new Map(); // workerId -> {message, timestamp}
+    this.onStatusUpdate = null; // VoiceServerが設定するコールバック
     
     logger.info(`👑 ${this.agentName} is initializing as the team leader...`);
   }
@@ -598,7 +603,29 @@ ${statusList}
         break;
         
       case 'STATUS_UPDATE':
-        // 進捗更新（必要に応じてSlackに投稿）
+        const statusPayload = message.payload;
+        
+        // ユーザー確認が必要な場合
+        if (statusPayload.requiresUserInput) {
+          // どのWorkerからの更新か記録
+          this.pendingStatusUpdates.set(worker.id, {
+            workerName: worker.name,
+            message: statusPayload.message,
+            timestamp: statusPayload.timestamp
+          });
+          
+          // VoiceServerに転送
+          if (this.onStatusUpdate) {
+            this.onStatusUpdate({
+              workerName: worker.name,
+              message: statusPayload.message,
+              requiresUserInput: true
+            });
+          }
+        } else {
+          // 単なる進捗報告の場合（ログ出力のみ）
+          console.log(`📊 [${worker.name}] ${statusPayload.message || `Progress: ${statusPayload.progress || 'N/A'}`}`);
+        }
         break;
         
       case 'TASK_COMPLETE':
@@ -651,6 +678,40 @@ ${statusList}
     return status;
   }
 
+  /**
+   * ユーザー応答を適切なWorkerに転送
+   * @param {string} userMessage - ユーザーからのメッセージ
+   */
+  sendUserResponseToWorker(userMessage) {
+    // 最新のSTATUS_UPDATEを送ったWorkerを特定
+    let targetWorker = null;
+    let latestTimestamp = 0;
+    
+    this.pendingStatusUpdates.forEach((update, workerId) => {
+      if (update.timestamp > latestTimestamp) {
+        latestTimestamp = update.timestamp;
+        targetWorker = this.workers.get(workerId);
+      }
+    });
+    
+    if (targetWorker && targetWorker.process) {
+      console.log(`📨 Forwarding user response to ${targetWorker.name}: "${userMessage}"`);
+      
+      // USER_RESPONSEメッセージを送信
+      targetWorker.process.send({
+        type: MessageTypes.USER_RESPONSE,
+        timestamp: Date.now(),  // メッセージレベルに移動
+        payload: {
+          message: userMessage
+        }
+      });
+      
+      // 送信後はpendingから削除
+      this.pendingStatusUpdates.delete(targetWorker.id);
+    } else {
+      console.warn('⚠️ No worker waiting for user response');
+    }
+  }
   
   
   /**

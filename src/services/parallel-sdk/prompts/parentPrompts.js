@@ -33,6 +33,7 @@ export function generateUnifiedTaskAnalysisPrompt(taskInfo, isDesktop) {
   
   return `
 あなたはParentAgentです。以下のタスクを分析して、適切に処理してください。
+どんなタスクでも絶対にあなた自身は何もやらないこと。Slack返信なども。全て、どんなタスクでもそのまま空いているWorkerに割り振ること。あなた自身が行動をするなどは許されない。
 
 【タスク】
 ${taskInfo.task}
@@ -108,29 +109,10 @@ ${JSON.stringify(taskInfo.workers, null, 2)}
    - assignments配列に、選択したWorkerとタスクを含める
    - 例: { "worker": "Worker1", "task": "TODOアプリを作成してください" }
 
-## 5. WorkerからのSTATUS_UPDATE処理
+## 5. STATUS_UPDATE自動転送
 
-WorkerからSTATUS_UPDATEメッセージを受信した場合の処理：
-
-1. **即座にVoiceServerへ転送**:
-   - requiresUserInput: trueの場合、ユーザー確認が必要
-   - onStatusUpdateコールバックを通じてVoiceServerに送信
-   - 送信元Workerを記録（pendingStatusUpdatesに保存）
-
-2. **ユーザー応答の転送**:
-   - ユーザーからの応答メッセージを受信
-   - 最後にSTATUS_UPDATEを送ったWorkerを特定
-   - そのWorkerにUSER_RESPONSEメッセージとして転送
-   - Workerは自律的に判断して次のアクションを実行
-
-3. **フロー例**:
-   - Worker1 → STATUS_UPDATE: "田中さんから質問。返信案：〇〇"
-   - Parent → VoiceServer: [転送]
-   - ユーザー → "もっと技術的に"
-   - Parent → Worker1: USER_RESPONSE("もっと技術的に")
-   - Worker1: [自律的に修正して再度STATUS_UPDATE]
-
-**重要**: STATUS_UPDATEは即座に転送し、ユーザー応答も加工せずそのまま該当Workerに送る
+WorkerからのSTATUS_UPDATEは自動的にVoiceServerに転送されます。
+ParentAgentは単純な転送のみ行い、特別な処理は不要です。
 
 ## 重要な注意事項
 

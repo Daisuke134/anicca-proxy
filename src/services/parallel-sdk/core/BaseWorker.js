@@ -40,6 +40,9 @@ export class BaseWorker extends IPCHandler {
     // 現在のタスクのuserIdを保持
     this.currentUserId = null;
     
+    // Slack返信タスクのユーザー応答待機フラグ
+    this.isWaitingForUserResponse = false;
+    
     // ClaudeExecutorServiceをインスタンス化（エージェント名を渡す）
     // const database = new MockDatabase(); // Removed in Phase 1
     this.executor = new ClaudeExecutorService(null, this.agentName); // databaseパラメータはnullに
@@ -182,6 +185,11 @@ export class BaseWorker extends IPCHandler {
     this.on(MessageTypes.TASK_CANCEL, (payload) => {
       this.handleTaskCancel(payload.taskId);
     });
+    
+    // ユーザー応答処理
+    this.on(MessageTypes.USER_RESPONSE, (payload) => {
+      this.handleUserResponse(payload);
+    });
   }
   
   
@@ -204,12 +212,14 @@ export class BaseWorker extends IPCHandler {
       this.log('info', '✅ MCP servers re-initialized with received tokens');
     }
     
-    // ステータスを更新
-    this.send(createStatusUpdateMessage(taskId, TaskStatus.IN_PROGRESS, 0));
+    // ステータスを更新 - 初期進捗は不要
+    
+    let skipTaskComplete = false;  // finallyブロックでアクセスできるように
     
     try {
       // タスクを実行
       const result = await this.executeTask(task);
+      skipTaskComplete = result.skipTaskComplete || false;
       
       // 統計を更新
       this.stats.completedTasks++;
@@ -217,8 +227,12 @@ export class BaseWorker extends IPCHandler {
       this.stats.taskTypes[taskType] = (this.stats.taskTypes[taskType] || 0) + 1;
       
       // 完了を報告
-      this.send(createTaskCompleteMessage(taskId, result));
-      this.log('info', `Task ${taskId} completed successfully`);
+      if (!result.skipTaskComplete) {
+        this.send(createTaskCompleteMessage(taskId, result));
+        this.log('info', `Task ${taskId} completed successfully`);
+      } else {
+        this.log('info', `Task ${taskId} waiting for user response (STATUS_UPDATE mode)`);
+      }
       
       // タスク完了後もプロセスを維持（アイドル状態へ）
       await this.enterIdleMode();
@@ -232,7 +246,10 @@ export class BaseWorker extends IPCHandler {
       // エラー後もプロセスを維持
       await this.enterIdleMode();
     } finally {
-      this.currentTask = null;
+      // STATUS_UPDATE待機中（skipTaskComplete）の場合はcurrentTaskを保持
+      if (!skipTaskComplete && !this.isWaitingForUserResponse) {
+        this.currentTask = null;
+      }
     }
   }
   
@@ -243,8 +260,7 @@ export class BaseWorker extends IPCHandler {
   async executeTask(task) {
     this.log('info', `Executing ${task.type || 'general'} task...`);
     
-    // 進捗を報告
-    this.send(createStatusUpdateMessage(task.id, TaskStatus.IN_PROGRESS, 25));
+    // 進捗を報告 - 削除（不要）
     
     try {
       // タスクのuserIdを保存（重要！）
@@ -304,11 +320,10 @@ ${task.originalRequest}
 作業ディレクトリ: ${workingDir}
 `;
       
-      // セッションを使用して実行
-      const result = await this.session.sendMessage(prompt);
+      // セッションを使用して実行（rawオプションで完全な応答を取得）
+      const result = await this.session.sendMessage(prompt, { raw: true });
       
-      // 進捗を報告
-      this.send(createStatusUpdateMessage(task.id, TaskStatus.IN_PROGRESS, 90));
+      // 進捗を報告 - 削除（不要）
       
       // 結果を整形
       const taskStartTime = this.currentTask?.startTime || Date.now();
@@ -386,11 +401,38 @@ ${task.originalRequest}
       uptime: process.uptime() * 1000
     };
     
-    this.send(createStatusUpdateMessage(
-      this.currentTask?.taskId || null,
-      this.currentTask ? TaskStatus.IN_PROGRESS : 'idle',
-      null
-    ));
+    // ステータス報告は必要な場合のみ送信
+  }
+  
+  /**
+   * 進捗報告とユーザー確認要求を送信
+   * @param {string} message - 報告メッセージ
+   * @param {boolean} requiresUserInput - ユーザー入力が必要か
+   */
+  sendStatusUpdate(message, requiresUserInput = false) {
+    this.send({
+      type: MessageTypes.STATUS_UPDATE,
+      payload: {
+        taskId: this.currentTask?.taskId,
+        message: message,
+        requiresUserInput: requiresUserInput,
+        workerName: this.agentName,
+        timestamp: Date.now()
+      }
+    });
+  }
+  
+  /**
+   * ユーザー応答を処理
+   * @param {object} payload - ユーザー応答ペイロード
+   */
+  handleUserResponse(payload) {
+    const { message } = payload;
+    this.log('info', `Received user response: ${message}`);
+    
+    // ユーザー応答を受けて自律的に判断
+    // 定期タスクの場合は、返信案の修正や送信判断を行う
+    // 具体的な処理はWorker.jsで実装（タスクに応じて）
   }
   
   /**

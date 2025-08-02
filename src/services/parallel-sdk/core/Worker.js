@@ -1,4 +1,8 @@
 import { BaseWorker } from './BaseWorker.js';
+import { 
+  createTaskCompleteMessage, 
+  createErrorMessage 
+} from '../IPCProtocol.js';
 import { getSlackTokensForUser } from '../../storage/database.js';
 import { previewManager } from '../utils/PreviewManager.js';
 import fs from 'fs';
@@ -88,6 +92,94 @@ class Worker extends BaseWorker {
     // 例：アプリ作成後の追加処理など
     
     const result = await super.executeTask(task);
+    
+    // Slack返信タスクの判定
+    if (result.output && (result.output.includes('status_update') || result.output.includes('task_completion'))) {
+      console.log(`📨 [${this.agentName}] Detected Slack reply task, waiting for user response...`);
+      
+      // デバッグポイント1: Claudeの出力確認（省略されないように）
+      console.log(`🔍 [${this.agentName}] Claude output length:`, result.output.length);
+      console.log(`🔍 [${this.agentName}] Output contains status_update:`, result.output.includes('status_update'));
+      console.log(`🔍 [${this.agentName}] First 200 chars:`, result.output.substring(0, 200));
+      console.log(`🔍 [${this.agentName}] Last 200 chars:`, result.output.substring(result.output.length - 200));
+      
+      // JSONを解析してSTATUS_UPDATEを送信
+      // 単純な方法：最初の{と最後の}を探す
+      let jsonMatch = null;
+      const firstBrace = result.output.indexOf('{');
+      const lastBrace = result.output.lastIndexOf('}');
+      
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        const jsonStr = result.output.substring(firstBrace, lastBrace + 1);
+        console.log(`🔍 [${this.agentName}] Extracted JSON string length:`, jsonStr.length);
+        console.log(`🔍 [${this.agentName}] Extracted JSON preview:`, jsonStr.substring(0, 100) + '...');
+        
+        if (jsonStr.includes('status_update')) {
+          jsonMatch = [jsonStr];
+        }
+      }
+      
+      // それでもダメなら、status_updateを含む行から手動で構築
+      if (!jsonMatch && result.output.includes('status_update')) {
+        console.log(`⚠️ [${this.agentName}] Fallback: Creating default STATUS_UPDATE`);
+        // デフォルトのSTATUS_UPDATEを送信
+        this.sendStatusUpdate(
+          "Slack返信タスクを処理中です。詳細を確認しています。",
+          true
+        );
+        console.log(`📤 [${this.agentName}] Sent fallback STATUS_UPDATE to ParentAgent`);
+      }
+      
+      // デバッグポイント2: 正規表現マッチ確認
+      console.log(`🔍 [${this.agentName}] JSON match result:`, jsonMatch);
+      
+      if (jsonMatch) {
+        try {
+          // デバッグポイント3: パース前のJSON文字列
+          console.log(`🔍 [${this.agentName}] JSON string to parse:`, jsonMatch[0]);
+          
+          const statusData = JSON.parse(jsonMatch[0]);
+          
+          // デバッグポイント4: パース後のオブジェクト
+          console.log(`🔍 [${this.agentName}] Parsed status data:`, statusData);
+          
+          if (statusData.status_update) {
+            console.log(`📤 [${this.agentName}] Sending STATUS_UPDATE to ParentAgent`);
+            // ParentAgentにSTATUS_UPDATEを送信
+            this.sendStatusUpdate(
+              statusData.status_update.message,
+              statusData.status_update.requiresUserInput
+            );
+          } else {
+            // デバッグポイント5: status_updateが存在しない場合
+            console.log(`⚠️ [${this.agentName}] No status_update in parsed data`);
+          }
+        } catch (e) {
+          // デバッグポイント6: エラーの詳細
+          console.error(`❌ [${this.agentName}] JSON parse error:`, e);
+          console.error(`❌ [${this.agentName}] Failed JSON string:`, jsonMatch[0]);
+        }
+      } else {
+        // デバッグポイント7: 正規表現がマッチしなかった場合
+        console.log(`⚠️ [${this.agentName}] No JSON match found in output`);
+        
+        // 出力が短すぎる場合や、JSONが含まれていない場合のフォールバック
+        if (result.output.length < 50) {
+          console.log(`⚠️ [${this.agentName}] Short response detected: "${result.output}"`);
+          console.log(`📤 [${this.agentName}] Sending fallback STATUS_UPDATE for short response`);
+          
+          this.sendStatusUpdate(
+            `Slackメッセージの確認中です。応答: ${result.output}`,
+            true
+          );
+        }
+      }
+      
+      this.isWaitingForUserResponse = true;
+      // タスクを完了せず、USER_RESPONSEを待つ
+      result.skipTaskComplete = true; // BaseWorkerでTASK_COMPLETE送信を防止
+      return result;
+    }
     
     // アプリ作成タスクの場合のみプレビューURL処理を実行
     const isAppCreationTask = task.originalRequest && /アプリ|ゲーム|サイト|ページ|ツール|ダッシュボード|作成|作って|作る/.test(task.originalRequest);
@@ -317,6 +409,154 @@ ${slackMessage}
   /**
    * Worker固有のクリーンアップ
    */
+  /**
+   * ユーザー応答を処理（Slack返信タスク用）
+   * @override
+   */
+  async handleUserResponse(payload) {
+    const { message } = payload;
+    this.log('info', `Received user response: ${message}`);
+    
+    // デバッグログ追加
+    this.log('info', `Debug - isWaitingForUserResponse: ${this.isWaitingForUserResponse}`);
+    this.log('info', `Debug - currentTask exists: ${!!this.currentTask}`);
+    if (this.currentTask) {
+      this.log('info', `Debug - currentTask.taskId: ${this.currentTask.taskId}`);
+    }
+    
+    if (this.isWaitingForUserResponse && this.currentTask) {
+      try {
+        // ユーザーの応答をClaudeセッションに送信
+        const response = await this.session.sendMessage(message, { raw: true });
+        
+        // 応答に基づいて次のアクションを決定
+        // task_completionが含まれているかチェック
+        if (response.includes('task_completion')) {
+          // JSONを抽出（executeTaskと同じ方式）
+          let jsonMatch = null;
+          const firstBrace = response.indexOf('{');
+          const lastBrace = response.lastIndexOf('}');
+          
+          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            const jsonStr = response.substring(firstBrace, lastBrace + 1);
+            if (jsonStr.includes('task_completion')) {
+              jsonMatch = [jsonStr];
+            }
+          }
+          
+          if (jsonMatch) {
+            try {
+              const completion = JSON.parse(jsonMatch[0]);
+              
+              // デバッグログ追加
+              console.log(`📤 [${this.agentName}] Sending TASK_COMPLETE to ParentAgent`);
+              console.log(`📊 [${this.agentName}] Task completion message: ${completion.task_completion.message}`);
+              
+              // タスク完了を送信
+              this.send(createTaskCompleteMessage(this.currentTask.taskId, {
+                success: true,
+                output: completion.task_completion.message,
+                metadata: {
+                  executedBy: this.agentName,
+                  taskType: 'slack_reply',
+                  duration: Date.now() - this.currentTask.startTime
+                }
+              }));
+              
+              this.currentTask = null;
+              this.isWaitingForUserResponse = false;
+              this.log('info', 'All Slack replies completed');
+              await this.enterIdleMode();
+            } catch (parseError) {
+              console.error(`❌ [${this.agentName}] Failed to parse task_completion:`, parseError);
+              console.error(`❌ [${this.agentName}] Failed JSON string:`, jsonMatch[0]);
+            }
+          } else {
+            console.warn(`⚠️ [${this.agentName}] task_completion found but no JSON extracted`);
+          }
+        } else if (response.includes('status_update') || response.includes('STATUS_UPDATE')) {
+          // デバッグログを追加（executeTaskと同じレベル）
+          console.log(`📨 [${this.agentName}] Processing STATUS_UPDATE in user response...`);
+          console.log(`🔍 [${this.agentName}] Response length:`, response.length);
+          console.log(`🔍 [${this.agentName}] Response contains status_update:`, response.includes('status_update'));
+          console.log(`🔍 [${this.agentName}] First 200 chars:`, response.substring(0, 200));
+          console.log(`🔍 [${this.agentName}] Last 200 chars:`, response.substring(response.length - 200));
+          
+          // JSONを抽出してSTATUS_UPDATEを送信
+          let jsonMatch = null;
+          
+          // マークダウンのコードブロックからJSONを抽出
+          const markdownMatch = response.match(/```json\s*\n?([\s\S]*?)\n?```/);
+          console.log(`🔍 [${this.agentName}] Markdown match result:`, markdownMatch ? 'found' : 'not found');
+          
+          if (markdownMatch) {
+            jsonMatch = [markdownMatch[1].trim()];
+            console.log(`🔍 [${this.agentName}] Extracted from markdown, length:`, jsonMatch[0].length);
+          } else {
+            // 通常のJSON抽出（フォールバック）
+            const firstBrace = response.indexOf('{');
+            const lastBrace = response.lastIndexOf('}');
+            console.log(`🔍 [${this.agentName}] Brace positions - first: ${firstBrace}, last: ${lastBrace}`);
+            
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+              const jsonStr = response.substring(firstBrace, lastBrace + 1);
+              console.log(`🔍 [${this.agentName}] Extracted JSON string length:`, jsonStr.length);
+              console.log(`🔍 [${this.agentName}] Extracted JSON preview:`, jsonStr.substring(0, 100) + '...');
+              
+              if (jsonStr.includes('status_update')) {
+                jsonMatch = [jsonStr];
+              }
+            }
+          }
+          
+          if (jsonMatch) {
+            try {
+              const statusData = JSON.parse(jsonMatch[0]);
+              if (statusData.status_update) {
+                console.log(`📤 [${this.agentName}] Sending next STATUS_UPDATE to ParentAgent`);
+                this.sendStatusUpdate(
+                  statusData.status_update.message,
+                  statusData.status_update.requiresUserInput
+                );
+              }
+            } catch (e) {
+              console.error(`❌ [${this.agentName}] Failed to parse status_update:`, e);
+              console.error(`❌ [${this.agentName}] Failed JSON string:`, jsonMatch[0]);
+            }
+          } else {
+            console.warn(`⚠️ [${this.agentName}] status_update found but no JSON extracted`);
+          }
+          
+          this.log('info', 'Waiting for next user confirmation...');
+          // isWaitingForUserResponseはtrueのまま維持
+        } else if (response.includes('送信しました') || response.includes('投稿しました')) {
+          // 送信完了したが、まだ返信が残っている可能性
+          this.log('info', 'Message sent, checking for more messages...');
+          // Claudeが次のSTATUS_UPDATEまたはtask_completionを送信する
+        } else {
+          // 短い応答や予期しない応答の場合
+          console.warn(`⚠️ [${this.agentName}] Unexpected response: "${response}"`);
+          console.log(`📤 [${this.agentName}] Creating fallback STATUS_UPDATE for short response`);
+          
+          // デフォルトのSTATUS_UPDATEを送信
+          this.sendStatusUpdate(
+            `処理を続けています。応答内容: ${response}`,
+            true
+          );
+          
+          this.log('info', 'Waiting for next user confirmation...');
+          // isWaitingForUserResponseはtrueのまま維持
+        }
+      } catch (error) {
+        this.log('error', `Error processing user response: ${error.message}`);
+        // エラーを報告
+        this.send(createErrorMessage(error, this.currentTask.taskId));
+      }
+    } else {
+      this.log('warn', 'Received user response but not waiting for one');
+    }
+  }
+
   async cleanup() {
     console.log(`🛑 [${this.agentName}] Starting cleanup...`);
     

@@ -14,6 +14,7 @@ export const MessageTypes = {
   SHUTDOWN: 'SHUTDOWN',                 // シャットダウン指示
   RITUAL_START: 'RITUAL_START',         // 儀式（朝会、メッタ等）開始
   RITUAL_END: 'RITUAL_END',             // 儀式終了
+  USER_RESPONSE: 'USER_RESPONSE',       // ユーザー応答の転送
   
   // 子→親
   READY: 'READY',                       // エージェント準備完了

@@ -435,7 +435,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const formattedMessages = messages
         .map(msg => {
           const time = new Date(parseFloat(msg.ts) * 1000).toLocaleString();
-          return `[${time}] ${msg.user}: ${msg.text}`;
+          // タイムスタンプも含めて返す（リアクション・スレッド返信用）
+          return `[${time}] (ts: ${msg.ts}) ${msg.user}: ${msg.text}`;
         })
         .join('\n\n');
       

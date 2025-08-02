@@ -14,6 +14,14 @@ function decrypt(text) {
   return decrypted.toString();
 }
 
+// タイムスタンプが古いかチェック（24時間以上前）
+function isMessageTooOld(timestamp, maxHours = 24) {
+  const messageTime = parseFloat(timestamp);
+  const now = Date.now() / 1000;
+  const ageInHours = (now - messageTime) / 3600;
+  return ageInHours > maxHours;
+}
+
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -100,6 +108,31 @@ export default async function handler(req, res) {
     console.log('🎯 Using token type:', userToken ? 'User Token' : 'Bot Token');
     
     // チャンネル名をIDに変換する関数
+    // 編集距離（レーベンシュタイン距離）を計算
+    function calculateEditDistance(str1, str2) {
+      const m = str1.length;
+      const n = str2.length;
+      const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+      
+      for (let i = 0; i <= m; i++) dp[i][0] = i;
+      for (let j = 0; j <= n; j++) dp[0][j] = j;
+      
+      for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+          if (str1[i - 1] === str2[j - 1]) {
+            dp[i][j] = dp[i - 1][j - 1];
+          } else {
+            dp[i][j] = Math.min(
+              dp[i - 1][j] + 1,    // 削除
+              dp[i][j - 1] + 1,    // 挿入
+              dp[i - 1][j - 1] + 1 // 置換
+            );
+          }
+        }
+      }
+      return dp[m][n];
+    }
+    
     async function resolveChannelId(channelNameOrId) {
       console.log(`🔍 resolveChannelId input: "${channelNameOrId}"`);
       
@@ -150,7 +183,33 @@ export default async function handler(req, res) {
           return channel.id;
         }
         
-        throw new Error(`Channel "${channelName}" not found`);
+        // 完全一致が見つからない場合、類似チャンネルを探す
+        console.log(`⚠️ Exact match not found for "${channelName}". Searching for similar channels...`);
+
+        // すべてのチャンネルに対して編集距離を計算
+        const channelScores = channelsList.channels?.map(ch => ({
+          channel: ch,
+          distance: calculateEditDistance(channelName.toLowerCase(), ch.name.toLowerCase())
+        })).sort((a, b) => a.distance - b.distance) || [];
+
+        // 編集距離が最小のチャンネルを選択（最大2文字まで）
+        const bestMatch = channelScores[0];
+        if (bestMatch && bestMatch.distance <= 2) {
+          console.log(`✅ Found similar channel: ${bestMatch.channel.name} (edit distance: ${bestMatch.distance})`);
+          return bestMatch.channel.id;
+        }
+
+        // それでも見つからない場合、従来の部分一致も試す
+        const partialMatch = channelsList.channels?.find(ch => 
+          ch.name.includes(channelName) || channelName.includes(ch.name)
+        );
+
+        if (partialMatch) {
+          console.log(`⚠️ Using partial match: ${partialMatch.name}`);
+          return partialMatch.id;
+        }
+
+        throw new Error(`Channel "${channelName}" not found and no similar channels found`);
       } catch (error) {
         console.error('Failed to resolve channel name:', error);
         throw error;
@@ -190,9 +249,23 @@ export default async function handler(req, res) {
         console.log('❌ No tokens found for getTokens request');
         return res.status(404).json({ error: 'No tokens found' });
         
+      case 'reply_to_thread':
+        // thread_tsが必須であることを確認
+        if (!args.thread_ts) {
+          throw new Error('thread_ts is required for reply_to_thread action');
+        }
+        // send_messageと同じ処理を実行（thread_ts付き）
+        // フォールスルーで処理
+        // fallthrough
+        
       case 'send_message':
-        // チャンネル名をIDに変換
         const sendChannelId = await resolveChannelId(args.channel);
+        
+        // thread_tsが古い場合は通常メッセージとして送信
+        if (args.thread_ts && isMessageTooOld(args.thread_ts)) {
+          console.log('⚠️ Thread is older than 24 hours, sending as new message');
+          delete args.thread_ts; // thread_tsを削除
+        }
         
         // Bot Tokenの場合のみチャンネル参加を試みる
         if (!userToken) {
@@ -205,29 +278,26 @@ export default async function handler(req, res) {
           }
         }
         
-        result = await slack.chat.postMessage({
-          channel: sendChannelId,
-          text: args.message || args.text,
-          thread_ts: args.thread_ts,
-          as_user: userToken ? true : false
-        });
-        break;
-        
-      case 'list_channels':
-        const listParams = {
-          types: 'public_channel,private_channel',
-          // exclude_archived: true, // 削除
-          limit: args.limit || 1000
-        };
-        console.log('📤 Slack API params:', listParams);
-        
-        result = await slack.conversations.list(listParams);
-        
-        console.log('📥 Slack API response:', {
-          ok: result.ok,
-          channels_count: result.channels?.length || 0,
-          next_cursor: result.response_metadata?.next_cursor || 'none'
-        });
+        try {
+          result = await slack.chat.postMessage({
+            channel: sendChannelId,
+            text: args.message || args.text,
+            thread_ts: args.thread_ts,
+            as_user: userToken ? true : false
+          });
+        } catch (sendError) {
+          // thread_not_foundの場合は通常メッセージとして再送信
+          if (sendError.data?.error === 'thread_not_found' && args.thread_ts) {
+            console.log('⚠️ Thread not found, retrying as new message');
+            result = await slack.chat.postMessage({
+              channel: sendChannelId,
+              text: args.message || args.text,
+              as_user: userToken ? true : false
+            });
+          } else {
+            throw sendError;
+          }
+        }
         break;
         
       case 'get_channel_history':
@@ -267,16 +337,37 @@ export default async function handler(req, res) {
         break;
         
       case 'add_reaction':
-        // チャンネル名をIDに変換
-        console.log('🔍 add_reaction - original channel:', args.channel, 'timestamp:', args.timestamp, 'name:', args.name);
         const reactionChannelId = await resolveChannelId(args.channel);
-        console.log('🔍 add_reaction - resolved channel ID:', reactionChannelId);
         
-        result = await slack.reactions.add({
-          channel: reactionChannelId,
-          timestamp: args.timestamp,
-          name: args.name
-        });
+        // 24時間以上前のメッセージは事前にスキップ
+        if (isMessageTooOld(args.timestamp)) {
+          console.log('⚠️ Message is older than 24 hours, skipping reaction');
+          result = { ok: true, skipped: true, reason: 'too_old' };
+          break;
+        }
+        
+        console.log('🔍 Adding reaction:', args.name, 'to', args.timestamp);
+        
+        try {
+          result = await slack.reactions.add({
+            channel: reactionChannelId,
+            timestamp: args.timestamp,
+            name: args.name
+          });
+          console.log('✅ Reaction added successfully');
+        } catch (reactionError) {
+          // エラーでも成功として扱う
+          const errorCode = reactionError.data?.error;
+          console.log(`⚠️ Reaction error (${errorCode}) but treating as success`);
+          
+          if (errorCode === 'already_reacted') {
+            result = { ok: true, warning: 'Already reacted' };
+          } else if (errorCode === 'message_not_found') {
+            result = { ok: true, warning: 'Message not found (deleted?)' };
+          } else {
+            result = { ok: true, warning: reactionError.message };
+          }
+        }
         break;
         
       case 'upload_file':
@@ -356,25 +447,35 @@ export default async function handler(req, res) {
         break;
         
       case 'get_thread_replies':
-        // チャンネル名をIDに変換
         const repliesChannelId = await resolveChannelId(args.channel);
         const threadTs = args.thread_ts;
-        const replyLimit = args.limit || 100;
+        
+        // 24時間以上前のメッセージは事前にスキップ
+        if (isMessageTooOld(threadTs)) {
+          console.log('⚠️ Thread is older than 24 hours, skipping');
+          result = { messages: [], ok: true, skipped: true, reason: 'too_old' };
+          break;
+        }
         
         console.log(`📤 Getting thread replies for ${threadTs} in ${repliesChannelId}`);
         
         try {
-          // conversations.repliesを使用してスレッドの返信を取得
           result = await slack.conversations.replies({
             channel: repliesChannelId,
             ts: threadTs,
-            limit: replyLimit
+            limit: args.limit || 100
           });
-          
           console.log(`✅ Retrieved ${result.messages?.length || 0} thread replies`);
         } catch (repliesError) {
-          console.error('❌ Thread replies error:', repliesError);
-          throw new Error(`Failed to get thread replies: ${repliesError.message}`);
+          // エラーの場合も空の結果を返して処理継続
+          if (repliesError.data?.error === 'thread_not_found' || 
+              repliesError.data?.error === 'message_not_found') {
+            console.log('⚠️ Thread/Message not found, returning empty');
+            result = { messages: [], ok: true };
+          } else {
+            console.warn('⚠️ Thread error but continuing:', repliesError.message);
+            result = { messages: [], ok: true, warning: repliesError.message };
+          }
         }
         break;
         
@@ -391,14 +492,35 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('❌ Slack tool execution error:', {
       error: error.message,
-      stack: error.stack,
+      errorCode: error.data?.error,
       action: req.body?.action,
-      userId: req.body?.userId,
-      hasToken: !!(process.env.SLACK_BOT_TOKEN || global.slackBotToken),
-      errorData: error.data
+      userId: req.body?.userId
     });
     
-    // エラーメッセージを改善
+    // 処理を継続すべきエラーは警告として扱う
+    const continuableErrors = [
+      'thread_not_found',
+      'message_not_found',
+      'already_reacted',
+      'not_in_channel',
+      'invalid_ts_latest',
+      'channel_not_found',
+      'invalid_ts_oldest'
+    ];
+    
+    if (error.data?.error && continuableErrors.includes(error.data.error)) {
+      console.log(`⚠️ Treating ${error.data.error} as warning, continuing`);
+      return res.status(200).json({
+        success: true,
+        warning: error.data.error,
+        result: { 
+          ok: true, 
+          warning: `Non-critical: ${error.data.error}` 
+        }
+      });
+    }
+    
+    // その他のエラーは通常通り
     let errorMessage = error.message;
     if (error.data?.error) {
       errorMessage = `Slack API error: ${error.data.error}`;
