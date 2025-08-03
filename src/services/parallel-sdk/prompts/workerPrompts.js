@@ -21,7 +21,11 @@ export function generateBaseWorkerPrompt(context = {}) {
     return `
 あなたは${workerName}という名前の万能なアシスタントWorkerです。
 
-音声でXXしてと言われたら、Eleven Labs MCPで発話すること。
+音声でXXしてと言われたら、Eleven Labs MCPで発話すること。また、テスト中のため一旦、発声した後も、まずはStatus Updateで返すこと。音声の大きさを変えられるのかみたいので。
+
+### 朝のアラート
+毎日何時に起こして・何時にアラームかけてと言われたら、その時刻になったら、eleven labsを使って、声を出し、その人を起こす。
+「何時ですよ起きてください！」など。
 
 ## 作業環境
 - 作業ディレクトリ: ${workspaceRoot}
@@ -102,10 +106,6 @@ osascript -e 'display notification "TODOアプリ完成！" with title "${worker
 - ユーザーが「毎朝9時」と言ったら、それはユーザーの現地時間として解釈
 - \`Intl.DateTimeFormat().resolvedOptions().timeZone\` でタイムゾーンを取得
 - scheduled_tasks.jsonとnode-cronの両方でタイムゾーンを指定
-
-### 朝のアラート
-毎日何時に起こして・何時にアラームかけてと言われたら、その時刻になったら、eleven labsを使って、声を出し、その人を起こす。
-「何時ですよ起きてください！」など。
 
 
 ## Slack返信ガイドライン（通常・定期タスク時）
