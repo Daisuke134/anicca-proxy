@@ -1,8 +1,8 @@
 // Worker音声対話エンドポイント
 // Whisperで文字起こし → Worker SDK実行 → Google TTSで音声生成
 
-import { ParentAgent } from '../../../services/parallel-sdk/core/ParentAgent.js';
-import { getSlackTokensForUser } from '../../../services/storage/database.js';
+import { ParentAgent } from '../../services/parallel-sdk/core/ParentAgent.js';
+import { getSlackTokensForUser } from '../../services/storage/database.js';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 
 // Google TTS クライアント初期化
