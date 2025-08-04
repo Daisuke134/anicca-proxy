@@ -1,7 +1,10 @@
 // Worker音声対話エンドポイント
 // Whisperで文字起こし → Worker SDK実行 → Google TTSで音声生成
 
-import { ParentAgent } from '../../services/parallel-sdk/core/ParentAgent.js';
+import { fork } from 'child_process';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import { dirname } from 'path';
 import { getSlackTokensForUser } from '../../services/storage/database.js';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 
@@ -10,16 +13,9 @@ const ttsClient = new TextToSpeechClient({
   credentials: JSON.parse(process.env.GOOGLE_TTS_CREDENTIALS || '{}')
 });
 
-// ParentAgentのインスタンス（再利用）
-let parentAgent = null;
-
-async function initializeParentAgent() {
-  if (!parentAgent) {
-    parentAgent = new ParentAgent();
-    console.log('✅ ParentAgent initialized for Worker voice');
-  }
-  return parentAgent;
-}
+// 現在のファイルのディレクトリを取得
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -35,23 +31,76 @@ export default async function handler(req, res) {
 
     console.log(`🎤 Worker voice request from ${userId}: ${message}`);
 
-    // ParentAgentを初期化
-    const agent = await initializeParentAgent();
-
-    // Slackトークンを取得（必要に応じて）
+    // Slackトークンを取得
     const slackTokens = await getSlackTokensForUser(userId);
     
-    // Worker SDKでタスクを実行
-    const taskConfig = {
-      type: 'voice_dialogue',
-      originalRequest: message,
-      userId: userId,
-      slackTokens: slackTokens
-    };
-
-    // Workerを1つだけ起動して対話
-    const worker = agent.createWorker('Worker-Voice', taskConfig);
-    const result = await worker.execute(message);
+    console.log('🚀 Starting Worker1 as independent process...');
+    
+    // Worker.jsを独立プロセスとして起動
+    const workerPath = path.join(__dirname, '../../services/parallel-sdk/core/Worker.js');
+    
+    const workerProcess = fork(workerPath, [], {
+      env: {
+        ...process.env,
+        AGENT_NAME: 'Worker1',
+        AGENT_ID: 'worker-1',
+        WORKER_NUMBER: '1',
+        SLACK_USER_ID: userId,
+        CURRENT_USER_ID: userId,
+        DESKTOP_MODE: 'false',
+        SLACK_BOT_TOKEN: slackTokens?.bot_token || '',
+        SLACK_USER_TOKEN: slackTokens?.user_token || ''
+      },
+      silent: false // ログを表示
+    });
+    
+    // エラーハンドリング
+    workerProcess.on('error', (error) => {
+      console.error('❌ Worker process error:', error);
+    });
+    
+    // タスクを送信して結果を待つ
+    const result = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Worker timeout after 30 seconds'));
+        workerProcess.kill();
+      }, 30000);
+      
+      // メッセージハンドラー
+      workerProcess.on('message', (msg) => {
+        console.log('📨 Message from Worker:', msg.type);
+        
+        if (msg.type === 'READY') {
+          // Workerが準備完了したらタスクを送信
+          console.log('✅ Worker ready, sending task...');
+          workerProcess.send({
+            type: 'EXECUTE_TASK',
+            task: {
+              type: 'voice_dialogue',
+              originalRequest: message,
+              userId: userId
+            }
+          });
+        } else if (msg.type === 'TASK_COMPLETE') {
+          clearTimeout(timeout);
+          resolve(msg);
+          // Workerプロセスを終了
+          setTimeout(() => workerProcess.kill(), 1000);
+        } else if (msg.type === 'ERROR') {
+          clearTimeout(timeout);
+          reject(new Error(msg.error || 'Worker error'));
+          workerProcess.kill();
+        }
+      });
+      
+      // プロセス終了時
+      workerProcess.on('exit', (code, signal) => {
+        clearTimeout(timeout);
+        if (code !== 0) {
+          reject(new Error(`Worker exited with code ${code}`));
+        }
+      });
+    });
 
     console.log('🤖 Worker response:', result);
 
@@ -66,7 +115,7 @@ export default async function handler(req, res) {
       success: true,
       response: result.response || result.message,
       audioUrl: audioUrl,
-      workerId: worker.id
+      workerId: 'worker-1'
     });
 
   } catch (error) {
