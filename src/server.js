@@ -89,6 +89,10 @@ import slackCheckConnectionHandler from './api/auth/slack/check-connection.js';
 // Tool handlers
 import slackToolHandler from './api/tools/web/slack.js';
 import playwrightHandler from './api/tools/web/browser.js';
+// Voice dialogue handlers
+import transcribeHandler from './api/tools/transcribe.js';
+import workerVoiceMessageHandler from './api/worker-voice/message.js';
+import workerVoiceInterruptHandler from './api/worker-voice/interrupt.js';
 // Preview app handler
 import previewAppHandler from './api/static/preview-app.js';
 // Parallel SDK handler
@@ -130,6 +134,10 @@ app.all('/api/tools/playwright_navigate', playwrightHandler);
 app.all('/api/tools/playwright_click', playwrightHandler);
 app.all('/api/tools/playwright_type', playwrightHandler);
 app.all('/api/tools/playwright_screenshot', playwrightHandler);
+// Voice dialogue endpoints
+app.all('/api/tools/transcribe', transcribeHandler);
+app.all('/api/worker-voice/message', workerVoiceMessageHandler);
+app.all('/api/worker-voice/interrupt', workerVoiceInterruptHandler);
 // Preview app endpoint
 app.all('/api/preview-app/*', previewAppHandler);
 
