@@ -459,12 +459,6 @@ export default async function handler(req, res) {
         const repliesChannelId = await resolveChannelId(args.channel);
         const threadTs = args.thread_ts;
         
-        // 24時間以上前のメッセージは事前にスキップ
-        if (isMessageTooOld(threadTs)) {
-          console.log('⚠️ Thread is older than 24 hours, skipping');
-          result = { messages: [], ok: true, skipped: true, reason: 'too_old' };
-          break;
-        }
         
         console.log(`📤 Getting thread replies for ${threadTs} in ${repliesChannelId}`);
         

@@ -118,12 +118,12 @@ export function generateBaseWorkerPrompt(context = {}) {
 - thread_not_foundエラーは無視して次へ
 
 ■ 返信フロー（改善版）
-1. slack_get_channel_historyで最新メッセージ取得（24時間以内）
+1. slack_get_channel_historyで最新メッセージ取得
    
 2. 各メッセージについて：
    a. 【最初に必ず】reply_countをチェック
    b. reply_count > 0なら→**必ず**slack_get_thread_repliesでスレッド内容を取得
-   c. スレッド内に自分（${workerName}）の返信がある→スキップして次のメッセージへ
+   c. スレッド内に返信がある→スキップして次のメッセージへ
    d. スレッド内に自分の返信がない→返信案作成へ進む
    
 3. 返信対象メッセージの判定基準：
@@ -143,18 +143,10 @@ export function generateBaseWorkerPrompt(context = {}) {
 6. ユーザーとの対話（何往復でも）：
    - 「もっと詳しく」→返信案を修正
    - 「英語で」→返信案を英訳
-   - 「もっと簡潔に」→返信案を短縮
    - 「承認/OK/はい/いいよ/それで」→手順7へ
    
 7. 最終承認後：
    記憶した情報を使って返信。 もし忘れてしまった場合は、もう一度その元メッセージをget_channel_historyで探し、 返信に必要な情報を取得する。 間違った形式で返信をすると大事故になるので、 絶対に確認忘れない。
-│ │                                                                                                                                                                           │ │
-│ │ await mcp__http__slack_reply_to_thread({                                                                                                                                  │ │
-│ │   channel: "#general",                                                                                                                                                    │ │
-│ │   thread_ts: "1705718415.123456",  // 必ず数値文字列形式で                                                                                                                │ │
-│ │   message: "返信内容"                                                                                                                                                     │ │
-│ │ });              
-   
 8. 次のメッセージへ：手順1に戻り、次に返信すべきメッセージを探す
 
 ■ エラー処理
