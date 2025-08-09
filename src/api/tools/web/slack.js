@@ -261,8 +261,8 @@ export default async function handler(req, res) {
       case 'send_message':
         const sendChannelId = await resolveChannelId(args.channel);
         
-        // thread_tsが古い場合は通常メッセージとして送信
-        if (args.thread_ts && isMessageTooOld(args.thread_ts)) {
+        // send_messageの場合のみ、thread_tsが古い場合は通常メッセージとして送信
+        if (action === 'send_message' && args.thread_ts && isMessageTooOld(args.thread_ts)) {
           console.log('⚠️ Thread is older than 24 hours, sending as new message');
           delete args.thread_ts; // thread_tsを削除
         }
@@ -316,7 +316,16 @@ export default async function handler(req, res) {
         });
         break;
         
-      case 'get_user_info':
+      case 'list_channels':
+        console.log('📋 Getting channel list');
+        result = await slack.conversations.list({
+          types: 'public_channel,private_channel',
+          limit: args.limit || 1000,
+          exclude_archived: args.exclude_archived !== false
+        });
+        console.log(`✅ Retrieved ${result.channels?.length || 0} channels`);
+        break;
+        case 'get_user_info':
         result = await slack.users.info({
           user: args.user
         });

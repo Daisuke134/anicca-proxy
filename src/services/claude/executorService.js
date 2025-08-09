@@ -254,7 +254,7 @@ export class ClaudeExecutorService extends EventEmitter {
               if (item.type === 'text') {
                 const text = item.text.substring(0, 500) + (item.text.length > 500 ? '...' : '');
                 logParts.push(`Claude: ${text}`);
-                console.log(`🤔 [${this.agentName}] Claude thinking:`, item.text.substring(0, 150) + '...');
+                console.log(`🤔 [${this.agentName}] Claude thinking:`, item.text);
               } else if (item.type === 'tool_use') {
                 logParts.push(`Using tool: ${item.name}`);
                 console.log(`🔧 [${this.agentName}] Using tool: ${item.name}`);

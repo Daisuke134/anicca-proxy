@@ -190,6 +190,22 @@ export class BaseWorker extends IPCHandler {
     this.on(MessageTypes.USER_RESPONSE, (payload) => {
       this.handleUserResponse(payload);
     });
+    
+    // SET_SLACK_TOKENSハンドラーを追加（Worker音声対話モード用）
+    this.on('SET_SLACK_TOKENS', (payload) => {
+      if (payload.tokens && this.executor) {
+        this.executor.setSlackTokens(payload.tokens);
+        this.log('info', '✅ [Worker1] Slack tokens received and set via IPC');
+        
+        // MCPサーバーを再初期化
+        try {
+          this.executor.initializeMCPServers();
+          this.log('info', '✅ MCP servers re-initialized with Slack tokens');
+        } catch (error) {
+          this.log('error', `❌ Failed to re-initialize MCP servers: ${error.message}`);
+        }
+      }
+    });
   }
   
   
