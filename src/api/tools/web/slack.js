@@ -2,6 +2,9 @@ import { WebClient } from '@slack/web-api';
 import crypto from 'crypto';
 import { getSlackTokensForUser } from '../../../services/storage/database.js';
 
+// スレッド返信用のts記憶
+const recentThreadTs = new Map();
+
 // 復号化関数
 function decrypt(text) {
   const ENCRYPTION_KEY = process.env.SLACK_TOKEN_ENCRYPTION_KEY || crypto.randomBytes(32);
@@ -252,7 +255,14 @@ export default async function handler(req, res) {
       case 'reply_to_thread':
         // thread_tsが必須であることを確認
         if (!args.thread_ts) {
-          throw new Error('thread_ts is required for reply_to_thread action');
+          // 保存されたtsを使用
+          const savedTs = recentThreadTs.get(args.channel);
+          if (savedTs) {
+            args.thread_ts = savedTs;
+            console.log(`🔄 Auto-using saved ts for ${args.channel}: ${savedTs}`);
+          } else {
+            throw new Error('thread_ts is required for reply_to_thread action');
+          }
         }
         // send_messageと同じ処理を実行（thread_ts付き）
         // フォールスルーで処理
@@ -308,6 +318,13 @@ export default async function handler(req, res) {
           channel: historyChannelId,
           limit: args.limit || 10
         });
+        
+        // 最新メッセージのtsを記憶（返信対象として）
+        if (result.messages && result.messages.length > 0 && result.messages[0].ts) {
+          recentThreadTs.set(args.channel, result.messages[0].ts);
+          console.log(`📌 Saved latest ts for ${args.channel}: ${result.messages[0].ts}`);
+        }
+        
         break;
         
       case 'list_users':
