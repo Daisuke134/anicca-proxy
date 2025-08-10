@@ -17,13 +17,6 @@ function decrypt(text) {
   return decrypted.toString();
 }
 
-// タイムスタンプが古いかチェック（24時間以上前）
-function isMessageTooOld(timestamp, maxHours = 24) {
-  const messageTime = parseFloat(timestamp);
-  const now = Date.now() / 1000;
-  const ageInHours = (now - messageTime) / 3600;
-  return ageInHours > maxHours;
-}
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -271,11 +264,6 @@ export default async function handler(req, res) {
       case 'send_message':
         const sendChannelId = await resolveChannelId(args.channel);
         
-        // send_messageの場合のみ、thread_tsが古い場合は通常メッセージとして送信
-        if (action === 'send_message' && args.thread_ts && isMessageTooOld(args.thread_ts)) {
-          console.log('⚠️ Thread is older than 24 hours, sending as new message');
-          delete args.thread_ts; // thread_tsを削除
-        }
         
         // Bot Tokenの場合のみチャンネル参加を試みる
         if (!userToken) {
@@ -365,12 +353,7 @@ export default async function handler(req, res) {
       case 'add_reaction':
         const reactionChannelId = await resolveChannelId(args.channel);
         
-        // 24時間以上前のメッセージは事前にスキップ
-        if (isMessageTooOld(args.timestamp)) {
-          console.log('⚠️ Message is older than 24 hours, skipping reaction');
-          result = { ok: true, skipped: true, reason: 'too_old' };
-          break;
-        }
+
         
         console.log('🔍 Adding reaction:', args.name, 'to', args.timestamp);
         
