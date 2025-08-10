@@ -1,5 +1,8 @@
 import { WebClient } from '@slack/web-api';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 import { getSlackTokensForUser } from '../../../services/storage/database.js';
 
 // スレッド返信用のts記憶
@@ -248,13 +251,23 @@ export default async function handler(req, res) {
       case 'reply_to_thread':
         // thread_tsが必須であることを確認
         if (!args.thread_ts) {
-          // 保存されたtsを使用
-          const savedTs = recentThreadTs.get(args.channel);
-          if (savedTs) {
-            args.thread_ts = savedTs;
-            console.log(`🔄 Auto-using saved ts for ${args.channel}: ${savedTs}`);
+          // ファイルから正しいtsを読み取り
+          const targetFile = path.join(os.homedir(), '.anicca', 'reply_target.json');
+          if (fs.existsSync(targetFile)) {
+            try {
+              const target = JSON.parse(fs.readFileSync(targetFile, 'utf8'));
+              if (target.channel === args.channel && target.ts) {
+                args.thread_ts = target.ts;
+                console.log(`✅ Using saved target ts: ${target.ts} for message: "${target.message}"`);
+              } else {
+                throw new Error(`Saved target is for different channel: ${target.channel} vs ${args.channel}`);
+              }
+            } catch (e) {
+              console.error('Failed to read reply target:', e);
+              throw new Error('Failed to read reply target file');
+            }
           } else {
-            throw new Error('thread_ts is required for reply_to_thread action');
+            throw new Error('No reply target saved. Please specify target message first.');
           }
         }
         // send_messageと同じ処理を実行（thread_ts付き）
@@ -283,6 +296,18 @@ export default async function handler(req, res) {
             thread_ts: args.thread_ts,
             as_user: userToken ? true : false
           });
+          
+          // thread返信成功後、ファイルを空にする
+          if (args.thread_ts && result.ok) {
+            try {
+              const targetFile = path.join(os.homedir(), '.anicca', 'reply_target.json');
+              fs.writeFileSync(targetFile, '{}', 'utf8');
+              console.log('✅ Reply target file cleared');
+            } catch (e) {
+              // エラーは無視
+              console.log('⚠️ Could not clear reply target file:', e.message);
+            }
+          }
         } catch (sendError) {
           // thread_not_foundの場合は通常メッセージとして再送信
           if (sendError.data?.error === 'thread_not_found' && args.thread_ts) {
@@ -307,11 +332,7 @@ export default async function handler(req, res) {
           limit: args.limit || 10
         });
         
-        // 最新メッセージのtsを記憶（返信対象として）
-        if (result.messages && result.messages.length > 0 && result.messages[0].ts) {
-          recentThreadTs.set(args.channel, result.messages[0].ts);
-          console.log(`📌 Saved latest ts for ${args.channel}: ${result.messages[0].ts}`);
-        }
+        // 削除: 最新メッセージのts保存は間違った実装だった
         
         break;
         
