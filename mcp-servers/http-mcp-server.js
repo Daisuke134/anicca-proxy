@@ -575,6 +575,42 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const slackApiUrl = process.env.SLACK_API_URL || `${PROXY_BASE_URL}/api/tools/slack`;
       const userId = process.env.USER_ID;
       
+      // ★ 自動保存ロジック（reply_target.json）★
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+        
+        // Desktop版のworkspaceRoot判定
+        const workerNumber = process.env.WORKER_NUMBER || '1';
+        const targetPath = path.join(
+          os.homedir(), 
+          'Desktop', 
+          'anicca-agent-workspace', 
+          `worker-${workerNumber}`,
+          'reply_target.json'
+        );
+        
+        // ディレクトリ作成
+        const dir = path.dirname(targetPath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        
+        // 保存
+        fs.writeFileSync(targetPath, JSON.stringify({
+          channel: channel,
+          ts: thread_ts,
+          message: message ? message.substring(0, 50) : '',
+          type: 'reply',
+          saved_at: new Date().toISOString()
+        }, null, 2), 'utf8');
+        
+        console.error(`✅ [HTTP MCP] Auto-saved reply target to ${targetPath}`);
+      } catch (e) {
+        console.error(`⚠️ [HTTP MCP] Failed to save reply target:`, e.message);
+      }
+      
       console.error(`[HTTP MCP] Replying to thread ${thread_ts} in ${channel} for user ${userId}`);
       console.error(`[HTTP MCP] Request details:`, {
         url: slackApiUrl,
@@ -638,6 +674,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { channel, timestamp, name: reactionName } = args;
       const slackApiUrl = process.env.SLACK_API_URL || `${PROXY_BASE_URL}/api/tools/slack`;
       const userId = process.env.USER_ID;
+      
+      // ★ 自動保存ロジック（reply_target.json）★
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+        
+        const workerNumber = process.env.WORKER_NUMBER || '1';
+        const targetPath = path.join(
+          os.homedir(), 
+          'Desktop', 
+          'anicca-agent-workspace', 
+          `worker-${workerNumber}`,
+          'reply_target.json'
+        );
+        
+        const dir = path.dirname(targetPath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        
+        fs.writeFileSync(targetPath, JSON.stringify({
+          channel: channel,
+          ts: timestamp,
+          type: 'reaction',
+          reaction: reactionName,
+          saved_at: new Date().toISOString()
+        }, null, 2), 'utf8');
+        
+        console.error(`✅ [HTTP MCP] Auto-saved reaction target to ${targetPath}`);
+      } catch (e) {
+        console.error(`⚠️ [HTTP MCP] Failed to save reaction target:`, e.message);
+      }
       
       console.error(`[HTTP MCP] Adding reaction ${reactionName} to message ${timestamp} in ${channel} for user ${userId}`);
       console.error(`[HTTP MCP] Request details:`, {

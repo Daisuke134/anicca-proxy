@@ -297,15 +297,18 @@ export default async function handler(req, res) {
             as_user: userToken ? true : false
           });
           
-          // thread返信成功後、ファイルを空にする
+          // thread返信成功後、ファイルを空にする（ローカル環境のみ）
           if (args.thread_ts && result.ok) {
-            try {
-              const targetFile = path.join(os.homedir(), '.anicca', 'reply_target.json');
-              fs.writeFileSync(targetFile, '{}', 'utf8');
-              console.log('✅ Reply target file cleared');
-            } catch (e) {
-              // エラーは無視
-              console.log('⚠️ Could not clear reply target file:', e.message);
+            // プロキシサーバーでなくローカル環境でのみ実行
+            if (process.platform !== 'linux') { // Railwayはlinux
+              try {
+                const targetFile = path.join(os.homedir(), '.anicca', 'reply_target.json');
+                fs.writeFileSync(targetFile, '{}', 'utf8');
+                console.log('✅ Reply target file cleared');
+              } catch (e) {
+                // エラーは無視
+                console.log('⚠️ Could not clear reply target file:', e.message);
+              }
             }
           }
         } catch (sendError) {
@@ -329,10 +332,28 @@ export default async function handler(req, res) {
         
         result = await slack.conversations.history({
           channel: historyChannelId,
-          limit: args.limit || 10
+          limit: args.limit || 50
         });
         
-        // 削除: 最新メッセージのts保存は間違った実装だった
+        // デバッグログ追加
+        console.log(`📊 Retrieved ${result.messages?.length || 0} messages from #${args.channel}`);
+        if (result.messages && result.messages.length > 0) {
+          const oldest = new Date(result.messages[result.messages.length - 1].ts * 1000);
+          const newest = new Date(result.messages[0].ts * 1000);
+          console.log(`📅 Date range: ${oldest.toLocaleString('ja-JP')} ~ ${newest.toLocaleString('ja-JP')}`);
+          
+          // @hereを含むメッセージをログ出力
+          const atHereMessages = result.messages.filter(m => 
+            m.text && (m.text.includes('@here') || m.text.includes('@channel') || m.text.includes('日付'))
+          );
+          if (atHereMessages.length > 0) {
+            console.log(`🔍 Found ${atHereMessages.length} messages with @here/@channel/日付:`);
+            atHereMessages.forEach(m => {
+              const date = new Date(m.ts * 1000);
+              console.log(`  - ${date.toLocaleString('ja-JP')}: ${m.text.substring(0, 50)}...`);
+            });
+          }
+        }
         
         break;
         
