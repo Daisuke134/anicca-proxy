@@ -89,6 +89,8 @@ import slackCheckConnectionHandler from './api/auth/slack/check-connection.js';
 // Tool handlers
 import slackToolHandler from './api/tools/web/slack.js';
 import playwrightHandler from './api/tools/web/browser.js';
+import voiceHandler from './api/tools/voice.js';
+import playAudioHandler from './api/tools/play-audio.js';
 // Voice dialogue handlers
 import transcribeHandler from './api/tools/transcribe.js';
 import workerVoiceMessageHandler from './api/worker-voice/message.js';
@@ -134,6 +136,9 @@ app.all('/api/tools/playwright_navigate', playwrightHandler);
 app.all('/api/tools/playwright_click', playwrightHandler);
 app.all('/api/tools/playwright_type', playwrightHandler);
 app.all('/api/tools/playwright_screenshot', playwrightHandler);
+// ElevenLabs endpoints
+app.all('/api/tools/voice', voiceHandler);
+app.all('/api/tools/play-audio', playAudioHandler);
 // Voice dialogue endpoints
 app.all('/api/tools/transcribe', transcribeHandler);
 app.all('/api/worker-voice/message', workerVoiceMessageHandler);

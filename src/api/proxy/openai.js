@@ -412,7 +412,7 @@ export default async function handler(req, res) {
           value: openaiApiKey,
           expires_at: Math.floor(Date.now() / 1000) + 3600
         },
-        model: 'gpt-4o-realtime-preview-2024-12-17',
+        model: 'gpt-4o-realtime-preview-2025-06-03',
         voice: 'alloy',
         instructions: `あなたは「Anicca」という多言語対応AIアシスタントです。
 

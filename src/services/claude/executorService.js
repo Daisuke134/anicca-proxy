@@ -1001,7 +1001,7 @@ ${action.parameters.query || ''}`;
     this.mcpServers = {};
     
     // ElevenLabs MCPの設定（常に有効）
-    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY || 'sk_7e0c9adc133c149e3c4f953ba6d5e15bcbbd79bdb2395c08';
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
     if (elevenLabsApiKey) {
       this.mcpServers.elevenlabs = {
         command: "uvx",

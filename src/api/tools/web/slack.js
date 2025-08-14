@@ -332,7 +332,7 @@ export default async function handler(req, res) {
         
         result = await slack.conversations.history({
           channel: historyChannelId,
-          limit: args.limit || 50
+          limit: args.limit || 10
         });
         
         // デバッグログ追加
