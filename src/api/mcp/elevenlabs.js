@@ -8,8 +8,8 @@ async function getMCPClient() {
     console.log('🚀 Starting ElevenLabs MCP server...');
     
     const transport = new StdioClientTransport({
-      command: 'uvx',
-      args: ['elevenlabs-mcp'],
+      command: 'npx',
+      args: ['-y', 'elevenlabs-mcp-enhanced'],
       env: {
         ...process.env,
         ELEVENLABS_API_KEY: process.env.ELEVENLABS_API_KEY

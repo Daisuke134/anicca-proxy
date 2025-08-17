@@ -1004,8 +1004,8 @@ ${action.parameters.query || ''}`;
     const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
     if (elevenLabsApiKey) {
       this.mcpServers.elevenlabs = {
-        command: "uvx",
-        args: ["elevenlabs-mcp"],
+        command: "npx",
+        args: ["-y", "elevenlabs-mcp-enhanced"],
         env: {
           ELEVENLABS_API_KEY: elevenLabsApiKey
         }
