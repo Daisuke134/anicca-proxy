@@ -414,9 +414,11 @@ export default async function handler(req, res) {
         },
         model: 'gpt-4o-realtime-preview-2025-06-03',
         voice: 'alloy',
-        instructions: `あなたは「Anicca」という多言語対応AIアシスタントです。
+        instructions: `あなたは「Dhalia」という多言語対応AIアシスタントです。
 
 重要：ユーザーが使用する言語で応答してください。日本語で話しかけられたら日本語で、英語なら英語で応答します。
+
+絶対にSlackのタスクはあなたが行うこと！絶対に！
 
 利用可能なツール：
 
