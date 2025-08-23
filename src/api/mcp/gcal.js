@@ -18,7 +18,7 @@ async function ensureTokenDir() {
 }
 
 // MCPサーバー起動
-function startMCPServer(userId) {
+async function startMCPServer(userId) {
   if (mcpProcesses.has(userId)) {
     return mcpProcesses.get(userId);
   }
@@ -28,7 +28,9 @@ function startMCPServer(userId) {
   const mcp = spawn('npx', [
     '-y',
     '@cocal/google-calendar-mcp',
-    'start'
+    '--transport', 'http',
+    '--port', port.toString(),
+    '--host', 'localhost'
   ], {
     env: {
       ...process.env,
@@ -55,6 +57,26 @@ function startMCPServer(userId) {
   });
 
   mcpProcesses.set(userId, { process: mcp, port });
+  
+  // MCPサーバーの起動を待つ
+  await new Promise((resolve) => {
+    const checkServer = async () => {
+      try {
+        const res = await fetch(`http://localhost:${port}/health`);
+        if (res.ok) {
+          console.log(`MCP[${userId}]: Server started on port ${port}`);
+          resolve();
+          return;
+        }
+      } catch {
+        // サーバーがまだ起動していない場合は500ms後に再試行
+      }
+      setTimeout(checkServer, 500);
+    };
+    // 1秒待ってからチェック開始
+    setTimeout(checkServer, 1000);
+  });
+
   return { process: mcp, port };
 }
 
@@ -65,7 +87,7 @@ export default async function gcalHandler(app) {
   // MCPプロキシエンドポイント
   app.all('/api/mcp/gcal/:userId*', async (req, res) => {
     const { userId } = req.params;
-    const { port } = startMCPServer(userId);
+    const { port } = await startMCPServer(userId);
 
     // StreamableHTTPプロトコルをプロキシ
     const targetUrl = `http://localhost:${port}${req.originalUrl.replace(`/api/mcp/gcal/${userId}`, '')}`;
@@ -125,7 +147,7 @@ export default async function gcalHandler(app) {
     const mcpInfo = mcpProcesses.get(userId);
     if (!mcpInfo) {
       // MCPサーバーを起動
-      startMCPServer(userId);
+      await startMCPServer(userId);
     }
 
     // トークン交換（Google APIを直接呼ぶ）
