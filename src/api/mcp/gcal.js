@@ -25,6 +25,16 @@ async function startMCPServer(userId) {
 
   const port = 4000 + (parseInt(userId.substring(0, 8), 16) % 1000);
 
+  // OAuth認証情報ファイルを作成
+  const credentialsPath = path.join(TOKEN_DIR, `${userId}-creds.json`);
+  await fs.writeFile(credentialsPath, JSON.stringify({
+    web: {
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uris: [`${process.env.RAILWAY_URL}/api/mcp/gcal/callback`]
+    }
+  }));
+
   const mcp = spawn('npx', [
     '-y',
     '@cocal/google-calendar-mcp',
@@ -37,13 +47,7 @@ async function startMCPServer(userId) {
       TRANSPORT: 'http',
       PORT: port.toString(),
       HOST: 'localhost',
-      GOOGLE_OAUTH_CREDENTIALS: JSON.stringify({
-        web: {
-          client_id: process.env.GOOGLE_CLIENT_ID,
-          client_secret: process.env.GOOGLE_CLIENT_SECRET,
-          redirect_uris: [`${process.env.RAILWAY_URL}/api/mcp/gcal/callback`]
-        }
-      }),
+      GOOGLE_OAUTH_CREDENTIALS: credentialsPath,  // ファイルパスを渡す
       GOOGLE_CALENDAR_MCP_TOKEN_PATH: path.join(TOKEN_DIR, `${userId}.json`)
     }
   });
