@@ -28,11 +28,9 @@ async function startMCPServer(userId) {
   // OAuth認証情報ファイルを作成
   const credentialsPath = path.join(TOKEN_DIR, `${userId}-creds.json`);
   await fs.writeFile(credentialsPath, JSON.stringify({
-    web: {
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uris: [`${process.env.RAILWAY_URL}/api/mcp/gcal/callback`]
-    }
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    client_secret: process.env.GOOGLE_CLIENT_SECRET,
+    redirect_uris: [`${process.env.RAILWAY_URL}/api/mcp/gcal/callback`]
   }));
 
   const mcp = spawn('npx', [
