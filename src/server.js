@@ -79,6 +79,7 @@ import claudeCodeHandler from './api/tools/sdk/claude-code.js';
 import claudeHandler from './api/proxy/claude.js';
 // MCP handlers
 import elevenLabsHandler from './api/mcp/elevenlabs.js';
+import gcalHandler from './api/mcp/gcal.js';
 // Auth handlers
 import authGoogleHandler from './api/auth/google/oauth.js';
 import authCallbackHandler from './api/auth/google/callback.js';
@@ -145,6 +146,7 @@ app.all('/api/preview-app/*', previewAppHandler);
 
 // MCP endpoints
 app.all('/api/mcp/elevenlabs', elevenLabsHandler);
+gcalHandler(app);
 
 // Parallel SDK endpoint
 app.post('/api/parallel-sdk/execute', parallelSdkExecuteHandler);
