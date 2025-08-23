@@ -19,8 +19,14 @@ async function ensureTokenDir() {
 
 // MCPサーバー起動
 async function startMCPServer(userId) {
+  // 既存プロセスのクリーンアップ
   if (mcpProcesses.has(userId)) {
-    return mcpProcesses.get(userId);
+    const existing = mcpProcesses.get(userId);
+    console.log(`MCP[${userId}]: Terminating existing process`);
+    existing.process.kill('SIGTERM');
+    mcpProcesses.delete(userId);
+    // プロセス終了を待つ
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
 
   const port = 4000 + (parseInt(userId.substring(0, 8), 16) % 1000);
@@ -46,7 +52,7 @@ async function startMCPServer(userId) {
       PORT: port.toString(),
       HOST: 'localhost',
       GOOGLE_OAUTH_CREDENTIALS: credentialsPath,  // ファイルパスを渡す
-      GOOGLE_CALENDAR_MCP_TOKEN_PATH: path.join(TOKEN_DIR, `${userId}.json`)
+      GOOGLE_CALENDAR_MCP_TOKEN_PATH: `/home/appuser/.config/google-calendar-mcp/tokens-${userId}.json`
     }
   });
 
@@ -171,6 +177,11 @@ export default async function gcalHandler(app) {
       // トークンを保存
       const tokenPath = path.join(TOKEN_DIR, `${userId}.json`);
       await fs.writeFile(tokenPath, JSON.stringify(tokens, null, 2));
+      
+      // MCPサーバーが期待する場所にもトークンを保存
+      const mcpTokenPath = `/home/appuser/.config/google-calendar-mcp/tokens-${userId}.json`;
+      await fs.mkdir('/home/appuser/.config/google-calendar-mcp', { recursive: true });
+      await fs.writeFile(mcpTokenPath, JSON.stringify(tokens, null, 2));
 
       // 成功画面（自動で閉じる）
       res.send(`
