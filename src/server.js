@@ -100,6 +100,9 @@ import workerVoiceInterruptHandler from './api/worker-voice/interrupt.js';
 import previewAppHandler from './api/static/preview-app.js';
 // Parallel SDK handler
 import parallelSdkExecuteHandler from './api/execution/parallel-sdk.js';
+// Composio handlers
+import composioConfigHandler from './api/composio/config.js';
+import composioMcpConfigHandler from './api/composio/mcp-config.js';
 
 // API Routes - 完全移植
 app.all('/api/openai-proxy*', openaiProxyHandler);
@@ -149,37 +152,8 @@ app.all('/api/mcp/elevenlabs', elevenLabsHandler);
 gcalHandler(app);
 
 // Composio MCP endpoints
-app.get('/api/composio/config', (req, res) => {
-  try {
-    const apiKey = process.env.COMPOSIO_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: 'COMPOSIO_API_KEY not configured' });
-    }
-    res.json({ apiKey });
-  } catch (error) {
-    console.error('Composio config error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-app.get('/api/composio/mcp-config', (req, res) => {
-  try {
-    const MCP_ID = process.env.MCP_GOOGLE_CALENDAR_ID;
-    if (!MCP_ID) {
-      return res.status(500).json({ error: 'MCP_GOOGLE_CALENDAR_ID not configured' });
-    }
-    
-    const mcpUrl = `https://mcp.composio.dev/composio/server/${MCP_ID}?transport=sse`;
-    res.json({ 
-      mcpUrl, 
-      mcpId: MCP_ID, 
-      success: true 
-    });
-  } catch (error) {
-    console.error('Composio MCP config error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+app.all('/api/composio/config', composioConfigHandler);
+app.all('/api/composio/mcp-config', composioMcpConfigHandler);
 
 // Parallel SDK endpoint
 app.post('/api/parallel-sdk/execute', parallelSdkExecuteHandler);
