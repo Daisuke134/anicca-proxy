@@ -33,6 +33,7 @@ export default async function handler(req, res) {
       mcpServer = await composio.mcp.create(
         serverName,
         [{
+          toolkit: "google-calendar",
           authConfigId: googleCalendarAuthConfig.id,
           allowedTools: [
             "GOOGLECALENDAR_LIST_EVENTS",
@@ -49,10 +50,10 @@ export default async function handler(req, res) {
     }
     
     // 接続状態確認
-    const status = await composio.mcp.getUserConnectionStatus(
-      userId,
-      mcpServer.id
-    );
+    const status = await composio.mcp.getUserConnectionStatus({
+      userId: userId,
+      id: mcpServer.id
+    });
     
     // デバッグログ追加
     console.log('Connection status:', JSON.stringify(status, null, 2));
@@ -82,7 +83,7 @@ export default async function handler(req, res) {
     
     const serverUrls = await composio.mcp.getServer(
       mcpServer.id,
-      userId
+      { userId: userId }
     );
     
 
