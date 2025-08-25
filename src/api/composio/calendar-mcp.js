@@ -1,5 +1,5 @@
 import { Composio } from '@composio/core';
-import { OpenAIProvider } from '@composio/openai';
+import { OpenAIResponsesProvider } from '@composio/openai';
 
 export default async function handler(req, res) {
   try {
@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     
     const composio = new Composio({
       apiKey: process.env.COMPOSIO_API_KEY,
-      provider: new OpenAIProvider(),
+      provider: new OpenAIResponsesProvider(),
     });
     
     const serverName = `gcal-${userId}`;
@@ -20,23 +20,45 @@ export default async function handler(req, res) {
     try {
       mcpServer = await composio.mcp.getByName(serverName);
       console.log(`Found existing MCP server: ${serverName}`);
-    } catch {
-      mcpServer = await composio.mcp.create(
-        serverName,
-        [{
-          authConfigId: process.env.GOOGLE_CALENDAR_AUTH_CONFIG_ID,
-          allowedTools: [
-            "GOOGLECALENDAR_LIST_EVENTS",
-            "GOOGLECALENDAR_CREATE_EVENT",
-            "GOOGLECALENDAR_UPDATE_EVENT",
-            "GOOGLECALENDAR_DELETE_EVENT",
-            "GOOGLECALENDAR_GET_EVENT",
-            "GOOGLECALENDAR_LIST_CALENDARS"
-          ]
-        }],
-        { isChatAuth: true }
+    } catch (error) {
+      console.log(`📝 Creating new MCP server: ${serverName}`);
+      
+      // Auth configを動的に取得
+      const authConfigsResponse = await composio.authConfigs.list();
+      const googleCalendarAuthConfig = authConfigsResponse.items.find((config) => 
+        config.name?.toLowerCase().includes('google') || 
+        config.name?.toLowerCase().includes('calendar')
       );
-      console.log(`Created new MCP server: ${serverName}`);
+      
+      if (!googleCalendarAuthConfig) {
+        throw new Error('No Google Calendar auth config found. Please create one first.');
+      }
+      
+      // MCPサーバーを作成（戻り値を使わない）
+      await composio.mcp.create(
+        serverName,
+        [
+          {
+            authConfigId: googleCalendarAuthConfig.id,
+            allowedTools: [
+              "GOOGLECALENDAR_LIST_EVENTS",
+              "GOOGLECALENDAR_CREATE_EVENT",
+              "GOOGLECALENDAR_UPDATE_EVENT",
+              "GOOGLECALENDAR_DELETE_EVENT",
+              "GOOGLECALENDAR_GET_EVENT",
+              "GOOGLECALENDAR_LIST_CALENDARS"
+            ]
+          }
+        ],
+        {
+          isChatAuth: true
+        }
+      );
+
+      // 作成したサーバーの詳細を取得
+      const newServer = await composio.mcp.getByName(serverName);
+      mcpServer = newServer;
+      console.log(`✅ MCP server created: ${newServer.id}`);
     }
     
     // 接続状態確認
@@ -73,7 +95,11 @@ export default async function handler(req, res) {
     
     const serverUrls = await composio.mcp.getServer(
       mcpServer.id,
-      userId
+      userId,
+      {
+        limitTools: ["GOOGLECALENDAR_LIST_EVENTS", "GOOGLECALENDAR_CREATE_EVENT", "GOOGLECALENDAR_UPDATE_EVENT", "GOOGLECALENDAR_DELETE_EVENT", "GOOGLECALENDAR_GET_EVENT", "GOOGLECALENDAR_LIST_CALENDARS"],
+        isChatAuth: true
+      }
     );
     
     const mcpUrl = serverUrls[0]?.server_url;
