@@ -1,5 +1,4 @@
 import { Composio } from '@composio/core';
-import { OpenAIResponsesProvider } from '@composio/openai';
 
 export default async function handler(req, res) {
   try {
@@ -11,7 +10,6 @@ export default async function handler(req, res) {
     
     const composio = new Composio({
       apiKey: process.env.COMPOSIO_API_KEY,
-      provider: new OpenAIResponsesProvider(),
     });
     
     const serverName = `gcal-${userId}`;
@@ -20,11 +18,15 @@ export default async function handler(req, res) {
     try {
       mcpServer = await composio.mcp.getByName(serverName);
       console.log(`Found existing MCP server: ${serverName}`);
-    } catch (error) {
-      console.log(`📝 Creating new MCP server: ${serverName}`);
-      
+    } catch {
       // Auth configを動的に取得
       const authConfigsResponse = await composio.authConfigs.list();
+      console.log('Available auth configs:', authConfigsResponse.items.map(cfg => ({
+        id: cfg.id,
+        name: cfg.name,
+        toolkit: cfg.toolkit
+      })));
+      
       const googleCalendarAuthConfig = authConfigsResponse.items.find((config) => 
         config.name?.toLowerCase().includes('google') || 
         config.name?.toLowerCase().includes('calendar')
@@ -34,11 +36,16 @@ export default async function handler(req, res) {
         throw new Error('No Google Calendar auth config found. Please create one first.');
       }
       
-      // MCPサーバーを作成（戻り値を使わない）
-      await composio.mcp.create(
-        serverName,
-        [
-          {
+      console.log('Using auth config:', {
+        id: googleCalendarAuthConfig.id,
+        name: googleCalendarAuthConfig.name
+      });
+      
+      // 正しいAPIシグネチャでMCP作成
+      try {
+        mcpServer = await composio.mcp.create(
+          serverName,  // 第1引数: サーバー名（文字列）
+          [{           // 第2引数: 設定の配列
             authConfigId: googleCalendarAuthConfig.id,
             allowedTools: [
               "GOOGLECALENDAR_LIST_EVENTS",
@@ -48,27 +55,32 @@ export default async function handler(req, res) {
               "GOOGLECALENDAR_GET_EVENT",
               "GOOGLECALENDAR_LIST_CALENDARS"
             ]
-          }
-        ],
-        {
-          isChatAuth: true
-        }
-      );
-
-      // 作成したサーバーの詳細を取得
-      const newServer = await composio.mcp.getByName(serverName);
-      mcpServer = newServer;
-      console.log(`✅ MCP server created: ${newServer.id}`);
+          }],
+          { isChatAuth: false }  // 第3引数: デスクトップアプリなのでfalse
+        );
+        console.log(`Created new MCP server:`, {
+          id: mcpServer.id,
+          name: mcpServer.name,
+          toolkits: mcpServer.toolkits
+        });
+      } catch (createError) {
+        console.error('MCP create error details:', createError);
+        throw new Error(`Failed to create MCP server: ${createError.message}`);
+      }
     }
     
     // 接続状態確認
-    const status = await composio.mcp.getUserConnectionStatus(
-      userId,
-      mcpServer.id
-    );
-    
-    // デバッグログ追加
-    console.log('Connection status:', JSON.stringify(status, null, 2));
+    let status;
+    try {
+      status = await composio.mcp.getUserConnectionStatus(
+        userId,
+        mcpServer.id
+      );
+      console.log('Connection status full response:', JSON.stringify(status, null, 2));
+    } catch (statusError) {
+      console.error('Failed to get connection status:', statusError);
+      throw new Error(`Failed to check connection status: ${statusError.message}`);
+    }
     
     // 正しい接続判定（connectedToolkitsを確認）
     const toolkits = status.connectedToolkits || {};
@@ -79,34 +91,43 @@ export default async function handler(req, res) {
     const isConnected = googleCalendarToolkit && googleCalendarToolkit.type === 'CONNECTED';
     
     if (!isConnected) {
-      // 正しい引数順序（serverId, userId, toolkit）
-      const authRequest = await composio.mcp.authorize(
-        mcpServer.id,    // 第1引数: serverId
-        userId,          // 第2引数: userId
-        "google-calendar" // 第3引数: toolkit名
-      );
-      
-      return res.json({ 
-        connected: false,
-        authUrl: authRequest.redirectUrl,
-        message: 'Google Calendar authentication required'
-      });
+      try {
+        const authRequest = await composio.mcp.authorize(
+          mcpServer.id,    // 第1引数: serverId
+          userId,          // 第2引数: userId
+          "google-calendar" // 第3引数: toolkit名
+        );
+        
+        return res.json({ 
+          connected: false,
+          authUrl: authRequest.redirectUrl,
+          message: 'Google Calendar authentication required'
+        });
+      } catch (authError) {
+        console.error('Authorization error:', authError);
+        throw new Error(`Failed to initiate authorization: ${authError.message}`);
+      }
     }
     
-    const serverUrls = await composio.mcp.getServer(
-      mcpServer.id,
-      userId,
-      {
-        limitTools: ["GOOGLECALENDAR_LIST_EVENTS", "GOOGLECALENDAR_CREATE_EVENT", "GOOGLECALENDAR_UPDATE_EVENT", "GOOGLECALENDAR_DELETE_EVENT", "GOOGLECALENDAR_GET_EVENT", "GOOGLECALENDAR_LIST_CALENDARS"],
-        isChatAuth: true
-      }
-    );
+    // サーバーURL取得
+    let serverUrls;
+    try {
+      serverUrls = await composio.mcp.getServer(
+        mcpServer.id,
+        userId
+      );
+      console.log('Server URLs response:', JSON.stringify(serverUrls, null, 2));
+    } catch (urlError) {
+      console.error('Failed to get server URLs:', urlError);
+      throw new Error(`Failed to get MCP server URLs: ${urlError.message}`);
+    }
     
-    const mcpUrl = serverUrls[0]?.server_url;
+    // URLを正しく取得（配列の最初の要素のserver_url）
+    const mcpUrl = serverUrls[0]?.server_url || serverUrls.server_url || serverUrls.url;
     
     if (!mcpUrl) {
-      console.error('Invalid server URLs:', serverUrls);
-      throw new Error('Failed to get MCP server URL');
+      console.error('Invalid server URLs structure:', serverUrls);
+      throw new Error('Failed to get MCP server URL from response');
     }
     
     return res.json({ 
@@ -117,10 +138,17 @@ export default async function handler(req, res) {
     });
     
   } catch (error) {
-    console.error('Calendar MCP error:', error);
+    console.error('Calendar MCP error full stack:', error.stack);
+    console.error('Calendar MCP error details:', {
+      message: error.message,
+      name: error.name,
+      code: error.code
+    });
+    
     return res.status(500).json({ 
       error: 'Internal server error',
-      message: error.message 
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }
