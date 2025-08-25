@@ -30,32 +30,13 @@ export default async function handler(req, res) {
         throw new Error('No Google Calendar auth config found. Please create one first.');
       }
       
-      // 直接v3 APIを叩く（SDKが対応していないため）
-      const response = await fetch('https://backend.composio.dev/api/v3/mcp/servers', {
-        method: 'POST',
-        headers: {
-          'X-API-Key': process.env.COMPOSIO_API_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: serverName,
-          auth_config_ids: [googleCalendarAuthConfig.id]
-        })
+      mcpServer = await composio.mcp.create({
+        name: serverName,
+        auth_config_ids: [googleCalendarAuthConfig.id]
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to create MCP server: ${response.statusText}`);
-      }
-
-      mcpServer = await response.json();
       console.log(`Created new MCP server: ${serverName}`);
     }
     
-    // v3 APIレスポンスから直接URL取得
-    const mcpUrl = mcpServer.mcp_url;
-    
-    // 一旦接続状態チェックをスキップ（MCPサーバー作成済みなので利用可能）
-    /*
     // 接続状態確認
     const status = await composio.mcp.getUserConnectionStatus({
       userId: userId,
@@ -87,10 +68,18 @@ export default async function handler(req, res) {
         message: 'Google Calendar authentication required'
       });
     }
-    */
+    
+    const serverUrls = await composio.mcp.getServer(
+      mcpServer.id,
+      { userId: userId }
+    );
+    
+
+    // 正しいURL取得（v3形式に対応）
+    const mcpUrl = mcpServer.mcp_url || serverUrls.mcp_url || serverUrls.url?.toString();
     
     if (!mcpUrl) {
-      console.error('Invalid MCP server response:', mcpServer);
+      console.error('Invalid server URLs:', serverUrls);
       throw new Error('Failed to get MCP server URL');
     }
     
