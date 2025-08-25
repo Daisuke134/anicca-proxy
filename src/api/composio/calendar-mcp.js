@@ -16,27 +16,15 @@ export default async function handler(req, res) {
     
     const serverName = `gcal-${userId}`;
     
-    // MCP�����\~_o֗
     let mcpServer;
     try {
       mcpServer = await composio.mcp.getByName(serverName);
-      console.log(` Found existing MCP server: ${serverName}`);
+      console.log(`Found existing MCP server: ${serverName}`);
     } catch {
-      // Auth configを動的に取得（OpenAI例と同じ方法）
-      const authConfigsResponse = await composio.authConfigs.list();
-      const googleCalendarAuthConfig = authConfigsResponse.items.find((config) => 
-        config.name?.toLowerCase().includes('google') || 
-        config.name?.toLowerCase().includes('calendar')
-      );
-      
-      if (!googleCalendarAuthConfig) {
-        throw new Error('No Google Calendar auth config found. Please create one first.');
-      }
-      
       mcpServer = await composio.mcp.create(
         serverName,
         [{
-          authConfigId: googleCalendarAuthConfig.id,
+          authConfigId: process.env.GOOGLE_CALENDAR_AUTH_CONFIG_ID,
           allowedTools: [
             "GOOGLECALENDAR_LIST_EVENTS",
             "GOOGLECALENDAR_CREATE_EVENT",
@@ -48,7 +36,7 @@ export default async function handler(req, res) {
         }],
         { isChatAuth: true }
       );
-      console.log(` Created new MCP server: ${serverName}`);
+      console.log(`Created new MCP server: ${serverName}`);
     }
     
     // 接続状態確認
@@ -83,14 +71,12 @@ export default async function handler(req, res) {
       });
     }
     
-    // MCP����URL�֗
     const serverUrls = await composio.mcp.getServer(
       mcpServer.id,
       userId
     );
     
-    // OpenAIProvidern�YbK�cWO֗
-    const mcpUrl = serverUrls[0]?.server_url;  // server_url���ƣ
+    const mcpUrl = serverUrls[0]?.server_url;
     
     if (!mcpUrl) {
       console.error('Invalid server URLs:', serverUrls);
@@ -99,7 +85,7 @@ export default async function handler(req, res) {
     
     return res.json({ 
       connected: true,
-      mcpUrl,  // �WURL
+      mcpUrl,  
       serverId: mcpServer.id,
       message: 'Google Calendar connected successfully'
     });
