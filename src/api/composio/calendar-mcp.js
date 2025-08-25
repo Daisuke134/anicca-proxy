@@ -29,9 +29,12 @@ export default async function handler(req, res) {
         authConfigsResponse = await composio.authConfigs.list();
         console.log(`[Calendar MCP] Found ${authConfigsResponse.items.length} auth configs`);
         
-        // デバッグ: 全Auth Configsをログ出力
+        // 🔍 全Auth Configsの完全構造を出力
+        console.log('[Calendar MCP] ===== ALL AUTH CONFIGS =====');
         authConfigsResponse.items.forEach((config, index) => {
-          console.log(`[Calendar MCP] Auth Config ${index}: name="${config.name}", id="${config.id}"`);
+          console.log(`[Calendar MCP] ===== Auth Config ${index} =====`);
+          console.log(JSON.stringify(config, null, 2));
+          console.log('[Calendar MCP] =================================');
         });
       } catch (error) {
         console.error('[Calendar MCP] Failed to list auth configs:', error);
@@ -40,37 +43,135 @@ export default async function handler(req, res) {
       
       const googleCalendarAuthConfig = authConfigsResponse.items.find((config) => 
         config.name?.toLowerCase().includes('google') || 
-        config.name?.toLowerCase().includes('calendar')
+        config.name?.toLowerCase().includes('calendar') ||
+        config.toolkit === 'googlecalendar' ||
+        config.toolkit === 'google-calendar' ||
+        config.integrationName === 'googlecalendar' ||
+        config.app === 'googlecalendar' ||
+        config.service === 'googlecalendar'
       );
       
       if (!googleCalendarAuthConfig) {
         console.error('[Calendar MCP] No Google Calendar auth config found');
-        console.error('[Calendar MCP] Available auth configs:', authConfigsResponse.items.map(c => c.name));
+        console.error('[Calendar MCP] Available configs summary:', 
+          authConfigsResponse.items.map(c => ({
+            name: c.name,
+            id: c.id,
+            toolkit: c.toolkit,
+            app: c.app,
+            service: c.service,
+            integrationName: c.integrationName,
+            type: c.type
+          }))
+        );
         throw new Error('No Google Calendar auth config found. Please create one at platform.composio.dev');
       }
       
-      console.log(`[Calendar MCP] Using auth config: ${googleCalendarAuthConfig.name} (${googleCalendarAuthConfig.id})`);
+      // 🔍 選択されたAuth Configの完全詳細
+      console.log('[Calendar MCP] ===== SELECTED AUTH CONFIG =====');
+      console.log(JSON.stringify(googleCalendarAuthConfig, null, 2));
+      console.log('[Calendar MCP] ================================');
       
-      // ✅ 正しい形式でMCPサーバーを作成（公式リポジトリ準拠）
-      try {
-        mcpServer = await composio.mcp.create(
-          serverName,                                    // 第1引数: サーバー名（文字列）
-          [                                              // 第2引数: ツールキット設定の配列
-            {
-              toolkit: "googlecalendar",                 // 必須フィールド（公式インターフェース準拠）
-              authConfigId: googleCalendarAuthConfig.id, // authConfigId（単数形、公式ドキュメント準拠）
-              allowedTools: []                           // 空配列 = 全ツールを許可
-            }
-          ],
-          {                                              // 第3引数: 認証オプション
-            isChatAuth: true
+      // 🔍 Auth Config IDの形式確認
+      console.log(`[Calendar MCP] Auth Config ID format check:`, {
+        id: googleCalendarAuthConfig.id,
+        startsWithAc: googleCalendarAuthConfig.id?.startsWith('ac_'),
+        length: googleCalendarAuthConfig.id?.length,
+        type: typeof googleCalendarAuthConfig.id
+      });
+      
+      // 🔍 Auth Config構造の確認
+      console.log('[Calendar MCP] Full Auth Config structure check:', {
+        hasToolkit: !!googleCalendarAuthConfig.toolkit,
+        toolkit: googleCalendarAuthConfig.toolkit,
+        hasType: !!googleCalendarAuthConfig.type,
+        type: googleCalendarAuthConfig.type,
+        hasStatus: !!googleCalendarAuthConfig.status,
+        status: googleCalendarAuthConfig.status,
+        hasScopes: !!googleCalendarAuthConfig.scopes,
+        hasIntegrationName: !!googleCalendarAuthConfig.integrationName,
+        integrationName: googleCalendarAuthConfig.integrationName
+      });
+      
+      // 🔍 複数のtoolkit名で段階的試行
+      const attempts = [
+        { toolkit: googleCalendarAuthConfig.toolkit, source: 'from-auth-config' },
+        { toolkit: "googlecalendar", source: 'hardcoded-single' },
+        { toolkit: "google-calendar", source: 'hardcoded-hyphen' },
+        { toolkit: "google_calendar", source: 'hardcoded-underscore' }
+      ].filter(attempt => attempt.toolkit); // undefined/nullを除外
+      
+      console.log('[Calendar MCP] Will try these toolkit names:', attempts);
+      
+      let mcpServer = null;
+      let lastError = null;
+      
+      for (const attempt of attempts) {
+        console.log(`[Calendar MCP] ===== TRYING ${attempt.source.toUpperCase()}: ${attempt.toolkit} =====`);
+        
+        // 🔍 作成前のConfig検証
+        const configToCreate = {
+          toolkit: attempt.toolkit,
+          authConfigId: googleCalendarAuthConfig.id,
+          allowedTools: []
+        };
+        
+        console.log('[Calendar MCP] Config to create - field validation:', {
+          hasToolkit: !!configToCreate.toolkit,
+          toolkitValue: configToCreate.toolkit,
+          toolkitType: typeof configToCreate.toolkit,
+          hasAuthConfigId: !!configToCreate.authConfigId,
+          authConfigIdValue: configToCreate.authConfigId,
+          authConfigIdType: typeof configToCreate.authConfigId,
+          hasAllowedTools: !!configToCreate.allowedTools,
+          allowedToolsIsArray: Array.isArray(configToCreate.allowedTools),
+          allowedToolsLength: configToCreate.allowedTools.length
+        });
+        
+        console.log('[Calendar MCP] Full config object:', JSON.stringify(configToCreate, null, 2));
+        
+        try {
+          mcpServer = await composio.mcp.create(
+            serverName,
+            [configToCreate],
+            { isChatAuth: true }
+          );
+          console.log(`[Calendar MCP] ✅ SUCCESS with ${attempt.source} (${attempt.toolkit})`);
+          console.log(`[Calendar MCP] Created MCP server: ${serverName} with ID: ${mcpServer.id}`);
+          break;
+        } catch (createError) {
+          console.error(`[Calendar MCP] ❌ FAILED with ${attempt.source} (${attempt.toolkit})`);
+          console.error('[Calendar MCP] Full error object:', createError);
+          console.error('[Calendar MCP] Error name:', createError.name);
+          console.error('[Calendar MCP] Error message:', createError.message);
+          console.error('[Calendar MCP] Error code:', createError.code);
+          console.error('[Calendar MCP] Error cause:', createError.cause);
+          
+          // 🔍 Zodエラーの詳細解析
+          if (createError.cause?.issues) {
+            console.error('[Calendar MCP] === ZOD VALIDATION ERRORS ===');
+            createError.cause.issues.forEach((issue, idx) => {
+              console.error(`[Calendar MCP] Zod issue ${idx}:`, {
+                path: issue.path,
+                message: issue.message,
+                code: issue.code,
+                expected: issue.expected,
+                received: issue.received,
+                unionErrors: issue.unionErrors,
+                ...issue
+              });
+            });
           }
-        );
-        console.log(`[Calendar MCP] Successfully created MCP server: ${serverName} with ID: ${mcpServer.id}`);
-      } catch (createError) {
-        console.error('[Calendar MCP] Failed to create MCP server:', createError);
-        console.error('[Calendar MCP] Error details:', JSON.stringify(createError, null, 2));
-        throw new Error(`Failed to create MCP server: ${createError.message}`);
+          
+          lastError = createError;
+        }
+        
+        console.log(`[Calendar MCP] ===== END ATTEMPT: ${attempt.source} =====`);
+      }
+      
+      if (!mcpServer) {
+        console.error('[Calendar MCP] All toolkit attempts failed');
+        throw new Error(`Failed to create MCP server with any toolkit name. Last error: ${lastError?.message}`);
       }
     }
     
