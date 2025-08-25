@@ -57,9 +57,9 @@ export default async function handler(req, res) {
           serverName,                                    // 第1引数: サーバー名（文字列）
           [                                              // 第2引数: ツールキット設定の配列
             {
+              toolkit: "googlecalendar",                 // 必須フィールド（公式インターフェース準拠）
               authConfigId: googleCalendarAuthConfig.id, // authConfigId（単数形、公式ドキュメント準拠）
               allowedTools: []                           // 空配列 = 全ツールを許可
-              // toolkitプロパティは省略可（auth configから自動判定）
             }
           ],
           {                                              // 第3引数: 認証オプション
