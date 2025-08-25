@@ -25,7 +25,6 @@ export default async function handler(req, res) {
       mcpServer = await composio.mcp.create(
         serverName,
         [{
-          toolkit: "googlecalendar",
           authConfigId: process.env.GOOGLE_CALENDAR_AUTH_CONFIG_ID,
           allowedTools: [
             "GOOGLECALENDAR_LIST_EVENTS",
