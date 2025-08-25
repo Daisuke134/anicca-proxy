@@ -22,10 +22,21 @@ export default async function handler(req, res) {
       mcpServer = await composio.mcp.getByName(serverName);
       console.log(` Found existing MCP server: ${serverName}`);
     } catch {
+      // Auth configを動的に取得（OpenAI例と同じ方法）
+      const authConfigsResponse = await composio.authConfigs.list();
+      const googleCalendarAuthConfig = authConfigsResponse.items.find((config) => 
+        config.name?.toLowerCase().includes('google') || 
+        config.name?.toLowerCase().includes('calendar')
+      );
+      
+      if (!googleCalendarAuthConfig) {
+        throw new Error('No Google Calendar auth config found. Please create one first.');
+      }
+      
       mcpServer = await composio.mcp.create(
         serverName,
         [{
-          authConfigId: process.env.GOOGLE_CALENDAR_AUTH_CONFIG_ID,
+          authConfigId: googleCalendarAuthConfig.id,
           allowedTools: [
             "GOOGLECALENDAR_LIST_EVENTS",
             "GOOGLECALENDAR_CREATE_EVENT",
