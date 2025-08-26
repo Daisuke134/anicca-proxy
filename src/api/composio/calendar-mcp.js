@@ -95,11 +95,11 @@ export default async function handler(req, res) {
       
       // 🔍 複数のtoolkit名で段階的試行
       const attempts = [
-        { toolkit: googleCalendarAuthConfig.toolkit, source: 'from-auth-config' },
+        { toolkit: googleCalendarAuthConfig.toolkit?.slug || googleCalendarAuthConfig.toolkit, source: 'from-auth-config' },
         { toolkit: "googlecalendar", source: 'hardcoded-single' },
         { toolkit: "google-calendar", source: 'hardcoded-hyphen' },
         { toolkit: "google_calendar", source: 'hardcoded-underscore' }
-      ].filter(attempt => attempt.toolkit); // undefined/nullを除外
+      ].filter(attempt => attempt.toolkit && typeof attempt.toolkit === 'string'); // 文字列のtoolkitのみ
       
       console.log('[Calendar MCP] Will try these toolkit names:', attempts);
       
