@@ -46,25 +46,32 @@ export default async function handler(req, res) {
       
       if (!googleCalendarAuthConfig) {
         console.error('[Calendar MCP] No Google Calendar auth config found');
+        console.error('[Calendar MCP] Search criteria: name contains "google" or "calendar", or toolkit.slug equals "googlecalendar"');
         console.error('[Calendar MCP] Available configs:', authConfigsResponse.items.map(c => ({
           name: c.name,
-          toolkit: c.toolkit?.slug
+          toolkit: c.toolkit?.slug,
+          id: c.id
         })));
-        throw new Error('No Google Calendar auth config found. Please create one at platform.composio.dev');
+        throw new Error('No Google Calendar auth config found. Please create one at platform.composio.dev or ensure existing config matches the search criteria');
       }
       
       console.log(`[Calendar MCP] Using auth config: ${googleCalendarAuthConfig.name} (${googleCalendarAuthConfig.id})`);
-      console.log(`[Calendar MCP] Toolkit slug: ${googleCalendarAuthConfig.toolkit?.slug}`);
+      console.log(`[Calendar MCP] Toolkit: ${googleCalendarAuthConfig.toolkit?.slug || 'unknown'}`);
       
-      // ✅ 修正: toolkit.slugを使用（オブジェクトではなく文字列）
+      // ✅ 修正: authConfigIdのみを使用（toolkitパラメータを削除）
       try {
         mcpServer = await composio.mcp.create(
           serverName,
           [
             {
-              toolkit: googleCalendarAuthConfig.toolkit.slug,  // Auth ConfigのslugプロパティからToolkit名を取得
               authConfigId: googleCalendarAuthConfig.id,
-              allowedTools: []
+              allowedTools: [
+                "GOOGLECALENDAR_CREATE_EVENT",
+                "GOOGLECALENDAR_GET_EVENTS", 
+                "GOOGLECALENDAR_LIST_EVENTS",
+                "GOOGLECALENDAR_UPDATE_EVENT",
+                "GOOGLECALENDAR_DELETE_EVENT"
+              ]
             }
           ],
           {
@@ -74,6 +81,13 @@ export default async function handler(req, res) {
         console.log(`[Calendar MCP] Successfully created MCP server: ${serverName} with ID: ${mcpServer.id}`);
       } catch (createError) {
         console.error('[Calendar MCP] Failed to create MCP server:', createError);
+        console.error('[Calendar MCP] Create error details:', {
+          message: createError.message,
+          code: createError.code,
+          possibleFixes: createError.possibleFixes,
+          authConfigId: googleCalendarAuthConfig.id,
+          serverName: serverName
+        });
         throw new Error(`Failed to create MCP server: ${createError.message}`);
       }
     }
