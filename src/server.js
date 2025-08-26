@@ -156,9 +156,6 @@ gcalHandler(app);
 // Parallel SDK endpoint
 app.post('/api/parallel-sdk/execute', parallelSdkExecuteHandler);
 
-// Scheduled tasks execute endpoint (for GitHub Actions)
-app.post('/api/scheduled-tasks/execute', scheduledTasksExecuteHandler);
-
 // Root endpoint
 app.get('/', (req, res) => {
   res.redirect('/api/landing');
