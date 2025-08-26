@@ -51,7 +51,7 @@ export default async function handler(req, res) {
           }
         ],
         {
-          isChatAuth: true
+          isChatAuth: false
         }
       );
 
