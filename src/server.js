@@ -101,7 +101,7 @@ import previewAppHandler from './api/static/preview-app.js';
 // Parallel SDK handler
 import parallelSdkExecuteHandler from './api/execution/parallel-sdk.js';
 // Composio handlers
-// import composioCalendarMcpHandler from './api/composio/calendar-mcp.js';
+import composioCalendarMcpHandler from './api/composio/calendar-mcp.js';
 
 // API Routes - 完全移植
 app.all('/api/openai-proxy*', openaiProxyHandler);
@@ -151,7 +151,7 @@ app.all('/api/mcp/elevenlabs', elevenLabsHandler);
 gcalHandler(app);
 
 // Composio MCP endpoints
-// app.all('/api/composio/calendar-mcp', composioCalendarMcpHandler);
+app.all('/api/composio/calendar-mcp', composioCalendarMcpHandler);
 
 // Parallel SDK endpoint
 app.post('/api/parallel-sdk/execute', parallelSdkExecuteHandler);
