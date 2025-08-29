@@ -23,12 +23,12 @@ export default async function handler(req, res) {
     } catch (error) {
       console.log(`📝 Creating new MCP server: ${serverName}`);
       
-      // Auth configを動的に取得
+      // Auth configを厳密に取得（toolkit.slug が GOOGLECALENDAR のみ）
       const authConfigsResponse = await composio.authConfigs.list();
-      const googleCalendarAuthConfig = authConfigsResponse.items.find((config) => 
-        config.name?.toLowerCase().includes('google') || 
-        config.name?.toLowerCase().includes('calendar')
-      );
+      const googleCalendarAuthConfig = authConfigsResponse.items.find((config) => {
+        const slug = (config.toolkit?.slug || '').toUpperCase().replace(/[-_]/g, '');
+        return slug === 'GOOGLECALENDAR';
+      });
       
       if (!googleCalendarAuthConfig) {
         throw new Error('No Google Calendar auth config found. Please create one first.');
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
           }
         ],
         {
-          isChatAuth: false
+          isChatAuth: true
         }
       );
 
@@ -72,9 +72,10 @@ export default async function handler(req, res) {
     
     // 正しい接続判定（connectedToolkitsを確認）
     const toolkits = status.connectedToolkits || {};
-    const googleCalendarToolkit = Object.values(toolkits).find(
-      tk => tk.toolkit === 'google-calendar' || tk.toolkit === 'googlecalendar'
-    );
+    const googleCalendarToolkit = Object.values(toolkits).find((tk) => {
+      const t = (tk.toolkit || '').toUpperCase().replace(/[-_]/g, '');
+      return t === 'GOOGLECALENDAR';
+    });
     
     const isConnected = googleCalendarToolkit && googleCalendarToolkit.type === 'CONNECTED';
     
@@ -109,7 +110,7 @@ export default async function handler(req, res) {
       }
     );
     
-    const mcpUrl = serverUrls[0]?.server_url;
+    const mcpUrl = serverUrls?.[0]?.server_url || serverUrls?.mcpUrl || serverUrls?.mcp_url;
     
     if (!mcpUrl) {
       console.error('Invalid server URLs:', serverUrls);
