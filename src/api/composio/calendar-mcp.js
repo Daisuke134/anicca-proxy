@@ -15,47 +15,67 @@ export default async function handler(req, res) {
     });
     
     const serverName = `gcal-${userId}`;
-    
+    // 許可ツール（正）
+    const allowed = [
+      "GOOGLECALENDAR_LIST_CALENDARS",
+      "GOOGLECALENDAR_EVENTS_LIST",
+      "GOOGLECALENDAR_CREATE_EVENT",
+      "GOOGLECALENDAR_UPDATE_EVENT",
+      "GOOGLECALENDAR_DELETE_EVENT",
+      "GOOGLECALENDAR_FIND_EVENT"
+    ];
+
+    // Auth configを厳密に取得（toolkit.slug が GOOGLECALENDAR のみ）
+    const authConfigsResponse = await composio.authConfigs.list();
+    const googleCalendarAuthConfig = authConfigsResponse.items.find((config) => {
+      const slug = (config.toolkit?.slug || '').toUpperCase().replace(/[-_]/g, '');
+      return slug === 'GOOGLECALENDAR';
+    });
+    if (!googleCalendarAuthConfig) {
+      throw new Error('No Google Calendar auth config found. Please create one first.');
+    }
+
     let mcpServer;
     try {
       mcpServer = await composio.mcp.getByName(serverName);
       console.log(`Found existing MCP server: ${serverName}`);
+
+      // 既存サーバを正しい設定にアップデート（壊れている可能性に備える）
+      try {
+        await composio.mcp.update(
+          mcpServer.id,
+          serverName,
+          [{
+            toolkit: 'GOOGLECALENDAR',
+            authConfigId: googleCalendarAuthConfig.id,
+            allowedTools: allowed,
+          }],
+          { isChatAuth: true }
+        );
+        console.log('✅ MCP server updated to correct config');
+      } catch (updateErr) {
+        console.warn('⚠️ Update failed, trying recreate flow:', updateErr);
+        try {
+          await composio.mcp.delete(mcpServer.id);
+          console.log('🗑️ Deleted invalid MCP server, recreating...');
+        } catch (delErr) {
+          console.warn('⚠️ Delete failed, will try create anyway:', delErr);
+        }
+        await composio.mcp.create(
+          serverName,
+          [{ authConfigId: googleCalendarAuthConfig.id, allowedTools: allowed }],
+          { isChatAuth: true }
+        );
+        mcpServer = await composio.mcp.getByName(serverName);
+        console.log(`✅ MCP server recreated: ${mcpServer.id}`);
+      }
     } catch (error) {
       console.log(`📝 Creating new MCP server: ${serverName}`);
-      
-      // Auth configを厳密に取得（toolkit.slug が GOOGLECALENDAR のみ）
-      const authConfigsResponse = await composio.authConfigs.list();
-      const googleCalendarAuthConfig = authConfigsResponse.items.find((config) => {
-        const slug = (config.toolkit?.slug || '').toUpperCase().replace(/[-_]/g, '');
-        return slug === 'GOOGLECALENDAR';
-      });
-      
-      if (!googleCalendarAuthConfig) {
-        throw new Error('No Google Calendar auth config found. Please create one first.');
-      }
-      
-      // MCPサーバーを作成（戻り値を使わない）
       await composio.mcp.create(
         serverName,
-        [
-          {
-            authConfigId: googleCalendarAuthConfig.id,
-            allowedTools: [
-              "GOOGLECALENDAR_LIST_CALENDARS",
-              "GOOGLECALENDAR_EVENTS_LIST",
-              "GOOGLECALENDAR_CREATE_EVENT",
-              "GOOGLECALENDAR_UPDATE_EVENT",
-              "GOOGLECALENDAR_DELETE_EVENT",
-              "GOOGLECALENDAR_FIND_EVENT"
-            ]
-          }
-        ],
-        {
-          isChatAuth: true
-        }
+        [{ authConfigId: googleCalendarAuthConfig.id, allowedTools: allowed }],
+        { isChatAuth: true }
       );
-
-      // 作成したサーバーの詳細を取得
       const newServer = await composio.mcp.getByName(serverName);
       mcpServer = newServer;
       console.log(`✅ MCP server created: ${newServer.id}`);
@@ -98,14 +118,7 @@ export default async function handler(req, res) {
       mcpServer.id,
       userId,
       {
-        limitTools: [
-          "GOOGLECALENDAR_LIST_CALENDARS",
-          "GOOGLECALENDAR_EVENTS_LIST",
-          "GOOGLECALENDAR_CREATE_EVENT",
-          "GOOGLECALENDAR_UPDATE_EVENT",
-          "GOOGLECALENDAR_DELETE_EVENT",
-          "GOOGLECALENDAR_FIND_EVENT"
-        ],
+        limitTools: allowed,
         isChatAuth: true
       }
     );
