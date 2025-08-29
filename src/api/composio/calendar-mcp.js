@@ -41,12 +41,12 @@ export default async function handler(req, res) {
           {
             authConfigId: googleCalendarAuthConfig.id,
             allowedTools: [
-              "GOOGLECALENDAR_LIST_EVENTS",
+              "GOOGLECALENDAR_LIST_CALENDARS",
+              "GOOGLECALENDAR_EVENTS_LIST",
               "GOOGLECALENDAR_CREATE_EVENT",
               "GOOGLECALENDAR_UPDATE_EVENT",
               "GOOGLECALENDAR_DELETE_EVENT",
-              "GOOGLECALENDAR_GET_EVENT",
-              "GOOGLECALENDAR_LIST_CALENDARS"
+              "GOOGLECALENDAR_FIND_EVENT"
             ]
           }
         ],
@@ -97,7 +97,14 @@ export default async function handler(req, res) {
       mcpServer.id,
       userId,
       {
-        limitTools: ["GOOGLECALENDAR_LIST_EVENTS", "GOOGLECALENDAR_CREATE_EVENT", "GOOGLECALENDAR_UPDATE_EVENT", "GOOGLECALENDAR_DELETE_EVENT", "GOOGLECALENDAR_GET_EVENT", "GOOGLECALENDAR_LIST_CALENDARS"],
+        limitTools: [
+          "GOOGLECALENDAR_LIST_CALENDARS",
+          "GOOGLECALENDAR_EVENTS_LIST",
+          "GOOGLECALENDAR_CREATE_EVENT",
+          "GOOGLECALENDAR_UPDATE_EVENT",
+          "GOOGLECALENDAR_DELETE_EVENT",
+          "GOOGLECALENDAR_FIND_EVENT"
+        ],
         isChatAuth: true
       }
     );
