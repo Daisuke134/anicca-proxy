@@ -375,44 +375,74 @@ export default async function handler(req, res) {
     if (req.method === 'GET' && (req.url?.includes('/session') || req.url === '/api/openai-proxy/session')) {
       // URLからuserIdを取得
       const url = new URL(req.url, `http://${req.headers.host}`);
-      const userId = url.searchParams.get('userId');
-      
-      // 接続済みサービスを確認
+      const userId = url.searchParams.get('userId') || 'anon';
+
+      // 接続済みサービスを確認（Slackは既存ロジックを維持）
       let hasSlack = false;
-      if (userId) {
+      {
         const slackTokens = await getSlackTokensForUser(userId);
         hasSlack = !!(slackTokens && slackTokens.bot_token);
-        
-        // userIdベースのトークンをリクエストコンテキストに保存
-        if (slackTokens) {
-          req.userSlackTokens = slackTokens;
-        }
-      } else {
-        // フォールバック（後方互換性のため）
-        hasSlack = !!(global.slackBotToken || process.env.SLACK_BOT_TOKEN);
+        if (slackTokens) req.userSlackTokens = slackTokens;
       }
-      
+
       // セッションIDを生成し、userIdと関連付ける
       const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // セッションとuserIdの関連付けをグローバルに保存（メモリ内）
-      if (!global.sessionUserMap) {
-        global.sessionUserMap = {};
+      if (!global.sessionUserMap) global.sessionUserMap = {};
+      global.sessionUserMap[sessionId] = { userId, slackTokens: req.userSlackTokens };
+
+      // Google Calendar MCP ステータス取得
+      const statusResp = await fetch(`http://${req.headers.host}/api/mcp/gcal/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      if (!statusResp.ok) {
+        const t = await statusResp.text().catch(()=> '');
+        throw new Error(`/api/mcp/gcal/status failed: ${statusResp.status} ${t}`);
       }
-      if (userId) {
-        global.sessionUserMap[sessionId] = { userId, slackTokens: req.userSlackTokens };
+      const { connected, server_url, authorization } = await statusResp.json();
+
+      // OpenAI client_secrets を作成
+      const sessionBody = {
+        session: {
+          type: 'realtime',
+          model: 'gpt-realtime',
+          voice: 'alloy',
+          tools: connected ? [{
+            type: 'mcp',
+            server_label: 'google_calendar',
+            server_url,
+            authorization,
+            require_approval: 'never'
+          }] : []
+        }
+      };
+
+      const createResp = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(sessionBody)
+      });
+      if (!createResp.ok) {
+        let detail = '';
+        try { detail = JSON.stringify(await createResp.json()); } catch { detail = await createResp.text(); }
+        throw new Error(`Failed to create client secret: ${createResp.status} ${detail}`);
       }
-      
-      // Return complete session configuration for OpenAI Realtime
+      const clientSecret = await createResp.json(); // { value, expires_at, session }
+
+      // 既存の戻りフォーマットに合わせる
       return res.json({
         id: sessionId,
         object: 'realtime.session',
-        expires_at: 0,
+        expires_at: clientSecret.expires_at || 0,
         client_secret: {
-          value: openaiApiKey,
-          expires_at: Math.floor(Date.now() / 1000) + 3600
+          value: clientSecret.value,
+          expires_at: clientSecret.expires_at || Math.floor(Date.now() / 1000) + 3600
         },
-        model: 'gpt-4o-realtime-preview-2025-06-03',
+        model: 'gpt-realtime',
         voice: 'alloy',
         instructions: `あなたは「Dhalia」という多言語対応AIアシスタントです。
 
