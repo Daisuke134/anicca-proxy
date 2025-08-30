@@ -70,7 +70,9 @@ app.get('/health', (req, res) => {
 });
 
 // Import all API handlers
-import openaiProxyHandler from './api/proxy/openai.js';
+// Removed shared openai proxy; split by desktop/web
+import desktopSessionHandler from './api/proxy/realtime/desktopSession.js';
+import webSessionHandler from './api/proxy/realtime/webSession.js';
 import downloadHandler from './api/static/download.js';
 import landingHandler from './api/static/landing.js';
 import hackerNewsHandler from './api/tools/web/news.js';
@@ -105,7 +107,9 @@ import gcalOauthUrlHandler from './api/mcp/gcal/oauth-url.js';
 import gcalStatusHandler from './api/mcp/gcal/status.js';
 
 // API Routes - 完全移植
-app.all('/api/openai-proxy*', openaiProxyHandler);
+// Desktop/Web Realtime session endpoints (split)
+app.all('/api/openai-proxy/desktop-session', desktopSessionHandler);
+app.all('/api/openai-proxy/web-session', webSessionHandler);
 app.all('/api/claude*', claudeHandler);
 // 古いSlack OAuthエンドポイント（無効化）
 // app.all('/api/slack-oauth', slackOauthHandler);
