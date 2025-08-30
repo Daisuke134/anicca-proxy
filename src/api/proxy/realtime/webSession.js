@@ -17,7 +17,6 @@ export default async function handler(req, res) {
       session: {
         type: 'realtime',
         model: 'gpt-realtime',
-        voice: 'alloy',
         tools: []
         // instructions: 'Web専用のプロンプトを必要に応じて配置'
       }

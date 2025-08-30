@@ -31,7 +31,6 @@ export default async function handler(req, res) {
       session: {
         type: 'realtime',
         model: 'gpt-realtime',
-        voice: 'alloy',
         tools: connected ? [{
           type: 'mcp',
           server_label: 'google_calendar',
