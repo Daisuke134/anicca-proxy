@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     // 常に接続済みとして扱う（OAuth管理はworkspace-mcp側）
     return res.json({
       connected: true,
-      server_url: `${WORKSPACE_MCP_URL}/sse`,
+      server_url: `${WORKSPACE_MCP_URL}/mcp`,
       authorization: `Bearer ${userId}`
     });
   } catch (error) {
