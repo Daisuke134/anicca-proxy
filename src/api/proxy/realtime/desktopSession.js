@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     const userId = url.searchParams.get('userId') || 'anon';
 
     // Ask internal endpoint for MCP status (server_url + authorization)
-    const statusResp = await fetch(`http://${req.headers.host}/api/mcp/gcal/status`, {
+    const statusResp = await fetch(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}/api/mcp/gcal/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId })
