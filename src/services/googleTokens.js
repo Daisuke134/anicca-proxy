@@ -41,8 +41,8 @@ export async function saveTokens({ userId, providerSub, email, accessToken, refr
       userId,
       providerSub || null,
       email || null,
-      JSON.stringify(accessPayload),
-      refreshPayload ? JSON.stringify(refreshPayload) : null,
+      accessPayload,
+      refreshPayload,
       scope || null,
       expiry ? new Date(expiry) : null,
       rotationFamilyId || null,
@@ -54,8 +54,9 @@ export async function saveTokens({ userId, providerSub, email, accessToken, refr
 export async function loadDecrypted(userId) {
   const row = await getRow(userId);
   if (!row) return null;
-  const access = await decryptJson(JSON.parse(row.access_token_enc));
-  const refresh = row.refresh_token_enc ? await decryptJson(JSON.parse(row.refresh_token_enc)) : null;
+  // JSONBはオブジェクト前提で扱う
+  const access = await decryptJson(row.access_token_enc);
+  const refresh = row.refresh_token_enc ? await decryptJson(row.refresh_token_enc) : null;
   return {
     userId,
     providerSub: row.provider_sub,
@@ -107,4 +108,3 @@ export async function refreshAccessTokenIfNeeded(userId) {
   });
   return newAccess;
 }
-
