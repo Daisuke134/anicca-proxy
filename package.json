@@ -43,6 +43,7 @@
     "mime-types": "^2.1.35",
     "node-cron": "^3.0.3",
     "pg": "^8.16.3",
+    "@google-cloud/kms": "^3.3.0",
     "uuid": "^9.0.0"
   }
 }

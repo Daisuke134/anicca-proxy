@@ -18,14 +18,13 @@ export default async function handler(req, res) {
       return res.status(500).json({ connected: false, error: 'MCP service not configured' });
     }
 
-    const { getAccessToken } = await import('../../../lib/memoryStore.js');
-    const token = getAccessToken(userId);
-
-    if (token) {
+    const { refreshAccessTokenIfNeeded } = await import('../../../services/googleTokens.js');
+    const access = await refreshAccessTokenIfNeeded(userId);
+    if (access) {
       return res.json({
         connected: true,
         server_url: `${WORKSPACE_MCP_URL}/mcp`,
-        authorization: token,
+        authorization: access,
       });
     }
 

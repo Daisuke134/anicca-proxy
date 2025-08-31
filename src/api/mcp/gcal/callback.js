@@ -1,4 +1,4 @@
-import { storeAccessToken } from '../../../lib/memoryStore.js';
+import { saveTokens } from '../../../services/googleTokens.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -42,8 +42,19 @@ export default async function handler(req, res) {
 
     const userId = state;
     const accessToken = tokenJson.access_token;
-    const expiresIn = Number(tokenJson.expires_in || 0);
-    storeAccessToken(userId, accessToken, expiresIn);
+    const refreshToken = tokenJson.refresh_token || null;
+    const expiresIn = Number(tokenJson.expires_in || 3600);
+    const expiryIso = new Date(Date.now() + expiresIn * 1000).toISOString();
+    await saveTokens({
+      userId,
+      providerSub: null,
+      email: null,
+      accessToken,
+      refreshToken,
+      scope: tokenJson.scope || null,
+      expiry: expiryIso,
+      rotationFamilyId: null,
+    });
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.status(200).send(`
@@ -60,4 +71,3 @@ export default async function handler(req, res) {
     return res.status(500).send('Internal error');
   }
 }
-
