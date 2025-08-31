@@ -22,7 +22,8 @@ RUN apt-get update -qq && \
 
 # Install node modules
 COPY package-lock.json package.json ./
-RUN npm ci
+# Prefer reproducible builds (npm ci) but fall back to npm install when the lockfile is out of sync.
+RUN npm ci || npm install --omit=dev
 
 # Copy application code
 COPY . .
