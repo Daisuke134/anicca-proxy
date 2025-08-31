@@ -105,6 +105,7 @@ import parallelSdkExecuteHandler from './api/execution/parallel-sdk.js';
 // Composio handlers
 import gcalOauthUrlHandler from './api/mcp/gcal/oauth-url.js';
 import gcalStatusHandler from './api/mcp/gcal/status.js';
+import gcalCallbackHandler from './api/mcp/gcal/callback.js';
 
 // API Routes - 完全移植
 // Desktop/Web Realtime session endpoints (split)
@@ -157,6 +158,7 @@ gcalHandler(app);
 // Google Calendar Remote MCP endpoints
 app.all('/api/mcp/gcal/oauth-url', gcalOauthUrlHandler);
 app.all('/api/mcp/gcal/status', gcalStatusHandler);
+app.all('/api/mcp/gcal/callback', gcalCallbackHandler);
 
 // Parallel SDK endpoint
 app.post('/api/parallel-sdk/execute', parallelSdkExecuteHandler);

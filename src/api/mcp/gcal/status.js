@@ -8,26 +8,30 @@ export default async function handler(req, res) {
 
   try {
     const { userId } = req.body;
-    
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
     }
 
-    // workspace-mcpのURL（環境変数から取得）
     const WORKSPACE_MCP_URL = process.env.WORKSPACE_MCP_URL;
-    
     if (!WORKSPACE_MCP_URL) {
       console.error('WORKSPACE_MCP_URL not configured');
-      return res.status(500).json({ 
-        connected: false, 
-        error: 'MCP service not configured' 
+      return res.status(500).json({ connected: false, error: 'MCP service not configured' });
+    }
+
+    const { getAccessToken } = await import('../../../lib/memoryStore.js');
+    const token = getAccessToken(userId);
+
+    if (token) {
+      return res.json({
+        connected: true,
+        server_url: `${WORKSPACE_MCP_URL}/mcp`,
+        authorization: token,
       });
     }
-    
-    // 常に接続済みとして扱う（OAuth管理はworkspace-mcp側）
+
     return res.json({
-      connected: true,
-      server_url: `${WORKSPACE_MCP_URL}/mcp`
+      connected: false,
+      server_url: `${WORKSPACE_MCP_URL}/mcp`,
     });
   } catch (error) {
     console.error('MCP status error:', error);
