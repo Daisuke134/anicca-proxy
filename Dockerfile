@@ -22,8 +22,7 @@ RUN apt-get update -qq && \
 
 # Install node modules
 COPY package-lock.json package.json ./
-# Prefer reproducible builds (npm ci) but fall back to npm install when the lockfile is out of sync.
-RUN npm ci || npm install --omit=dev
+RUN npm ci
 
 # Copy application code
 COPY . .
@@ -55,11 +54,8 @@ ENV PATH="/home/appuser/.cargo/bin:$PATH"
 # Switch back to root for copying files
 USER root
 
-# Copy built application
-COPY --from=build /app /app
-
-# Change ownership to appuser
-RUN chown -R appuser:appuser /app
+# Copy built application with correct ownership (avoid slow recursive chown)
+COPY --chown=appuser:appuser --from=build /app /app
 
 # Switch to non-root user
 USER appuser
