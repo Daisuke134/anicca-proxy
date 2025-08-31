@@ -29,6 +29,10 @@ export default async function handler(req, res) {
     const authorize = new URL(`${WORKSPACE_MCP_URL}/oauth2/authorize`);
     authorize.searchParams.set('state', userId);
     authorize.searchParams.set('redirect_uri', redirectUri);
+    // Ensure refresh_token is issued on first consent and future scope additions
+    authorize.searchParams.set('access_type', 'offline');
+    authorize.searchParams.set('prompt', 'consent');
+    authorize.searchParams.set('include_granted_scopes', 'true');
 
     return res.json({ url: authorize.toString() });
   } catch (error) {
