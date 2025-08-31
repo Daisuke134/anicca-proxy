@@ -26,6 +26,10 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: `/api/mcp/gcal/status failed`, status: statusResp.status, detail: t });
     }
     const { connected, server_url, authorization } = await statusResp.json();
+    const authHeader =
+      authorization && authorization.startsWith('Bearer ')
+        ? authorization
+        : (authorization ? `Bearer ${authorization}` : null);
 
     const sessionBody = {
       session: {
@@ -35,7 +39,8 @@ export default async function handler(req, res) {
           type: 'mcp',
           server_label: 'google_calendar',
           server_url,
-          authorization,
+          // server_url方式ではAuthorizationヘッダのみ有効
+          headers: authHeader ? { Authorization: authHeader } : undefined,
           require_approval: 'never'
         }] : []
       }
@@ -67,4 +72,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'desktop-session internal error', message: err?.message || String(err) });
   }
 }
-
