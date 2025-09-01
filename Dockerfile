@@ -24,8 +24,12 @@ RUN apt-get update -qq && \
 COPY package-lock.json package.json ./
 RUN npm ci
 
-# Copy application code
-COPY . .
+# Copy only required application files to reduce build context
+COPY src ./src
+COPY railway.toml ./
+COPY tsconfig.json ./
+# Optional: include SQL migrations if run from container
+COPY docs/migrations ./docs/migrations
 
 
 # Final stage for app image

@@ -4,3 +4,12 @@
 .env
 Dockerfile
 fly.toml
+# Reduce build context
+/.vscode
+/debug-tools
+/supabase
+/mcp-servers
+/tests
+/tmp
+/docs/*
+!/docs/migrations
