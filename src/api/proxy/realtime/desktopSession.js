@@ -35,14 +35,22 @@ export default async function handler(req, res) {
       session: {
         type: 'realtime',
         model: 'gpt-realtime',
-        tools: connected ? [{
-          type: 'mcp',
-          server_label: 'google_calendar',
-          server_url,
-          // server_url方式ではAuthorizationヘッダのみ有効
-          headers: authHeader ? { Authorization: authHeader } : undefined,
-          require_approval: 'never'
-        }] : []
+        tools: connected ? [
+          {
+            type: 'mcp',
+            server_label: 'google_calendar',
+            server_url,
+            headers: authHeader ? { Authorization: authHeader } : undefined,
+            require_approval: 'never'
+          },
+          {
+            type: 'mcp',
+            server_label: 'gmail',
+            server_url,
+            headers: authHeader ? { Authorization: authHeader } : undefined,
+            require_approval: 'never'
+          }
+        ] : []
       }
     };
 
