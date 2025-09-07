@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     if (!WORKSPACE_MCP_URL) {
       return res.status(500).json({ error: 'MCP service not configured' });
     }
-    const { refreshAccessTokenIfNeeded } = await import('../../services/googleTokens.js');
+    const { refreshAccessTokenIfNeeded } = await import('../../../services/googleTokens.js');
     const authorization = await refreshAccessTokenIfNeeded(userId);
     const connected = !!authorization;
     const server_url = `${WORKSPACE_MCP_URL}/mcp`;
