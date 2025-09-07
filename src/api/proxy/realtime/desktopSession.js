@@ -15,17 +15,15 @@ export default async function handler(req, res) {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const userId = url.searchParams.get('userId') || 'anon';
 
-    // Ask internal endpoint for MCP status (server_url + authorization)
-    const statusResp = await fetch(`https://${process.env.RAILWAY_PUBLIC_DOMAIN}/api/mcp/gcal/status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId })
-    });
-    if (!statusResp.ok) {
-      const t = await statusResp.text().catch(()=> '');
-      return res.status(500).json({ error: `/api/mcp/gcal/status failed`, status: statusResp.status, detail: t });
+    // 直接トークンを取得してセッション構成を作る（/status を呼ばない）
+    const WORKSPACE_MCP_URL = process.env.WORKSPACE_MCP_URL;
+    if (!WORKSPACE_MCP_URL) {
+      return res.status(500).json({ error: 'MCP service not configured' });
     }
-    const { connected, server_url, authorization } = await statusResp.json();
+    const { refreshAccessTokenIfNeeded } = await import('../../services/googleTokens.js');
+    const authorization = await refreshAccessTokenIfNeeded(userId);
+    const connected = !!authorization;
+    const server_url = `${WORKSPACE_MCP_URL}/mcp`;
     const authHeader =
       authorization && authorization.startsWith('Bearer ')
         ? authorization
