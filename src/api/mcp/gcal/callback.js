@@ -1,4 +1,5 @@
 import { saveTokens } from '../../../services/googleTokens.js';
+import { verifyState } from '../../../utils/state.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,9 +11,16 @@ export default async function handler(req, res) {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const code = url.searchParams.get('code');
-    const state = url.searchParams.get('state'); // userId
+    const state = url.searchParams.get('state'); // 署名付き
     if (!code || !state) {
       return res.status(400).send('Missing code or state');
+    }
+    let parsedState;
+    try {
+      parsedState = verifyState(state);
+    } catch (e) {
+      console.error('Invalid state:', e?.message || e);
+      return res.status(400).send('Invalid state');
     }
 
     const WORKSPACE_MCP_URL = process.env.WORKSPACE_MCP_URL;
@@ -40,7 +48,7 @@ export default async function handler(req, res) {
       return res.status(502).send('Token exchange failed');
     }
 
-    const userId = state;
+    const userId = parsedState.userId;
     const accessToken = tokenJson.access_token;
     const refreshToken = tokenJson.refresh_token || null;
     const expiresIn = Number(tokenJson.expires_in || 3600);

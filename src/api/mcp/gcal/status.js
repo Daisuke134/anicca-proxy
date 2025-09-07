@@ -1,15 +1,21 @@
+import requireAuth from '../../../middleware/requireAuth.js';
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
     const { userId } = req.body;
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
+    }
+    if (auth.sub && String(auth.sub) !== String(userId)) {
+      return res.status(403).json({ error: 'userId mismatch' });
     }
 
     const WORKSPACE_MCP_URL = process.env.WORKSPACE_MCP_URL;
