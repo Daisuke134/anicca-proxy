@@ -85,7 +85,6 @@ import gcalHandler from './api/mcp/gcal.js';
 // Auth handlers
 import authGoogleHandler from './api/auth/google/oauth.js';
 import authCallbackHandler from './api/auth/google/callback.js';
-import authSessionHandler from './api/auth/google/session.js';
 import authRefreshHandler from './api/auth/google/refresh.js';
 import entitlementHandler from './api/auth/entitlement.js';
 // New Slack OAuth handlers
@@ -133,7 +132,6 @@ app.all('/api/tools/claude_code', claudeCodeHandler);
 // Auth routes
 app.all('/api/auth/google', authGoogleHandler);
 app.all('/api/auth/callback', authCallbackHandler);
-app.all('/api/auth/session', authSessionHandler);
 app.all('/api/auth/refresh', authRefreshHandler);
 app.all('/api/auth/entitlement', entitlementHandler);
 // New Slack OAuth routes

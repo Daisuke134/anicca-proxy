@@ -38,7 +38,10 @@ export default async function handler(req, res) {
       options: {
         redirectTo: `http://localhost:8085/auth/callback`,
         skipBrowserRedirect: true,
-        scopes: 'email profile'
+        scopes: 'email profile',
+        flowType: 'pkce',
+        // refresh_tokenを安定して得るための推奨設定
+        queryParams: { access_type: 'offline', prompt: 'consent' }
       }
     });
 
